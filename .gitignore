@@ -4,3 +4,4 @@ backend/.env
 venv/
 backend/venv/
 backend/attaches/
+backend/ca-certificate.pem
