@@ -1,10 +1,29 @@
 from fastapi import APIRouter, Depends, File, Form, Form, Request, Query, UploadFile
 from app.services import users_service
-from app.schemas.users_schemas import UserCreateSchema, UserLoginRequest
+from app.schemas.users_schemas import UserCreateSchema, UserLoginRequest, UserMyInfoRequest, UserFindPasswordRequest, UserPasswordConfirmRequest
 from app.schemas.common_schemas import CommonResponse
 from app.core.database import get_db
 from sqlalchemy.orm import Session
 router = APIRouter()
+
+""" 비밀번호 찾기 """
+@router.post("/password/find")
+async def find_password(request: UserFindPasswordRequest, db: Session = Depends(get_db)):
+    data = request.dict()
+    if (not data.get("email")) or (not data.get("name")):
+        return CommonResponse(success=False, message="비밀번호 찾기를 위한 이메일과 이름이 필요합니다.", data=None)
+
+    return await users_service.find_password(db, data)
+
+""" 비밀번호 초기화 """
+@router.put("/password/confirm")
+async def confirm_password_reset(request: UserPasswordConfirmRequest, db: Session = Depends(get_db)):
+    data = request.dict()
+    if (not data.get("token")) or (not data.get("new_password")):
+        return CommonResponse(success=False, message="비밀번호 초기화를 위한 토큰과 새 비밀번호가 필요합니다.", data=None)
+
+    return await users_service.confirm_password_reset(db, data)
+
 
 """ 회원 가입 """
 @router.post("/create")
@@ -24,7 +43,7 @@ async def create_user(
 
     data["file"] = file
 
-    return users_service.create_user(db, data)
+    return await users_service.create_user(db, data)
 
 """ 회원 정보 수정 """
 @router.put("/update")
@@ -35,6 +54,8 @@ async def update_user(
     description: str = Form(None),
     child_birth: str = Form(None),
     child_gender: str = Form(None),
+    child_age_group: int = Form(None),
+    meal_group: str = Form(None),
     marketing_agree: str = Form(None),
     push_agree: str = Form(None),
     file: UploadFile = File(None),
@@ -47,6 +68,8 @@ async def update_user(
         "description": description,
         "child_birth": child_birth,
         "child_gender": child_gender,
+        "child_age_group": child_age_group,
+        "meal_group": meal_group,
         "marketing_agree": int(marketing_agree) if marketing_agree else None,
         "push_agree": int(push_agree) if push_agree else None,
         "file": file
@@ -56,27 +79,28 @@ async def update_user(
     data = {k: v for k, v in data.items() if v is not None}
 
     if not data.get("view_hash"):
-        return {"success": False, "message": "수정을 위한 필수 정보가 없습니다.", "data": None}
+        return CommonResponse(success=False, error="회원 식별을 위한 view_hash는 필수 항목입니다.", data=None)
 
     return await users_service.update_user(db, data)
-
 
 """ 회원 프로필 조회 """
 @router.get("/profile")
 def get_user_profile(user_id: str = Query(...), db: Session = Depends(get_db)):
-
-    if not user_id:
-        return {"success": False, "message": "회원 ID가 필요합니다.", "data": None}
-
     return users_service.get_user_profile(db, user_id)
 
+""" 내 정보 조회(좋아요, 피드등록 etc) """
+@router.post("/me")
+def get_my_info(request: UserMyInfoRequest, db: Session = Depends(get_db)):
+    data = request.dict()
+    print("get_my_info - request data:", data)
+    return users_service.get_my_info(db, data)
 
 """ 비밀번호 초기화 """
 @router.put("/reset/password")
 async def reset_password(request: Request, db: Session = Depends(get_db)):
     data = await request.json()
     if (not data.get("view_hash")):
-        return {"success": False, "message": "비밀번호 초기화를 위한 이메일과 이름이 필요합니다.", "data": None}
+        return CommonResponse(success=False, message="비밀번호 초기화를 위한 이메일과 이름이 필요합니다.", data=None)
 
     return users_service.reset_password(db, data)
 
@@ -100,19 +124,42 @@ async def user_login(request: UserLoginRequest, db: Session = Depends(get_db)):
     data = request.dict()
 
     if not data.get("email") or not data.get("password"):
-        return {"success": False, "message": "이메일과 비밀번호를 모두 입력해주세요.", "data": None}
+        return CommonResponse(success=False, message="이메일과 비밀번호를 모두 입력해주세요.", data=None)
 
     return users_service.user_login(db, data)
 
+""" 회원 로그아웃 """
+@router.post("/logout")
+async def user_logout(request: Request, db: Session = Depends(get_db)):
+    data = await request.json()
+    return await users_service.user_logout(db, data.get("user_hash"))
+
 """ 회원 차단 """
-@router.put("/denies")
+@router.post("/denies")
 async def deny_usre_profile(request: Request, db: Session = Depends(get_db)):
     data = await request.json()
 
     if (not data.get("user_hash")):
-        return {"success": False, "message": "회원 정보가 없습니다.", "data": None}
+        return CommonResponse(success=False, message="회원 정보가 없습니다.", data=None)
 
     if (not data.get("deny_user_hash")):
-        return {"success": False, "message": "차단할 회원 정보가 없습니다.", "data": None}
+        return CommonResponse(success=False, message="차단할 회원 정보가 없습니다.", data=None)
 
-    return users_service.deny_usre_profile(db, data.get("user_hash"), data.get("deny_user_hash"))
+    return await users_service.deny_usre_profile(db, data.get("user_hash"), data.get("deny_user_hash"))
+
+""" 회원 차단 목록 조회 """
+@router.get("/denies")
+def get_deny_users_list(user_hash: str = Query(...), db: Session = Depends(get_db)):
+
+    if not user_hash:
+        return CommonResponse(success=False, message="회원 정보가 없습니다.", data=None)
+
+    return users_service.get_deny_users_list(db, user_hash)
+
+""" 회원 상세 프로필 (관리자용)"""
+@router.get("/profile/detail")
+def get_user_admin_profile(user_hash: str = Query(...), db: Session = Depends(get_db)):
+    if not user_hash:
+        return CommonResponse(success=False, message="회원 정보가 없습니다.", data=None)
+
+    return users_service.get_user_admin_profile(db, user_hash)

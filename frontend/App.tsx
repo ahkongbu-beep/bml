@@ -6,20 +6,23 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
-
 import FeedListScreen from './screens/FeedListScreen';
 import FeedDetailScreen from './screens/FeedDetailScreen';
 import FeedSaveScreen from './screens/FeedSaveScreen';
 import NoticeScreen from './screens/NoticeScreen';
 import NoticeDetailScreen from './screens/NoticeDetailScreen';
 import MealPlanScreen from './screens/MealPlanScreen';
+import MealRegistScreen from './screens/MealRegistScreen';
 import MyPageScreen from './screens/MyPageScreen';
 import EditProfileScreen from './screens/EditProfileScreen';
 import SplashScreen from './screens/SplashScreen';
+import DenyUserScreen from './screens/DenyUserScreen';
 import LoginScreen from './screens/LoginScreen';
 import RegistScreen from './screens/RegistScreen';
+import SummaryListScreen from './screens/SummaryListScreen';
+import FeedLikeListScreen from './screens/FeedLikeListScreen';
 import Navbar from './components/Navbar';
-import { useAuth } from './libs/hooks/useAuth';
+import { AuthProvider, useAuth } from './libs/contexts/AuthContext';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -35,7 +38,7 @@ const queryClient = new QueryClient({
   },
 });
 
-function MainNavigator() {
+function TabNavigator() {
   return (
     <Tab.Navigator
       initialRouteName="MyPage"
@@ -58,36 +61,25 @@ function MainNavigator() {
       <Tab.Screen name="Notice" component={NoticeScreen} />
       <Tab.Screen name="MealPlan" component={MealPlanScreen} />
       <Tab.Screen name="MyPage" component={MyPageScreen} />
-      <Tab.Screen
-        name="EditProfile"
-        component={EditProfileScreen}
-        options={{
-          tabBarButton: () => null,
-        }}
-      />
-      <Tab.Screen
-        name="NoticeDetail"
-        component={NoticeDetailScreen}
-        options={{
-          tabBarButton: () => null,
-        }}
-      />
-      <Tab.Screen
-        name="FeedDetail"
-        component={FeedDetailScreen}
-        options={{
-          tabBarButton: () => null,
-        }}
-      />
-      <Tab.Screen
-        name="FeedSave"
-        component={FeedSaveScreen}
-        options={{
-          tabBarButton: () => null,
-        }}
-      />
-
+      <Tab.Screen name="FeedLikeList" component={FeedLikeListScreen} />
+      <Tab.Screen name="SummaryList" component={SummaryListScreen} />
     </Tab.Navigator>
+  );
+}
+
+function MainNavigator() {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="Tabs" component={TabNavigator} />
+      <Stack.Screen name="FeedDetail" component={FeedDetailScreen} />
+      <Stack.Screen name="FeedSave" component={FeedSaveScreen} />
+      <Stack.Screen name="NoticeDetail" component={NoticeDetailScreen} />
+      <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+      <Stack.Screen name="DenyUser" component={DenyUserScreen} />
+      <Stack.Screen name="MealRegist" component={MealRegistScreen} />
+      <Stack.Screen name="FeedLikeList" component={FeedLikeListScreen} />
+      <Stack.Screen name="SummaryList" component={SummaryListScreen} />
+    </Stack.Navigator>
   );
 }
 
@@ -118,17 +110,18 @@ function AppContent() {
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {/* {isAuthenticated ? (
-          <Stack.Screen name="Main" component={MainNavigator} />
+        {isAuthenticated ? (
+          <Stack.Screen
+            name="Main"
+            component={MainNavigator}
+            options={{ animationTypeForReplace: isAuthenticated ? 'push' : 'pop' }}
+          />
         ) : (
           <>
             <Stack.Screen name="Login" component={LoginScreen} />
             <Stack.Screen name="Regist" component={RegistScreen} />
           </>
-        )} */}
-        <Stack.Screen name="Login" component={LoginScreen} />
-        <Stack.Screen name="Regist" component={RegistScreen} />
-        <Stack.Screen name="Main" component={MainNavigator} />
+        )}
       </Stack.Navigator>
       <StatusBar style="auto" />
     </NavigationContainer>
@@ -139,7 +132,9 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <SafeAreaProvider>
-        <AppContent />
+        <AuthProvider>
+          <AppContent />
+        </AuthProvider>
       </SafeAreaProvider>
     </QueryClientProvider>
   );

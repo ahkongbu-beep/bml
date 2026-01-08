@@ -6,6 +6,7 @@
 """
 
 from sqlalchemy import (Column, Integer, String, Enum, Date, DateTime, Text, SmallInteger, UniqueConstraint, Index)
+from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
 import enum
 from datetime import datetime
@@ -58,6 +59,9 @@ class Users(Base):
     deleted_at = Column(DateTime, nullable=True, default=None)
     view_hash = Column(String(255), nullable=True, default=None)
 
+    # Relationships
+    meal_group = relationship("MealsMappers", backref="user", lazy="joined")
+
     __table_args__ = (
         UniqueConstraint('email', name='uq_users_email'),
         UniqueConstraint('phone', name='uq_users_phone'),
@@ -87,7 +91,7 @@ class Users(Base):
         return session.query(Users).filter(Users.view_hash == view_hash).first()
 
     @staticmethod
-    def create(session, params: dict):
+    def create(session, params: dict, is_commit: bool = True):
         """
         회원 생성
 
@@ -153,8 +157,12 @@ class Users(Base):
         )
 
         session.add(user)
-        session.commit()
-        session.refresh(user)
+        if is_commit:
+            session.commit()
+            session.refresh(user)
+        else:
+            session.flush()  # ID를 생성하기 위해 flush
+            session.refresh(user)
 
         return user
 

@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from app.routes import notices_router, categories_codes_router, users_router, feeds_router
+from app.routes import notices_router, categories_codes_router, users_router, feeds_router, meals_router, summary_router, dashboard_router
 import os
 
 
@@ -25,6 +25,9 @@ app.include_router(notices_router, prefix="/notices", tags=["notices"])
 app.include_router(categories_codes_router, prefix="/categories_codes", tags=["categories_codes"])
 app.include_router(users_router, prefix="/users", tags=["users"])
 app.include_router(feeds_router, prefix="/feeds", tags=["feeds"])
+app.include_router(meals_router, prefix="/meals", tags=["meals"])
+app.include_router(summary_router, prefix="/summaries", tags=["summary"])
+app.include_router(dashboard_router, prefix="/dashboard", tags=["dashboard"])
 
 @app.get("/")
 def root():

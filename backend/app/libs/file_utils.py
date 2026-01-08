@@ -74,7 +74,7 @@ def delete_file(file_path: str) -> bool:
         print(f"파일 삭제 실패: {str(e)}")
         return False
 
-def get_file_url(file_path: str, base_url: str = "http://10.11.1.102:8000") -> str:
+def get_file_url(file_path: str, base_url: str = "") -> str:
     """
     파일 경로를 URL로 변환
 
@@ -85,6 +85,9 @@ def get_file_url(file_path: str, base_url: str = "http://10.11.1.102:8000") -> s
     Returns:
         접근 가능한 URL
     """
+    if not base_url:
+        return file_path
+
     # attaches 디렉토리 기준으로 상대 경로 추출
     if 'attaches' in file_path:
         relative_path = file_path.split('attaches')[-1].lstrip(os.sep).replace(os.sep, '/')

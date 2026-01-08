@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -10,13 +10,16 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../components/Header';
-import { useAuth } from '../libs/hooks/useAuth';
+import { useAuth } from '../libs/contexts/AuthContext';
 import { useMyFeeds } from '../libs/hooks/useFeeds';
+import { useGetMyInfo } from '../libs/hooks/useUsers';
+import MyFeedGrid from '../components/MyFeedGrid';
+
 import Layout from '../components/Layout';
 
 export default function MyPageScreen({ navigation }: any) {
   const { user, isLoading } = useAuth();
-  const { data: myFeedsData, isLoading: feedsLoading } = useMyFeeds(user?.view_h);
+  const [viewType, setViewType] = useState<'grid' | 'list'>('grid');
 
   if (isLoading) {
     return (
@@ -43,7 +46,8 @@ export default function MyPageScreen({ navigation }: any) {
       </Layout>
     );
   }
-
+  const { data: myFeedsData, isLoading: feedsLoading } = useMyFeeds(user?.view_hash);
+  const { data: myInfoData, isLoading: myInfoLoading } = useGetMyInfo(user?.view_hash || '');
   const myFeeds = myFeedsData?.data || [];
 
   return (
@@ -68,18 +72,30 @@ export default function MyPageScreen({ navigation }: any) {
             {/* 통계 */}
             <View style={styles.statsContainer}>
               <View style={styles.statItem}>
-                <Text style={styles.statNumber}>{user.feed_count || 0}</Text>
-                <Text style={styles.statLabel}>게시물</Text>
+                <Text style={styles.statNumber}>{myInfoLoading ? 0 : myInfoData.feed_count || 0}</Text>
+                <Text style={styles.statLabel}>피드</Text>
               </View>
+
               <View style={styles.statDivider} />
+
               <View style={styles.statItem}>
-                <Text style={styles.statNumber}>{user.follower_count || 0}</Text>
-                <Text style={styles.statLabel}>팔로워</Text>
+                <TouchableOpacity
+                  onPress={() => navigation.navigate('FeedLikeList')}
+                >
+                    <Text style={styles.statNumber}>{myInfoLoading ? 0 : myInfoData.like_count || 0}</Text>
+                    <Text style={styles.statLabel}>좋아요</Text>
+                </TouchableOpacity>
               </View>
+
               <View style={styles.statDivider} />
+
               <View style={styles.statItem}>
-                <Text style={styles.statNumber}>{user.following_count || 0}</Text>
-                <Text style={styles.statLabel}>팔로잉</Text>
+                <TouchableOpacity
+                  onPress={() => navigation.navigate('MealPlan')}
+                >
+                  <Text style={styles.statNumber}>{myInfoLoading ? 0 : myInfoData.meal_count || 0}</Text>
+                  <Text style={styles.statLabel}>식단</Text>
+                </TouchableOpacity>
               </View>
             </View>
 
@@ -94,7 +110,7 @@ export default function MyPageScreen({ navigation }: any) {
             {/* 피드 작성 버튼 */}
             <TouchableOpacity
               style={styles.createFeedButton}
-              onPress={() => navigation.navigate('CreateNotice')}
+              onPress={() => navigation.navigate('FeedSave')}
             >
               <Ionicons name="add-circle" size={20} color="#fff" />
               <Text style={styles.createFeedButtonText}>피드 작성하기</Text>
@@ -105,53 +121,25 @@ export default function MyPageScreen({ navigation }: any) {
           <View style={styles.myFeedsSection}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>내 피드</Text>
-              <TouchableOpacity>
-                <Ionicons name="grid-outline" size={26} color="#FF9AA2" />
+              <TouchableOpacity onPress={() => setViewType(viewType === 'grid' ? 'list' : 'grid')}>
+                <Ionicons
+                  name={viewType === 'grid' ? 'list-outline' : 'grid-outline'}
+                  size={26}
+                  color="#FF9AA2"
+                />
               </TouchableOpacity>
             </View>
 
-            {feedsLoading ? (
-              <View style={styles.feedLoadingContainer}>
-                <ActivityIndicator size="small" color="#FF9AA2" />
-              </View>
-            ) : myFeeds.length > 0 ? (
-              <View style={styles.feedGrid}>
-                {myFeeds.map((feed) => (
-                  <TouchableOpacity key={feed.id} style={styles.feedItem}>
-                    <Image
-                      source={{ uri: feed.images?.[0] || 'https://via.placeholder.com/400' }}
-                      style={styles.feedImage}
-                    />
-                    {feed.images && feed.images.length > 1 && (
-                      <View style={styles.multiImageBadge}>
-                        <Ionicons name="images" size={16} color="#FFFFFF" />
-                      </View>
-                    )}
-                  </TouchableOpacity>
-                ))}
-              </View>
-            ) : (
-              <View style={styles.emptyFeedContainer}>
-                <Ionicons name="camera-outline" size={48} color="#DDD" />
-                <Text style={styles.emptyFeedText}>아직 작성한 피드가 없습니다</Text>
-              </View>
-            )}
+            <MyFeedGrid
+              feeds={myFeeds}
+              isLoading={feedsLoading}
+              viewType={viewType}
+              onFeedPress={(feedId) => navigation.navigate('FeedDetail', { feedId })}
+            />
           </View>
 
           {/* 메뉴 섹션 */}
           <View style={styles.menuSection}>
-            <TouchableOpacity style={styles.menuItem}>
-              <Ionicons name="bookmark-outline" size={26} color="#FF9AA2" />
-              <Text style={styles.menuText}>저장한 피드</Text>
-              <Ionicons name="chevron-forward" size={22} color="#C0C0C0" />
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.menuItem}>
-              <Ionicons name="settings-outline" size={26} color="#FF9AA2" />
-              <Text style={styles.menuText}>설정</Text>
-              <Ionicons name="chevron-forward" size={22} color="#C0C0C0" />
-            </TouchableOpacity>
-
             <TouchableOpacity style={styles.menuItem}>
               <Ionicons name="help-circle-outline" size={26} color="#FF9AA2" />
               <Text style={styles.menuText}>고객센터</Text>
@@ -305,22 +293,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#4A4A4A',
   },
-  feedGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginHorizontal: -4,
-  },
-  feedItem: {
-    width: '33.33%',
-    aspectRatio: 1,
-    padding: 4,
-  },
-  feedImage: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 8,
-    backgroundColor: '#FFF5F0',
-  },
   menuSection: {
     backgroundColor: '#FFFBF7',
     marginBottom: 12,
@@ -343,28 +315,5 @@ const styles = StyleSheet.create({
     color: '#4A4A4A',
     marginLeft: 14,
     fontWeight: '500',
-  },
-  feedLoadingContainer: {
-    paddingVertical: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyFeedContainer: {
-    paddingVertical: 60,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyFeedText: {
-    fontSize: 14,
-    color: '#999',
-    marginTop: 12,
-  },
-  multiImageBadge: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    borderRadius: 12,
-    padding: 4,
   },
 });

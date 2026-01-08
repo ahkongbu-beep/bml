@@ -11,6 +11,11 @@ import {
   getMyFeeds,
   getUserFeeds,
   searchTags,
+  getFeedComments,
+  createFeedComment,
+  deleteFeedComment,
+  getLikedFeeds,
+  summaryFeedImage
 } from '../api/feedsApi';
 import { Feed } from '../types/FeedType';
 import {
@@ -18,6 +23,7 @@ import {
   CreateFeedRequest,
   UpdateFeedRequest,
   PaginationResponse,
+  CreateFeedCommentRequest,
 } from '../types/ApiTypes';
 
 // Query Keys
@@ -30,7 +36,20 @@ export const feedKeys = {
   myFeeds: () => [...feedKeys.all, 'my'] as const,
   userFeeds: (userId: number) => [...feedKeys.all, 'user', userId] as const,
   tags: (query: string) => [...feedKeys.all, 'tags', query] as const,
+  likedFeeds: (userHash: string, limit: number, offset: number) => [...feedKeys.all, 'liked', userHash, limit, offset] as const,
 };
+
+/**
+ * 댓글 리스트 조회
+ */
+export const useFeedComments = ({feedId, userHash, limit, offset}: {feedId: number, userHash: string, limit?: number, offset?: number}): UseQueryResult<any[], Error> => {
+  return useQuery<any[], Error>({
+    queryKey: ['feedComments', feedId, userHash, limit, offset],
+    queryFn: () => getFeedComments(feedId, userHash, limit, offset),
+    enabled: !!feedId && !!userHash,
+    staleTime: 1000 * 60 * 5, // 5분
+  });
+}
 
 /**
  * 피드 목록 조회 Hook
@@ -92,6 +111,55 @@ export const useCreateFeed = () => {
   });
 };
 
+
+/**
+ * 피드 댓글 등록
+ */
+export const useCreateFeedComment = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: CreateFeedCommentRequest) => createFeedComment(data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['feedComments', variables.feed_id, variables.user_hash] });
+    },
+  })
+};
+
+/**
+ * 피드 요약
+ */
+export const useSummaryFeedImage = (feedId: number, imageId: number, userHash: string, prompt: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ feedId, imageId, user_hash, prompt }:
+      {
+        feedId: number;
+        imageId: number;
+        user_hash: string;
+        prompt: string;
+      }) => summaryFeedImage({ feedId, imageId, user_hash, prompt }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: feedKeys.detail(feedId, userHash) });
+    }
+  });
+};
+
+
+/**
+ * 피드 댓글 삭제
+ */
+export const useDeleteFeedComment = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ comment_hash, user_hash }: { comment_hash: string; user_hash: string }) => deleteFeedComment(comment_hash, user_hash),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['feedComments', variables.comment_hash, variables.user_hash] });
+    },
+  });
+};
+
+
 /**
  * 피드 수정 Mutation
  */
@@ -115,13 +183,14 @@ export const useDeleteFeed = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (id: number) => deleteFeed(id),
+    mutationFn: ({ id, userHash }: { id: number; userHash: string }) => deleteFeed(id, userHash),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: feedKeys.lists() });
       queryClient.invalidateQueries({ queryKey: feedKeys.myFeeds() });
     },
   });
 };
+
 
 /**
  * 좋아요 토글 Mutation
@@ -130,8 +199,7 @@ export const useToggleLike = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ feedId, userHash }: { feedId: number; userHash: string }) =>
-      toggleLike(feedId, userHash),
+    mutationFn: ({ feedId, userHash }: { feedId: number; userHash: string }) => toggleLike(feedId, userHash),
     onMutate: async ({ feedId }) => {
       // 진행 중인 쿼리 취소
       await queryClient.cancelQueries({ queryKey: feedKeys.lists() });
@@ -207,9 +275,8 @@ export const useToggleBookmark = () => {
  */
 export const useBlockUser = () => {
   const queryClient = useQueryClient();
-
   return useMutation({
-    mutationFn: (userId: number) => blockUser(userId),
+    mutationFn: ({ user_hash, deny_user_hash }: { user_hash: string; deny_user_hash: string }) => blockUser(user_hash, deny_user_hash),
     onSuccess: () => {
       // 차단 후 피드 목록 갱신
       queryClient.invalidateQueries({ queryKey: feedKeys.lists() });
@@ -226,5 +293,18 @@ export const useSearchTags = (query: string) => {
     queryFn: () => searchTags(query),
     enabled: query.length > 0,
     staleTime: 1000 * 60 * 5, // 5분
+  });
+};
+
+/**
+ * 좋아요한 피드 목록 조회 Hook
+ */
+export const useLikedFeeds = (userHash: string, limit: number = 30, offset: number = 0) => {
+  return useQuery<any[], Error>({
+    queryKey: feedKeys.likedFeeds(userHash, limit, offset),
+    queryFn: () => getLikedFeeds(userHash, limit, offset),
+    enabled: !!userHash,
+    staleTime: 1000 * 60 * 5, // 5분
+    keepPreviousData: true, // 페이징 시 이전 데이터 유지하여 깜빡임 방지
   });
 };

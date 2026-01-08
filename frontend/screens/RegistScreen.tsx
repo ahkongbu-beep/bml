@@ -19,8 +19,10 @@ import * as ImagePicker from 'expo-image-picker';
 import Header from '../components/Header';
 import Layout from '../components/Layout';
 import { useRegister } from '../libs/hooks/useUsers';
-import { useAgeGroups } from '../libs/hooks/useCategories';
+import { useAgeGroups, useCategoryCodes } from '../libs/hooks/useCategories';
 import { RegisterRequest } from '../libs/types/ApiTypes';
+import { useAuth } from '../libs/contexts/AuthContext';
+import { saveToken, saveUserInfo } from '../libs/utils/storage';
 
 export default function RegistScreen({ navigation }: any) {
   // Form State
@@ -29,13 +31,15 @@ export default function RegistScreen({ navigation }: any) {
   const [nickname, setNickname] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [passwordConfirm, setPasswordConfirm] = useState('');
   const [phone, setPhone] = useState('');
+
+  const [passwordConfirm, setPasswordConfirm] = useState('');
   const [address, setAddress] = useState('');
   const [profileImage, setProfileImage] = useState<string | undefined>();
   const [description, setDescription] = useState('');
   const [childBirth, setChildBirth] = useState(''); // YYYY-MM-DD
   const [childGender, setChildGender] = useState<'M' | 'W'>('M');
+  const [dietGroup, setDietGroup] = useState<number[]>([]);
   const [childAgeGroup, setChildAgeGroup] = useState<number>(0);
   const [marketingAgree, setMarketingAgree] = useState<number>(0);
   const [pushAgree, setPushAgree] = useState<number>(0);
@@ -44,7 +48,10 @@ export default function RegistScreen({ navigation }: any) {
 
   // Hooks
   const { data: ageGroups, isLoading: ageGroupsLoading } = useAgeGroups();
+  const { data: mealGroups, isLoading: mealGroupsLoading } = useCategoryCodes("MEALS_GROUP");
+
   const registerMutation = useRegister();
+  const { login } = useAuth();
 
   // 프로필 이미지 선택
   const pickImage = async () => {
@@ -56,7 +63,7 @@ export default function RegistScreen({ navigation }: any) {
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.8,
@@ -99,6 +106,18 @@ export default function RegistScreen({ navigation }: any) {
 
     setPhone(formatted);
   };
+  // 선호 식단 toggle
+  const toggleAgeGroup = (id) => {
+    setDietGroup((prev) => {
+    if (prev.includes(id)) {
+      // 이미 선택 → 해제
+      return prev.filter((v) => v !== id);
+    } else {
+      // 미선택 → 추가
+      return [...prev, id];
+    }
+    });
+  };
 
   // 회원가입 처리
   const handleRegister = () => {
@@ -132,6 +151,11 @@ export default function RegistScreen({ navigation }: any) {
       return;
     }
 
+    if (dietGroup.length === 0) {
+      Alert.alert('알림', '선호 식습관을 최소 하나 이상 선택해주세요.');
+      return;
+    }
+
     const registerData: RegisterRequest = {
       sns_login_type: snsLoginType,
       name: name.trim(),
@@ -144,26 +168,36 @@ export default function RegistScreen({ navigation }: any) {
       description: description.trim(),
       child_birth: childBirth || undefined,
       child_gender: childGender,
+      meal_group: dietGroup,
       child_age_group: childAgeGroup,
       marketing_agree: marketingAgree,
       push_agree: pushAgree,
     };
 
     registerMutation.mutate(registerData, {
-      onSuccess: (response) => {
+      onSuccess: async (response) => {
         if (response.success) {
-          Alert.alert('회원가입 완료', '회원가입이 완료되었습니다.', [
-            {
-              text: '확인',
-              onPress: () => navigation.navigate('Login'),
-            },
-          ]);
+          // 회원가입 성공 후 자동으로 로그인
+          try {
+            await login({ email, password });
+            Alert.alert('환영합니다!', '회원가입이 완료되었습니다.');
+          } catch (error) {
+            console.error('Auto-login error:', error);
+            Alert.alert('회원가입 완료', '회원가입이 완료되었습니다. 로그인 페이지로 이동합니다.', [
+              {
+                text: '확인',
+                onPress: () => navigation.navigate('Login'),
+              },
+            ]);
+          }
         }
       },
       onError: (error: any) => {
+        console.error('Registration error:', error);
+        console.error('Error response:', error?.response?.data);
         Alert.alert(
           '회원가입 실패',
-          error?.response?.data?.message || '회원가입에 실패했습니다.'
+          error?.response?.data?.error || error?.response?.data?.message || '회원가입에 실패했습니다.'
         );
       },
     });
@@ -329,7 +363,6 @@ export default function RegistScreen({ navigation }: any) {
           {/* 자녀 정보 */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>자녀 정보</Text>
-
             <View style={styles.inputGroup}>
               <Text style={styles.label}>자녀 생년월일</Text>
               <TextInput
@@ -422,6 +455,42 @@ export default function RegistScreen({ navigation }: any) {
                 </View>
               )}
             </View>
+          </View>
+
+          {/* 선호하는 식습관 */}
+          <View style={styles.section}>
+              <Text style={styles.label}>
+                선호 식습관 <Text style={styles.required}>*</Text>
+              </Text>
+              {mealGroupsLoading ? (
+                <ActivityIndicator color="#FF9AA2" />
+              ) : (
+                <View style={styles.ageGroupContainer}>
+                  {mealGroups?.map((group) => {
+                    const isChecked = dietGroup.includes(group.id);
+
+                    return (
+                    <TouchableOpacity
+                        key={group.id}
+                        style={[
+                            styles.ageGroupButton,
+                            isChecked && styles.ageGroupButtonActive,
+                        ]}
+                        onPress={() => toggleAgeGroup(group.id)}
+                    >
+                        <Text
+                            style={[
+                                styles.ageGroupButtonText,
+                                isChecked && styles.ageGroupButtonTextActive,
+                            ]}
+                        >
+                            {group.value}
+                        </Text>
+                    </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
           </View>
 
           {/* 약관 동의 */}

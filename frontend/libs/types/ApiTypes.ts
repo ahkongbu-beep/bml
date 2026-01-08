@@ -30,6 +30,20 @@ export interface FeedListParams {
   user_hash?: string;
   tag?: string;
   is_public?: 'Y' | 'N';
+  type?: string;
+}
+
+export interface CreateFeedCommentRequest {
+  user_hash: string;
+  feed_id: number;
+  comment: string;
+  parent_hash?: string;
+}
+
+export interface SummaryFeedImageRequest {
+  user_hash: string;
+  feed_id: number;
+  image_id: number;
 }
 
 // 피드 생성 요청
@@ -39,6 +53,8 @@ export interface CreateFeedRequest {
   content: string;
   images?: string[];
   tags?: string[];
+  is_share_meal_plan?: 'Y' | 'N';
+  category_code?: number;
   is_public?: 'Y' | 'N';
 }
 
@@ -49,7 +65,10 @@ export interface UpdateFeedRequest {
   images?: string[];
   tags?: string[];
   is_public?: 'Y' | 'N';
+  category_id?: number;
+  is_share_meal_plan?: 'Y' | 'N';
 }
+
 
 // 좋아요/찜하기 토글 응답
 export interface ToggleResponse {
@@ -78,6 +97,7 @@ export interface RegisterRequest {
   child_birth?: string; // YYYY-MM-DD
   child_gender: 'M' | 'W';
   child_age_group: number;
+  meal_group: number[];
   marketing_agree?: number;
   push_agree?: number;
 }

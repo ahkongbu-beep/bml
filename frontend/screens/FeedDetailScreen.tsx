@@ -12,7 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../components/Header';
 import { useFeed, useDeleteFeed } from '../libs/hooks/useFeeds';
-import { useAuth } from '../libs/hooks/useAuth';
+import { useAuth } from '../libs/contexts/AuthContext';
 import Layout from '../components/Layout';
 
 export default function FeedDetailScreen({ route, navigation }: any) {
@@ -22,7 +22,7 @@ export default function FeedDetailScreen({ route, navigation }: any) {
   const deleteFeedMutation = useDeleteFeed();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
-  const handleDelete = () => {
+  const handleDelete = (feedId, userHash) => {
     Alert.alert(
       '피드 삭제',
       '정말로 이 피드를 삭제하시겠습니까?',
@@ -36,9 +36,9 @@ export default function FeedDetailScreen({ route, navigation }: any) {
           style: 'destructive',
           onPress: async () => {
             try {
-              await deleteFeedMutation.mutateAsync(feedId);
+              await deleteFeedMutation.mutateAsync({ id: feedId, userHash });
               Alert.alert('성공', '피드가 삭제되었습니다.', [
-                { text: '확인', onPress: () => navigation.goBack() },
+                { text: '확인', onPress: () => navigation.navigate('MyPage') },
               ]);
             } catch (error) {
               Alert.alert('오류', '피드 삭제에 실패했습니다.');
@@ -112,7 +112,7 @@ export default function FeedDetailScreen({ route, navigation }: any) {
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.deleteButton}
-                  onPress={handleDelete}
+                  onPress={() => handleDelete(feed.id, user?.view_hash)}
                 >
                   <Ionicons name="trash" size={20} color="#FF6B6B" />
                 </TouchableOpacity>

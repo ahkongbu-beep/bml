@@ -23,7 +23,7 @@ class DeniesUsers(Base):
     user_id 로 차단한 회원 목록 조회
     """
     @staticmethod
-    def findByUserId(session, user_id: int):
+    def findByUserIds(session, user_id: int):
         return session.query(DeniesUsers).filter(
             DeniesUsers.user_id == user_id
         ).all()
@@ -33,11 +33,12 @@ class DeniesUsers(Base):
     """
     @staticmethod
     def findByUserIdAndDenyUserId(session, user_id: int, deny_user_id: int):
-
         return session.query(DeniesUsers).filter(
             DeniesUsers.user_id == user_id,
             DeniesUsers.deny_user_id == deny_user_id
         ).first()
+
+
 
     """
     차단 정보 생성
@@ -61,3 +62,71 @@ class DeniesUsers(Base):
             DeniesUsers.deny_user_id == deny_user_id
         ).delete()
         session.commit()
+
+    """
+    user_id 로 차단한 리스트 조회
+    """
+    @staticmethod
+    def findDenyUsersByUserId(session, user_id: int):
+        from app.models.users import Users
+        query = (
+            session.query(
+                Users.view_hash,
+                Users.nickname,
+                Users.profile_image,
+                DeniesUsers.created_at.label("blocked_at")
+            ).join(
+                DeniesUsers,
+                Users.id == DeniesUsers.deny_user_id
+            )
+        )
+
+        query = query.filter(
+            DeniesUsers.user_id == user_id
+        )
+
+
+
+        result = query.order_by(DeniesUsers.created_at.desc()).all()
+        return QueryResult(result)
+
+class QueryResult:
+    """쿼리 결과를 감싸는 래퍼 클래스 - 체이닝 패턴 지원"""
+
+    def __init__(self, results):
+        self._results = results
+
+    def getData(self):
+        """직렬화된 Pydantic 모델 리스트 반환"""
+        from app.schemas.users_schemas import DenyUserResponse
+
+        return [
+            DenyUserResponse(
+                user_hash=v.view_hash,
+                nickname=v.nickname,
+                profile_image=v.profile_image,
+                blocked_at=v.blocked_at
+            )
+            for v in self._results
+        ]
+
+    def toDict(self):
+        """딕셔너리 리스트 반환"""
+        return [
+            {
+                "user_hash": v.view_hash,
+                "nickname": v.nickname,
+                "profile_image": v.profile_image,
+                "blocked_at": v.blocked_at
+            }
+            for v in self._results
+        ]
+
+    def toJSON(self):
+        """JSON 문자열 반환"""
+        import json
+        return json.dumps(self.toDict(), ensure_ascii=False, default=str)
+
+    def getRawData(self):
+        """원본 SQLAlchemy 객체 반환"""
+        return self._results

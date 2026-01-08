@@ -41,13 +41,16 @@ export const useAuth = () => {
   const loginMutation = useMutation({
     mutationFn: (credentials: LoginRequest) => loginApi(credentials),
     onSuccess: async (data) => {
+      console.log('Login onSuccess called', data);
       if (data.success && data.data) {
         const { user, token } = data.data;
+        console.log('User and token found:', { user: !!user, token: !!token });
         if (token && user) {
           await saveToken(token);
           await saveUserInfo(user);
           setUser(user);
           setIsAuthenticated(true);
+          console.log('isAuthenticated set to true');
         }
       }
     },
@@ -55,8 +58,14 @@ export const useAuth = () => {
 
   // 로그아웃 Mutation
   const logoutMutation = useMutation({
-    mutationFn: () => logoutApi(),
+    mutationFn: () => logoutApi(user?.view_hash || ''),
     onSuccess: async () => {
+      await clearStorage();
+      setUser(null);
+      setIsAuthenticated(false);
+    },
+    onError: async () => {
+      // 백엔드 에러가 발생해도 프론트엔드에서 로그아웃 처리
       await clearStorage();
       setUser(null);
       setIsAuthenticated(false);
@@ -74,12 +83,20 @@ export const useAuth = () => {
     },
   });
 
+  // 로컬 로그아웃 (백엔드 호출 없이)
+  const logoutLocal = async () => {
+    await clearStorage();
+    setUser(null);
+    setIsAuthenticated(false);
+  };
+
   return {
     user,
     isAuthenticated,
     isLoading,
     login: loginMutation.mutate,
     logout: logoutMutation.mutate,
+    logoutLocal, // 백엔드 호출 없이 즉시 로그아웃
     updateProfile: updateProfileMutation.mutate,
     loginLoading: loginMutation.isPending,
     loginError: loginMutation.error,

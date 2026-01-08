@@ -14,6 +14,12 @@ export interface User {
   view_hash?: string;
 }
 
+export interface UserProfile{
+    nickname: string;
+    profile_image: string;
+    user_hash: string;
+}
+
 export interface LoginRequest {
   email: string;
   password: string;

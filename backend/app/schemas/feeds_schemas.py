@@ -6,9 +6,38 @@ from pydantic import BaseModel
 class FeedLikeToggleRequest(BaseModel):
     user_hash: str
 
+class FeedDeleteCommentRequest(BaseModel):
+    user_hash: str
+
+class FeedDeleteRequest(BaseModel):
+    user_hash: str
+
+class FeedCreateCommentRequest(BaseModel):
+    user_hash: str
+    feed_id: int
+    comment: str
+    parent_hash: Optional[str] = None
+
 class FeedsUserResponse(BaseModel):
     nickname: Optional[str] = None
     profile_image: Optional[str] = None
+    user_hash: Optional[str] = None
+
+class FeedsCommentResponse(BaseModel):
+    feed_id: int
+    parent_id: Optional[int] = None
+    comment: str
+    created_at: datetime
+    updated_at: datetime
+    deleted_at: Optional[datetime] = None
+    is_owner: Optional[bool] = False
+    view_hash:str
+    parent_hash:str
+    user: Optional[FeedsUserResponse] = None
+    children: List['FeedsCommentResponse'] = []
+
+# Forward reference를 위한 model rebuild
+FeedsCommentResponse.model_rebuild()
 
 class FeedsResponse(BaseModel):
     id: int
@@ -20,7 +49,9 @@ class FeedsResponse(BaseModel):
     like_count: int
     created_at: datetime
     updated_at: datetime
+    is_liked: Optional[bool] = False
     tags: List[str] = []
     images: List[str] = []
     user_hash: Optional[str] = None
     user: Optional[FeedsUserResponse] = None
+    comments: List[FeedsCommentResponse] = []

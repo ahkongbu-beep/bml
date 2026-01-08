@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import { useAuth } from '../libs/contexts/AuthContext';
 
 interface HeaderProps {
   title: string;
@@ -8,6 +10,16 @@ interface HeaderProps {
   onBackPress?: () => void;
   showMenu?: boolean;
   onMenuPress?: () => void;
+  leftButton?: {
+    icon?: string;
+    text?: string;
+    onPress: () => void;
+  };
+  rightButton?: {
+    icon?: string;
+    text?: string;
+    onPress: () => void;
+  };
 }
 
 export default function Header({
@@ -15,28 +27,110 @@ export default function Header({
   showBack = false,
   onBackPress,
   showMenu = false,
-  onMenuPress
+  onMenuPress,
+  leftButton,
+  rightButton
 }: HeaderProps) {
+
+  const navigation = useNavigation();
+  const [menuVisible, setMenuVisible] = useState(false);
+  const { user, logoutLocal } = useAuth();
+
+  const handleMenuPress = () => {
+    setMenuVisible(!menuVisible);
+    if (onMenuPress) {
+      onMenuPress();
+    }
+  };
+
+  const handleLogout = async () => {
+    setMenuVisible(false);
+    await logoutLocal();
+  };
+
   return (
-    <View style={styles.container}>
-      <View style={styles.leftContainer}>
-        {showBack && (
-          <TouchableOpacity onPress={onBackPress} style={styles.iconButton}>
-            <Ionicons name="arrow-back" size={24} color="#FF9AA2" />
-          </TouchableOpacity>
-        )}
+    <>
+      <View style={styles.container}>
+        <View style={styles.leftContainer}>
+          {showBack && (
+            <TouchableOpacity onPress={onBackPress} style={styles.iconButton}>
+              <Ionicons name="arrow-back" size={24} color="#FF9AA2" />
+            </TouchableOpacity>
+          )}
+          {leftButton && (
+            <TouchableOpacity onPress={leftButton.onPress} style={styles.iconButton}>
+              {leftButton.icon && <Ionicons name={leftButton.icon as any} size={24} color="#FF9AA2" />}
+              {leftButton.text && <Text style={styles.buttonText}>{leftButton.text}</Text>}
+            </TouchableOpacity>
+          )}
+        </View>
+        <Text style={styles.title}>{title}</Text>
+        <View style={styles.rightContainer}>
+          {showMenu && (
+            <TouchableOpacity onPress={handleMenuPress} style={styles.iconButton}>
+              <Ionicons name="menu" size={24} color="#FF9AA2" />
+            </TouchableOpacity>
+          )}
+          {rightButton && (
+            <TouchableOpacity onPress={rightButton.onPress} style={styles.iconButton}>
+              {rightButton.icon && <Ionicons name={rightButton.icon as any} size={24} color="#FF9AA2" />}
+              {rightButton.text && <Text style={styles.buttonText}>{rightButton.text}</Text>}
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
-      <Text style={styles.title}>{title}</Text>
-
-      <View style={styles.rightContainer}>
-        {showMenu && (
-          <TouchableOpacity onPress={onMenuPress} style={styles.iconButton}>
-            <Ionicons name="menu" size={24} color="#FF9AA2" />
+      {showMenu && menuVisible && (
+        <View style={styles.menuBox}>
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => {
+              setMenuVisible(false);
+              navigation.navigate('MyPage' as never);
+            }}
+          >
+            <Text style={styles.menuItemText}>프로필</Text>
           </TouchableOpacity>
-        )}
-      </View>
-    </View>
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => {
+              setMenuVisible(false);
+              navigation.navigate('FeedLikeList' as never);
+            }}
+          >
+            <Text style={styles.menuItemText}>좋아요 목록</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => {
+              setMenuVisible(false);
+              navigation.navigate('SummaryList' as never);
+            }}
+          >
+            <Text style={styles.menuItemText}>AI 요약</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => {
+              setMenuVisible(false);
+              navigation.navigate('DenyUser' as never);
+            }}
+          >
+            <Text style={styles.menuItemText}>차단목록</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.menuItem, styles.lastMenuItem]}
+            onPress={handleLogout}
+          >
+            <Text style={styles.menuItemText}>로그아웃</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+    </>
   );
 }
 
@@ -64,6 +158,7 @@ const styles = StyleSheet.create({
   rightContainer: {
     width: 40,
     alignItems: 'flex-end',
+    position: 'relative',
   },
   title: {
     fontSize: 22,
@@ -75,5 +170,37 @@ const styles = StyleSheet.create({
   },
   iconButton: {
     padding: 4,
+  },
+  menuBox: {
+    position: 'absolute',
+    top: 60,
+    right: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FFE5E5',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
+    minWidth: 150,
+    zIndex: 9999,
+  },
+  menuItem: {
+    paddingRight: 14,
+    paddingLeft: 14,
+    paddingTop: 10,
+    paddingBottom: 10,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#FFE5E5',
+  },
+  lastMenuItem: {
+    borderBottomWidth: 0,
+  },
+  menuItemText: {
+    fontSize: 16,
+    color: '#4A4A4A',
   },
 });

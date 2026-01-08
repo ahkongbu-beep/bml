@@ -4,6 +4,14 @@ from typing import Optional
 from datetime import date, datetime
 from enum import Enum
 
+class UserPasswordConfirmRequest(BaseModel):
+    token: str
+    new_password: str
+
+class UserFindPasswordRequest(BaseModel):
+    email: str
+    name: str
+
 class SnsLoginTypeEnum(str, Enum):
     EMAIL = 'EMAIL'
     KAKAO = 'KAKAO'
@@ -18,9 +26,18 @@ class RoleEnum(str, Enum):
     USER = 'USER'
     ADMIN = 'ADMIN'
 
+class UserMyInfoRequest(BaseModel):
+    user_hash: str
+
 class UserLoginRequest(BaseModel):
     email: str
     password: str
+
+class DenyUserResponse(BaseModel):
+    user_hash: str
+    nickname: str
+    profile_image: Optional[str] = None
+    blocked_at: datetime
 
 class UserCreateSchema(BaseModel):
     sns_login_type: SnsLoginTypeEnum
@@ -36,6 +53,7 @@ class UserCreateSchema(BaseModel):
     child_birth: Optional[date] = None
     child_gender: GenderEnum = GenderEnum.M
     child_age_group: int = 0
+    meal_group: Optional[list[int]] = []
     marketing_agree: Optional[int] = 0
     push_agree: Optional[int] = 0
     view_hash: Optional[str] = None
@@ -57,11 +75,21 @@ class UserCreateSchema(BaseModel):
         child_birth: Optional[date] = Form(None),
         child_gender: GenderEnum = Form(GenderEnum.M),
         child_age_group: int = Form(0),
+        meal_group: Optional[str] = Form("[]"),
         marketing_agree: Optional[int] = Form(0),
         push_agree: Optional[int] = Form(0),
         view_hash: Optional[str] = Form(None),
         role: RoleEnum = Form(RoleEnum.USER)
     ):
+        # meal_group을 문자열에서 리스트로 변환
+        import json
+        meal_group_list = []
+        if meal_group:
+            try:
+                meal_group_list = json.loads(meal_group) if isinstance(meal_group, str) else meal_group
+            except:
+                meal_group_list = []
+
         return cls(
             sns_login_type=sns_login_type,
             sns_id=sns_id,
@@ -76,6 +104,7 @@ class UserCreateSchema(BaseModel):
             child_birth=child_birth,
             child_gender=child_gender,
             child_age_group=child_age_group,
+            meal_group=meal_group_list,
             marketing_agree=marketing_agree,
             push_agree=push_agree,
             view_hash=view_hash,
@@ -123,7 +152,7 @@ class UserResponseSchema(BaseModel):
     email: str
     phone: str
     role: RoleEnum
-    profile_image: str
+    profile_image: Optional[str]
     description: Optional[str]
     is_active: int
     child_birth: Optional[date]

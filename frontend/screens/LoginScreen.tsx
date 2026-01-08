@@ -12,7 +12,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '../libs/hooks/useAuth';
+import { useAuth } from '../libs/contexts/AuthContext';
 import Layout from '@/components/Layout';
 
 export default function LoginScreen({ navigation }: any) {

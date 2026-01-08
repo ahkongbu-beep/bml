@@ -1,5 +1,6 @@
 // 백엔드 API 기본 URL
-const API_BASE_URL = 'http://10.11.1.102:8000';
+// React Native에서는 localhost 대신 실제 IP를 사용해야 함
+const API_BASE_URL = "http://172.30.1.3:8000";
 
 // Fetch API 에러 클래스
 export class ApiError extends Error {
@@ -58,6 +59,8 @@ const handleResponse = async (response: Response) => {
 
     const { status } = response;
 
+    console.log("API Error Response:", status, errorData);
+
     switch (status) {
       case 401:
         console.error('인증 실패:', errorData.message);
@@ -77,6 +80,7 @@ const handleResponse = async (response: Response) => {
 
     throw new ApiError(status, errorData, errorData.message);
   }
+
 
   return response.json();
 };
@@ -103,15 +107,16 @@ export const fetchPost = async <T>(endpoint: string, data?: any): Promise<T> => 
   try {
     const headers = await getHeaders();
     const url = `${API_BASE_URL}${endpoint}`;
-
+    console.log("POST Request URL:", url);
+    console.log(JSON.stringify(data, null, 2));
     const response = await fetch(url, {
       method: 'POST',
       headers,
       body: data ? JSON.stringify(data) : undefined,
     });
-    console.log("POST Request URL:", url);
-    console.log("POST Request Data:", data);
-    console.log('response', await response.clone().json());
+
+    const data11 = await response.clone().json();
+    console.dir(data11, { depth: null });
 
     return handleResponse(response);
   } catch (error) {
@@ -135,13 +140,17 @@ export const fetchPut = async <T>(endpoint: string, data?: any): Promise<T> => {
 };
 
 // Fetch wrapper - DELETE
-export const fetchDelete = async <T>(endpoint: string): Promise<T> => {
+export const fetchDelete = async <T>(endpoint: string, data?:any): Promise<T> => {
   const headers = await getHeaders();
   const url = `${API_BASE_URL}${endpoint}`;
+
+  console.log("DELETE Request URL:", url);
+  console.log(JSON.stringify(data, null, 2));
 
   const response = await fetch(url, {
     method: 'DELETE',
     headers,
+    body: data ? JSON.stringify(data) : undefined,
   });
 
   return handleResponse(response);
@@ -151,6 +160,12 @@ export const fetchDelete = async <T>(endpoint: string): Promise<T> => {
 export const fetchPostFormData = async <T>(endpoint: string, formData: FormData): Promise<T> => {
   try {
     const url = `${API_BASE_URL}${endpoint}`;
+
+    console.log("POST FormData Request URL:", url);
+    console.log("FormData contents:");
+    formData.forEach((value, key) => {
+      console.log(`${key}: ${value}`);
+    });
 
     // FormData를 사용할 때는 Content-Type을 설정하지 않음 (자동으로 multipart/form-data 설정됨)
     const response = await fetch(url, {

@@ -4,6 +4,7 @@ from datetime import datetime
 from app.core.database import Base
 from app.libs.hash_utils import generate_sha256_hash
 from app.core.config import settings
+from app.models.feeds import Feeds
 import os
 
 
@@ -26,9 +27,36 @@ class FeedsImages(Base):
     @staticmethod
     def deleteByFeedId(session, feed_id: int):
         """
-        feed_id 로 이미지 삭제
+        feed_id 로 이미지 삭제 (파일 시스템 + DB)
         """
-        session.query(FeedsImages).filter(FeedsImages.feed_id == feed_id).delete()
+        feed_images = session.query(FeedsImages).filter(FeedsImages.feed_id == feed_id).all()
+
+        # 각 이미지 파일 삭제
+        for feed_image in feed_images:
+            if feed_image.image_url:
+                # /attaches/feeds/07/7/b84e4bfa13978643509204066292ec7c686468f750588702e44d5c388b996d87.jpeg
+                # URL 경로를 실제 파일 경로로 변환
+                file_path = feed_image.image_url.lstrip('/')
+
+                try:
+                    if os.path.exists(file_path):
+                        os.remove(file_path)
+                        print(f"✅ 이미지 파일 삭제 성공: {file_path}")
+                    else:
+                        print(f"⚠️ 이미지 파일이 존재하지 않음: {file_path}")
+                except Exception as e:
+                    print(f"⚠️ 이미지 파일 삭제 실패: {file_path}, 오류: {str(e)}")
+
+        # DB에서 레코드 삭제
+        try:
+            session.query(FeedsImages).filter(FeedsImages.feed_id == feed_id).delete()
+            session.query(Feeds).filter(Feeds.id == feed_id).delete()
+            session.commit()
+            print(f"✅ DB 이미지 레코드 삭제 성공: feed_id={feed_id}")
+        except Exception as e:
+            session.rollback()
+            print(f"⚠️ DB 이미지 레코드 삭제 실패: feed_id={feed_id}, 오류: {str(e)}")
+
         session.commit()
 
     # 이미지 목록 조회

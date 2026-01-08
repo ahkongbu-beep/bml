@@ -1,10 +1,25 @@
-.env
+# Environment
 *.env
-backend/.env
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Python
 venv/
+__pycache__/
+
+# Backend
 backend/venv/
 backend/attaches/
 backend/ca-certificate.pem
-node_modules
 
-node_modules
+# Expo
+.expo/
+.expo-shared/
+
+# OS
+.DS_Store
+Thumbs.db

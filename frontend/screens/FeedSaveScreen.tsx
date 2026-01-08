@@ -12,11 +12,15 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { MEAL_CATEGORIES } from '../libs/utils/codes/MealCalendarCode';
 import * as ImagePicker from 'expo-image-picker';
 import Header from '../components/Header';
 import { useCreateFeed, useUpdateFeed, useSearchTags } from '../libs/hooks/useFeeds';
-import { useAuth } from '../libs/hooks/useAuth';
+import { useAuth } from '../libs/contexts/AuthContext';
 import Layout from '../components/Layout';
+import { useCategoryCodes } from '../libs/hooks/useCategories';
+import { useMealsByDate } from '../libs/hooks/useMeals';
+import { getToday } from '../libs/utils/common';
 
 export default function FeedSaveScreen({ route, navigation }: any) {
   const { feed } = route.params || {};
@@ -25,13 +29,45 @@ export default function FeedSaveScreen({ route, navigation }: any) {
   const { user } = useAuth();
   const createFeedMutation = useCreateFeed();
   const updateFeedMutation = useUpdateFeed();
+  const { data: categoryCodes } = useCategoryCodes('MEALS_GROUP');
 
-  const [title, setTitle] = useState(feed?.title || '');
-  const [content, setContent] = useState(feed?.content || '');
-  const [images, setImages] = useState<string[]>(feed?.images || []);
-  const [tags, setTags] = useState<string[]>(feed?.tags || []);
+  const nowDate = getToday('YYYY-MM-DD');
+
+  const { data: existCategoriesData} = useMealsByDate(user?.view_hash || '', feed?.input_date || nowDate);
+
+  // 이미 등록된 카테고리 ID 배열 추출
+  const existCategoryIds = existCategoriesData?.exist_categories || [];
+
+  const [title, setTitle] = useState('');
+  const [content, setContent] = useState('');
+  const [images, setImages] = useState<string[]>([]);
+  const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
-  const [isPublic, setIsPublic] = useState<'Y' | 'N'>(feed?.is_published || 'Y');
+  const [isPublic, setIsPublic] = useState<'Y' | 'N'>('Y');
+  const [isShareMealPlan, setIsShareMealPlan] = useState<'Y' | 'N'>('N');
+  const [selectedCategory, setSelectedCategory] = useState<string>('');
+
+  // 화면이 열릴 때 또는 feed가 변경될 때 초기화
+  useEffect(() => {
+    if (isEditMode && feed) {
+      setTitle(feed.title || '');
+      setContent(feed.content || '');
+      setImages(feed.images || []);
+      setTags(feed.tags || []);
+      setIsPublic(feed.is_published || 'Y');
+      setIsShareMealPlan(feed.is_share_meal_plan || 'N');
+      setSelectedCategory(feed.category_id || '');
+    } else {
+      // 새 글 작성 시 초기화
+      setTitle('');
+      setContent('');
+      setImages([]);
+      setTags([]);
+      setIsPublic('Y');
+      setIsShareMealPlan('N');
+      setSelectedCategory('');
+    }
+  }, [feed, isEditMode]);
 
   // 태그 자동완성 검색
   const searchTerm = tagInput.startsWith('#') && tagInput.length > 1 ? tagInput.slice(1) : '';
@@ -51,7 +87,7 @@ export default function FeedSaveScreen({ route, navigation }: any) {
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.8,
@@ -108,6 +144,8 @@ export default function FeedSaveScreen({ route, navigation }: any) {
       content,
       images,
       tags,
+      category_id: selectedCategory,
+      is_share_meal_plan: isShareMealPlan,
       is_public: isPublic,
     };
 
@@ -250,6 +288,89 @@ export default function FeedSaveScreen({ route, navigation }: any) {
                   ))}
                 </View>
               )}
+            </View>
+
+            {/* 식단 카테고리 선택 섹션 */}
+            <View style={styles.inputSection}>
+              <Text style={styles.sectionLabel}>식사 시간 *</Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.categoryScroll}
+              >
+                {categoryCodes?.map((category) => {
+                  if (existCategoryIds.length > 0 && existCategoryIds.includes(category.id)) {
+                      return null;
+                  }
+                  return (
+                    <TouchableOpacity
+                      key={category.id}
+                      style={[
+                        styles.categoryButton,
+                        selectedCategory === category.id && styles.categoryButtonActive,
+                      ]}
+                      onPress={() => setSelectedCategory(category.id)}
+                    >
+                      <Text style={styles.categoryIcon}>{MEAL_CATEGORIES.find(c => c.name === category.value)?.icon}</Text>
+                      <Text
+                        style={[
+                          styles.categoryText,
+                          selectedCategory === category.id && styles.categoryTextActive,
+                        ]}
+                      >
+                        {category.value}
+                      </Text>
+                    </TouchableOpacity>
+                )})}
+              </ScrollView>
+            </View>
+            {/* 식단 캘린더 반영 설정 */}
+            <View style={styles.inputSection}>
+              <Text style={styles.sectionLabel}>식단 캘린더 반영</Text>
+              <View style={styles.publicButtons}>
+                <TouchableOpacity
+                  style={[
+                    styles.publicButton,
+                    isShareMealPlan === 'Y' && styles.publicButtonActive,
+                  ]}
+                  onPress={() => setIsShareMealPlan('Y')}
+                >
+                  <Ionicons
+                    name="earth"
+                    size={20}
+                    color={isShareMealPlan === 'Y' ? '#FFFFFF' : '#FF9AA2'}
+                  />
+                  <Text
+                    style={[
+                      styles.publicButtonText,
+                      isShareMealPlan === 'Y' && styles.publicButtonTextActive,
+                    ]}
+                  >
+                    반영
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.publicButton,
+                    isShareMealPlan === 'N' && styles.publicButtonActive,
+                  ]}
+                  onPress={() => setIsShareMealPlan('N')}
+                >
+                  <Ionicons
+                    name="lock-closed"
+                    size={20}
+                    color={isShareMealPlan === 'N' ? '#FFFFFF' : '#FF9AA2'}
+                  />
+                  <Text
+                    style={[
+                      styles.publicButtonText,
+                      isShareMealPlan === 'N' && styles.publicButtonTextActive,
+                    ]}
+                  >
+                    미반영
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
             {/* 공개 설정 */}
@@ -407,6 +528,37 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     lineHeight: 24,
+  },
+  categoryIcon: {
+    fontSize: 18,
+  },
+  categoryText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#4A4A4A',
+  },
+  categoryTextActive: {
+    color: '#FFFFFF',
+  },
+  categoryScroll: {
+    marginHorizontal: -16,
+    paddingHorizontal: 16,
+  },
+  categoryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: '#FFE5E5',
+    backgroundColor: '#FFFFFF',
+    marginRight: 10,
+    gap: 6,
+  },
+  categoryButtonActive: {
+    backgroundColor: '#FF9AA2',
+    borderColor: '#FF9AA2',
   },
   tagsSection: {
     marginBottom: 24,

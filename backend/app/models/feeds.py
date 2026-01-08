@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, Enum, DateTime, func, Index
+from sqlalchemy import Column, Integer, String, Text, Enum, DateTime, func, Index, case
 from sqlalchemy.orm import relationship
 from app.core.database import Base
 from app.core.config import settings
@@ -8,6 +8,7 @@ class Feeds(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, nullable=False, comment="Users.pk")
+    category_id=Column(Integer, nullable=False, default=0, comment="카테고리 pk")
     title = Column(String(255), nullable=False, default="", comment="feed 제목")
     content = Column(Text, nullable=False, comment="feed 내용")
     is_public = Column(Enum('Y', 'N'), default='Y', comment="공개여부")
@@ -15,6 +16,7 @@ class Feeds(Base):
     like_count = Column(Integer, nullable=False, default=0, comment="관심수")
     created_at = Column(DateTime, server_default=func.current_timestamp())
     updated_at = Column(DateTime, server_default=func.current_timestamp(), onupdate=func.current_timestamp())
+    is_share_meal_plan = Column(Enum('Y', 'N'), default='Y', comment="식단공유여부")
 
     # 관계 정의
     tags = relationship(
@@ -79,11 +81,18 @@ class Feeds(Base):
         from app.models.feeds_tags_mappers import FeedsTagsMapper
         from app.models.feeds_tags import FeedsTags
         from app.models.feeds_images import FeedsImages
+        from app.models.feeds_likes import FeedsLikes
         from app.models.users import Users
 
         # 페이징 처리
         limit = extra.get("limit", 20)
         offset = extra.get("offset", 0)
+
+        order_by = Feeds.created_at.desc()
+        if extra.get("order_by") == "like_count_desc":
+            order_by = Feeds.like_count.desc()
+        elif extra.get("order_by") == "like_count_asc":
+            order_by = Feeds.like_count.asc()
 
         # 서브쿼리: 각 피드의 태그들을 콤마로 연결
         subquery = (
@@ -99,7 +108,8 @@ class Feeds(Base):
         image_subquery = (
             session.query(
                 FeedsImages.feed_id,
-                sql_func.group_concat(FeedsImages.image_url).label('images')
+                sql_func.group_concat(FeedsImages.image_url).label('images'),
+                sql_func.group_concat(FeedsImages.id).label('image_ids')
             )
             .group_by(FeedsImages.feed_id)
             .subquery()
@@ -119,10 +129,22 @@ class Feeds(Base):
                 Feeds.updated_at,
                 subquery.c.tags,
                 image_subquery.c.images,
+                image_subquery.c.image_ids,
                 Users.nickname,
-                Users.profile_image
+                Users.profile_image,
+                Users.view_hash,
+                case(
+                    (FeedsLikes.id.isnot(None), True),
+                    else_=False
+                ).label("is_liked")
             )
             .join(Users, Feeds.user_id == Users.id)
+            .join(
+                FeedsLikes,
+                (Feeds.id == FeedsLikes.feed_id) &
+                (FeedsLikes.user_id == params.get("my_user_id")),
+                isouter=True
+            )
             .outerjoin(subquery, Feeds.id == subquery.c.feed_id)
             .outerjoin(image_subquery, Feeds.id == image_subquery.c.feed_id)
         )
@@ -136,7 +158,16 @@ class Feeds(Base):
         if params.get("title"):
             query = query.filter(Feeds.title.like(f"%{params['title']}%"))
 
-        result = query.order_by(Feeds.created_at.desc()).offset(offset).limit(limit).all()
+        if params.get("deny_user_ids"):
+            query = query.filter(Feeds.user_id.notin_(params["deny_user_ids"]))
+
+        if params.get("nickname"):
+            query = query.filter(Users.nickname.like(f"%{params['nickname']}%"))
+
+        if params.get("start_date") and params.get("end_date"):
+            query = query.filter(Feeds.created_at.between(params["start_date"], params["end_date"]))
+
+        result = query.order_by(order_by).offset(offset).limit(limit).all()
 
         return QueryResult(result)
 
@@ -161,12 +192,15 @@ class QueryResult:
                 like_count=v.like_count,
                 created_at=v.created_at,
                 updated_at=v.updated_at,
-                images=[settings.BACKEND_SHOP_URL + image for image in v.images.split(',')] if hasattr(v, 'images') and v.images else [],
+                is_liked=v.is_liked,
+                images=[settings.BACKEND_SHOP_URL + image + "?iid=" + image_id for image, image_id in zip(v.images.split(','), v.image_ids.split(','))] if hasattr(v, 'images') and v.images else [],
                 tags=v.tags.split(',') if v.tags else [],
                 user=FeedsUserResponse(
                     nickname=v.nickname,
-                    profile_image=v.profile_image
+                    profile_image=v.profile_image,
+                    user_hash=v.view_hash
                 )
+
             )
             for v in self._results
         ]
@@ -184,11 +218,13 @@ class QueryResult:
                 "like_count": v.like_count,
                 "created_at": v.created_at,
                 "updated_at": v.updated_at,
+                "is_liked": v.is_liked,
                 "images": [settings.BACKEND_SHOP_URL + image for image in v.images.split(',')] if hasattr(v, 'images') and v.images else [],
                 "tags": v.tags.split(',') if v.tags else [],
                 "user": {
                     "nickname": v.nickname,
-                    "profile_image": v.profile_image
+                    "profile_image": v.profile_image,
+                    "user_hash": v.view_hash
                 }
             }
             for v in self._results

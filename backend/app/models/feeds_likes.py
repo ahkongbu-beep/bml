@@ -1,6 +1,9 @@
 from sqlalchemy import Column, Integer, DateTime, ForeignKey, func, UniqueConstraint
 from sqlalchemy.orm import declarative_base
 from app.core.database import Base
+from app.models.users import Users
+from app.models.feeds import Feeds
+from app.models.feeds_images import FeedsImages
 
 class FeedsLikes(Base):
     __tablename__ = "feeds_likes"
@@ -25,3 +28,29 @@ class FeedsLikes(Base):
         session.commit()
         session.refresh(like)
         return like
+
+    @staticmethod
+    def findByLikeUserId(session, user_id: int, limit=30, offset=0):
+        feed_image_subq = (
+            session.query(FeedsImages.image_url)
+            .filter(FeedsImages.feed_id == Feeds.id)
+            .order_by(FeedsImages.id.asc())
+            .limit(1)
+            .correlate(Feeds)
+            .scalar_subquery()
+        )
+
+        query = (
+            session.query(
+                FeedsLikes.feed_id,
+                FeedsLikes.created_at.label("liked_at"),
+                Feeds.title,
+                Feeds.content,
+                feed_image_subq.label("feed_image_url"),
+            )
+            .join(Feeds, FeedsLikes.feed_id == Feeds.id)
+            .filter(FeedsLikes.user_id == user_id)
+            .order_by(FeedsLikes.created_at.desc())
+        )
+
+        return query.all()

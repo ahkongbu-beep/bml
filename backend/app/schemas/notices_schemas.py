@@ -9,6 +9,12 @@ class NoticesCreateRequest(BaseModel):
     status: str  # active / inactive
     is_important: str # Y / N
 
+class NoticesUpdateRequest(BaseModel):
+    title: str
+    category_id: int
+    content: str
+    is_important: str # Y / N
+
 class NoticesResponse(BaseModel):
     title: str
     content: Optional[str] = None

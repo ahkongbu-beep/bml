@@ -37,7 +37,6 @@ class Notices(Base):
     def findByViewHash(session, view_hash: str):
         return session.query(Notices).filter(
             Notices.view_hash == view_hash,
-            Notices.status == 'active'
         ).first()
 
     @staticmethod
@@ -69,6 +68,21 @@ class Notices(Base):
         session.commit()
         session.refresh(notice)
         return notice
+
+    @staticmethod
+    def update(session, existing_notice, params: dict):
+
+        if not existing_notice:
+            return None
+
+        for key, value in params.items():
+            setattr(existing_notice, key, value)
+
+        existing_notice.updated_at = datetime.now()
+
+        session.commit()
+        session.refresh(existing_notice)
+        return existing_notice
 
     @staticmethod
     def getList(session, params: dict):
