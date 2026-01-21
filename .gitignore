@@ -9,17 +9,29 @@ pnpm-debug.log*
 
 # Python
 venv/
+backend/venv/
 __pycache__/
+*.py[cod]
 
 # Backend
-backend/venv/
 backend/attaches/
 backend/ca-certificate.pem
+
+# Frontend
+frontend/android/
 
 # Expo
 .expo/
 .expo-shared/
 
+# Test / Logs
+*.log
+.coverage
+htmlcov/
+pytest_cache/
+
 # OS
 .DS_Store
 Thumbs.db
+
+JWT_TEST_SCENARIO.md
