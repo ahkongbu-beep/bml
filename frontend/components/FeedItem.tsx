@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -14,24 +14,11 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Feed } from '../libs/types/FeedType';
-import { formatDate } from '@/libs/utils/common';
+import { formatDate, diffMonthsFrom } from '@/libs/utils/common';
+import { FeedItemProps } from '../libs/types/FeedType';
+import { USER_CHILD_GENDER } from '../libs/utils/codes/UserChildCode';
 
 const { width } = Dimensions.get('window');
-
-interface FeedItemProps {
-  item: Feed;
-  menuVisible: number | null;
-  currentImageIndex: { [key: number]: number };
-  isLiking: boolean;
-  onMenuToggle: (id: number) => void;
-  onImageScroll: (id: number, index: number) => void;
-  onViewProfile: (userHash: string, nickname: string) => void;
-  onBlock: (denyUserHash: string, nickname: string) => void;
-  onLike: (id: number) => void;
-  onCommentPress: (id: number) => void;
-  onAiSummary?: (userHash: string, feedId: number, imageId: string) => void;
-  userHash?: string;
-}
 
 const FeedItem = React.memo(({
   item,
@@ -45,14 +32,19 @@ const FeedItem = React.memo(({
   onLike,
   onCommentPress,
   onAiSummary,
+  onAddToMealCalendar,
   userHash,
 }: FeedItemProps) => {
+
   // URL에서 iid 추출하는 함수
   const extractImageId = (imageUrl: string): string => {
     const match = imageUrl.match(/[?&]iid=(\d+)/);
     return match ? match[1] : '';
   };
+
   const shimmerAnim = useRef(new Animated.Value(0)).current;
+  const menuButtonRef = useRef<TouchableOpacity>(null);
+  const [menuPosition, setMenuPosition] = useState({ top: 130, right: 10 });
 
   useEffect(() => {
     const shimmer = Animated.loop(
@@ -82,21 +74,44 @@ const FeedItem = React.memo(({
     inputRange: [0, 0.5, 1],
     outputRange: [1, 1.1, 1],
   });
+
+  const handleMenuToggle = () => {
+    if (menuButtonRef.current) {
+      menuButtonRef.current.measure((x, y, width, height, pageX, pageY) => {
+        setMenuPosition({
+          top: pageY + height - 3,
+          right: Dimensions.get('window').width - pageX - width,
+        });
+        onMenuToggle(item.id);
+      });
+    } else {
+      onMenuToggle(item.id);
+    }
+  };
+
   return (
     <View style={styles.feedContainer}>
       {/* 사용자 정보 */}
       <View style={styles.userHeader}>
-        <View style={styles.userInfo}>
+        <TouchableOpacity
+          style={styles.userInfo}
+          onPress={() => onViewProfile(item.user.user_hash || '', item.user.nickname)}
+        >
           <Image
             source={{ uri: item.user.profile_image }}
             style={styles.profileImage}
           />
           <View>
             <Text style={styles.nickname}>{item.user.nickname}</Text>
-            <Text style={styles.timestamp}>{formatDate(item.created_at)}</Text>
+            {/*  n 개월  */}
+            {item.childs && (
+              <Text style={styles.timestamp}>
+                {diffMonthsFrom(item.childs.child_birth)} 개월 · {USER_CHILD_GENDER[item.childs.child_gender]}
+              </Text>
+            )}
           </View>
-        </View>
-        <TouchableOpacity onPress={() => onMenuToggle(item.id)}>
+        </TouchableOpacity>
+        <TouchableOpacity ref={menuButtonRef} onPress={handleMenuToggle}>
           <Ionicons name="ellipsis-vertical" size={22} color="#C0C0C0" />
         </TouchableOpacity>
       </View>
@@ -111,13 +126,23 @@ const FeedItem = React.memo(({
         <TouchableWithoutFeedback onPress={() => onMenuToggle(-1)}>
           <View style={styles.modalOverlay}>
             <TouchableWithoutFeedback>
-              <View style={styles.dropdownMenu}>
+              <View style={[
+                styles.dropdownMenu,
+                { top: menuPosition.top, right: menuPosition.right }
+              ]}>
                 <TouchableOpacity
                   style={styles.menuItem}
-                  onPress={() => onViewProfile(item.user.user_hash, item.user.nickname)}
+                  onPress={() => onViewProfile(item.user.user_hash || '', item.user.nickname)}
                 >
                   <Ionicons name="person-outline" size={20} color="#4A4A4A" />
                   <Text style={styles.menuText}>사용자 계정보기</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={() => onAddToMealCalendar(item.user.user_hash, item.id)}
+                >
+                  <Ionicons name="person-outline" size={20} color="#4A4A4A" />
+                  <Text style={styles.menuText}>식단 캘린더에 추가</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.menuItem}
@@ -166,7 +191,7 @@ const FeedItem = React.memo(({
           >
             {item.images.map((imageUri, index) => (
               <Image
-                key={index}
+                key={`${item.id}-image-${extractImageId(imageUri) || index}`}
                 source={{ uri: imageUri }}
                 style={styles.feedImage}
               />
@@ -188,8 +213,6 @@ const FeedItem = React.memo(({
                 const imageId = extractImageId(currentImageUrl);
                 if (imageId) {
                   onAiSummary(userHash, item.id, imageId);
-                } else {
-                  console.warn('이미지 ID를 찾을 수 없습니다:', currentImageUrl);
                 }
               }}
               activeOpacity={0.8}
@@ -221,17 +244,12 @@ const FeedItem = React.memo(({
           <TouchableOpacity
             onPress={() => onLike(item.id)}
             style={styles.actionButton}
-            disabled={isLiking}
           >
-            {isLiking ? (
-              <ActivityIndicator size="small" color="#FF9AA2" />
-            ) : (
-              <Ionicons
-                name={item.is_liked ? 'heart' : 'heart-outline'}
-                size={30}
-                color={item.is_liked ? '#FF9AA2' : '#C0C0C0'}
-              />
-            )}
+            <Ionicons
+              name={item.is_liked ? 'heart' : 'heart-outline'}
+              size={30}
+              color={item.is_liked ? '#FF9AA2' : '#C0C0C0'}
+            />
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.actionButton}
@@ -248,7 +266,9 @@ const FeedItem = React.memo(({
       {/* 내용 */}
       <View style={styles.contentContainer}>
         <Text style={styles.content}>
-          {item.tags.length > 0 && item.tags.map((tag) => `#${tag} `)}{"\n"}
+          {item.tags.length > 0 && item.tags.map((tag, idx) => (
+            <Text key={`${item.id}-tag-${idx}-${tag}`}>#{tag} </Text>
+          ))}{"\n"}
           <Text style={styles.contentNickname}>{item.user.nickname}</Text>{' '}
           {item.content}
         </Text>
@@ -272,8 +292,6 @@ const styles = StyleSheet.create({
   },
   dropdownMenu: {
     position: 'absolute',
-    top: 130,
-    right: 24,
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     paddingVertical: 8,

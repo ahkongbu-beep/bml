@@ -1,3 +1,11 @@
+export interface AiSummaryAnswerModalProps {
+  visible: boolean;
+  onClose: () => void;
+  question: string;
+  answer: string;
+  title?: string;
+}
+
 export interface SummaryListRequest {
   userHash: string;
   model: string;

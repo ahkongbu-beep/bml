@@ -1,5 +1,5 @@
 from app.models.notices import Notices
-from app.schemas.notices_schemas import NoticesCreateRequest, NoticesUpdateRequest
+from app.schemas.notices_schemas import NoticesCreateRequest, NoticesDetailResponseData, NoticesUpdateRequest
 from app.models.categories_codes import CategoriesCodes
 from app.schemas.common_schemas import CommonResponse
 
@@ -15,27 +15,31 @@ def notice_detail(db, view_hash: str):
 
     category_code = CategoriesCodes.findById(db, notice.category_id)
 
-    data = {
-        "view_hash": notice.view_hash,
-        "category_id": notice.category_id,
-        "category_text": category_code.value,
-        "title": notice.title,
-        "content": notice.content,
-        "is_important": notice.is_important,
-        "status": notice.status,
-        "created_at": notice.created_at,
-        "updated_at": notice.updated_at,
-        "admin_name": "관리자"
-    }
+    data = NoticesDetailResponseData(
+        view_hash=notice.view_hash,
+        category_id=notice.category_id,
+        category_text=category_code.value,
+        title=notice.title,
+        content=notice.content,
+        is_important=notice.is_important,
+        status=notice.status,
+        created_at=notice.created_at,
+        updated_at=notice.updated_at,
+        admin_name="관리자"
+    )
 
     return CommonResponse(success=True, message="", data=data)
 
 # 공지 등록
 def create_notice(notice: NoticesCreateRequest, client_ip: str, db):
 
+    category_code = CategoriesCodes.findById(db, notice.category_id)
+    if not category_code or category_code.type != "NOTICES_GROUP":
+        return CommonResponse(success=False, error="유효하지 않은 카테고리입니다.", data=None)
+
     params = {
         "admin_id": 1,  # Placeholder for actual admin ID
-        "category_id": notice.category_id,
+        "category_id": category_code.id,
         "title": notice.title,
         "content": notice.content,
         "is_important": notice.is_important,
@@ -51,21 +55,19 @@ def create_notice(notice: NoticesCreateRequest, client_ip: str, db):
     except Exception as e:
         return CommonResponse(success=False, error=str(e), data=None)
 
-    category_code = CategoriesCodes.findById(db, notice.category_id)
-
-    data = {
-        "id": new_notice.id,
-        "view_hash": new_notice.view_hash,
-        "category_id": new_notice.category_id,
-        "category_text": category_code.value,
-        "title": new_notice.title,
-        "content": new_notice.content,
-        "ip": new_notice.ip,
-        "is_important": new_notice.is_important,
-        "status": new_notice.status,
-        "created_at": new_notice.created_at,
-        "updated_at": new_notice.updated_at,
-    }
+    data = NoticesDetailResponseData(
+        id=new_notice.id,
+        view_hash=new_notice.view_hash,
+        category_id=new_notice.category_id,
+        category_text=category_code.value,
+        title=new_notice.title,
+        content=new_notice.content,
+        ip=new_notice.ip,
+        is_important=new_notice.is_important,
+        status=new_notice.status,
+        created_at=new_notice.created_at,
+        updated_at=new_notice.updated_at,
+    )
 
     return CommonResponse(success=True, message="", data=data)
 
@@ -79,7 +81,7 @@ def update_notice(notice: NoticesUpdateRequest, view_hash: str, db):
 
     category_code = CategoriesCodes.findById(db, notice.category_id)
 
-    if not category_code:
+    if not category_code or category_code.type != "NOTICES_GROUP":
         return CommonResponse(success=False, error="유효하지 않은 카테고리입니다.", data=None)
 
     params = {
@@ -97,20 +99,19 @@ def update_notice(notice: NoticesUpdateRequest, view_hash: str, db):
     except Exception as e:
         return CommonResponse(success=False, error=str(e), data=None)
 
-
-    data = {
-        "id": updated_notice.id,
-        "view_hash": updated_notice.view_hash,
-        "category_id": updated_notice.category_id,
-        "category_text": category_code.value,
-        "title": updated_notice.title,
-        "content": updated_notice.content,
-        "ip": updated_notice.ip,
-        "is_important": updated_notice.is_important,
-        "status": updated_notice.status,
-        "created_at": updated_notice.created_at,
-        "updated_at": updated_notice.updated_at,
-    }
+    data = NoticesDetailResponseData(
+        id=updated_notice.id,
+        view_hash=updated_notice.view_hash,
+        category_id=updated_notice.category_id,
+        category_text=category_code.value,
+        title=updated_notice.title,
+        content=updated_notice.content,
+        ip=updated_notice.ip,
+        is_important=updated_notice.is_important,
+        status=updated_notice.status,
+        created_at=updated_notice.created_at,
+        updated_at=updated_notice.updated_at,
+    )
 
     return CommonResponse(success=True, message="공지 수정완료하였습니다.", data=data)
 

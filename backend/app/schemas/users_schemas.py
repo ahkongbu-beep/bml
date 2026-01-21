@@ -39,6 +39,24 @@ class DenyUserResponse(BaseModel):
     profile_image: Optional[str] = None
     blocked_at: datetime
 
+class SearchUserPasswordConfirmRequest(BaseModel):
+    search_type: str  # 'email' or 'phone'
+    user_email: Optional[str] = None
+    user_phone: Optional[str] = None
+
+class SearchUserAccountConfirmRequest(BaseModel):
+    user_name: str
+    user_phone: str
+
+class UserChildItemSchema(BaseModel):
+    child_name: str
+    child_birth: date
+    child_gender: GenderEnum
+    is_agent: Optional[str] = "N"
+
+class UserChildRegistRequest(BaseModel):
+    children: list[UserChildItemSchema]
+
 class UserCreateSchema(BaseModel):
     sns_login_type: SnsLoginTypeEnum
     sns_id: Optional[str] = ""
@@ -50,9 +68,6 @@ class UserCreateSchema(BaseModel):
     address: Optional[str] = ""
     profile_image: Optional[str] = ""
     description: Optional[str] = ""
-    child_birth: Optional[date] = None
-    child_gender: GenderEnum = GenderEnum.M
-    child_age_group: int = 0
     meal_group: Optional[list[int]] = []
     marketing_agree: Optional[int] = 0
     push_agree: Optional[int] = 0
@@ -72,14 +87,11 @@ class UserCreateSchema(BaseModel):
         address: Optional[str] = Form(""),
         profile_image: Optional[str] = Form(""),
         description: Optional[str] = Form(""),
-        child_birth: Optional[date] = Form(None),
-        child_gender: GenderEnum = Form(GenderEnum.M),
-        child_age_group: int = Form(0),
         meal_group: Optional[str] = Form("[]"),
         marketing_agree: Optional[int] = Form(0),
         push_agree: Optional[int] = Form(0),
         view_hash: Optional[str] = Form(None),
-        role: RoleEnum = Form(RoleEnum.USER)
+        role: RoleEnum = Form(RoleEnum.USER),
     ):
         # meal_group을 문자열에서 리스트로 변환
         import json
@@ -101,14 +113,11 @@ class UserCreateSchema(BaseModel):
             address=address,
             profile_image=profile_image,
             description=description,
-            child_birth=child_birth,
-            child_gender=child_gender,
-            child_age_group=child_age_group,
             meal_group=meal_group_list,
             marketing_agree=marketing_agree,
             push_agree=push_agree,
             view_hash=view_hash,
-            role=role
+            role=role,
         )
 
     @validator('sns_id', always=True)
@@ -155,9 +164,6 @@ class UserResponseSchema(BaseModel):
     profile_image: Optional[str]
     description: Optional[str]
     is_active: int
-    child_birth: Optional[date]
-    child_gender: GenderEnum
-    child_age_group: int
     marketing_agree: int
     push_agree: int
     created_at: datetime

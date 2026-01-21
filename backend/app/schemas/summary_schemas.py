@@ -5,7 +5,6 @@ from typing import Optional
 from app.schemas.feeds_schemas import FeedsUserResponse
 
 class SummaryFeedRequest(BaseModel):
-    user_hash: str
     feed_id: int
     image_id: int
     prompt: str

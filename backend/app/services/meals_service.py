@@ -5,8 +5,11 @@ from app.models.users import Users
 from app.models.meals_calendar import MealsCalendars
 from app.models.categories_codes import CategoriesCodes
 from app.models.feeds_tags import FeedsTags
+from app.models.feeds import Feeds
+from app.models.feeds_images import FeedsImages
 from app.models.feeds_tags_mappers import FeedsTagsMapper
 from app.schemas.common_schemas import CommonResponse
+from app.schemas.meals_schemas import CalendarCopyRequest
 from app.core.config import settings
 from app.libs.hash_utils import generate_sha256_hash
 
@@ -36,10 +39,18 @@ def list_calendar(db, params: dict) -> CommonResponse:
                 calendar_list[date_key] = []
             calendar_list[date_key].append(item)
 
-        return CommonResponse(success=True, error=None, data=calendar_list)
+        return CommonResponse(
+            success=True,
+            error=None,
+            data=calendar_list
+        )
 
     except Exception as e:
-        return CommonResponse(success=False, error="식단 캘린더 조회 중 오류가 발생했습니다. " + str(e), data=None)
+        return CommonResponse(
+            success=False,
+            error="식단 캘린더 조회 중 오류가 발생했습니다. " + str(e),
+            data=None
+        )
 
 """
 일별 식단 캘린더 존재여부 체크
@@ -56,9 +67,11 @@ def check_daily_meal(db, params: dict) -> CommonResponse:
     for meal in meal_calendar:
         exist_categories.append(meal.category_code)
 
-    return CommonResponse(success=True, error=None, data={
-        "exist_categories": exist_categories
-    })
+    return CommonResponse(
+        success=True,
+        error=None,
+        data={"exist_categories": exist_categories}
+    )
 
 async def create_meal(db, body: dict) -> CommonResponse:
     user = Users.findByViewHash(db, body['user_hash'])
@@ -101,14 +114,101 @@ async def create_meal(db, body: dict) -> CommonResponse:
             }, is_commit=False)
         db.commit()
 
-        return CommonResponse(success=True, error=None, data={
-            "meal_calendar_hash": meal_calendar.view_hash,
-        })
+        return CommonResponse(
+            success=True,
+            error=None,
+            data={"meal_calendar_hash": meal_calendar.view_hash,}
+        )
 
     except Exception as e:
         db.rollback()
         return CommonResponse(success=False, error="식단 캘린더 생성 중 오류가 발생했습니다. " + str(e), data=None)
 
+""" 식단 캘린더 수정 """
+async def update_meal(db, body: dict) -> CommonResponse:
+    user_hash = body.get('user_hash')
+
+    # 사용자 인증
+    user = Users.findByViewHash(db, user_hash)
+
+    if not user:
+        return CommonResponse(success=False, error="유효하지 않은 회원정보입니다.", data=None)
+
+    # 수정할 식단 캘린더 조회
+    meal_calendar = MealsCalendars.findByViewHash(db, body.get('meal_hash'))
+
+    if not meal_calendar or meal_calendar.user_id != user.id:
+        return CommonResponse(success=False, error="수정할 식단 캘린더 정보를 찾을 수 없습니다.", data=None)
+
+    if body.get('category_id'):
+
+        category_code = CategoriesCodes.findById(db, body['category_id'])
+
+        if not category_code:
+            return CommonResponse(success=False, error="유효하지 않은 카테고리 정보입니다.", data=None)
+
+    # 중복된 날짜의 동일 카테고리 식단 확인
+    exist_meals_calendars = MealsCalendars.findByUserIdAndDate(db, user.id, body['input_date'])
+    if exist_meals_calendars:
+        for meals in exist_meals_calendars:
+            if meals.id != meal_calendar.id and meals.category_code == category_code.id:
+                return CommonResponse(success=False, error="이미 해당 날짜에 동일한 카테고리의 식단이 등록되어 있습니다.", data=None)
+
+    # 태그 처리 s
+    tags = body.get('tags', [])
+    try:
+        tags_ids = []
+        for tag_name in tags:
+            tag = FeedsTags.findOrCreateTag(db, tag_name, is_commit=False)
+            tags_ids.append(tag.id)
+
+    except Exception as e:
+        return CommonResponse(success=False, error="식단 캘린더 수정 중 오류가 발생했습니다. " + str(e), data=None)
+    # 태그 처리 e
+
+    # 식단 캘린더 수정
+    try:
+        update_params = {
+            "input_date": body.get('input_date', meal_calendar.input_date),
+            "title": body.get('title', meal_calendar.title),
+            "contents": body.get('contents', meal_calendar.contents),
+            "category_code": category_code.id if body.get('category_id') else meal_calendar.category_code
+        }
+
+        where_syntax = {
+            "id": meal_calendar.id
+        }
+
+        success_bool = MealsCalendars.update(db, update_params, where_syntax, is_commit=True)
+        if not success_bool:
+            return CommonResponse(success=False, error="식단 캘린더 수정에 실패했습니다.", data=None)
+
+    except Exception as e:
+        db.rollback()
+        return CommonResponse(success=False, error="식단 캘린더 수정 중 오류가 발생했습니다. " + str(e), data=None)
+
+    return CommonResponse(success=True, error=None, data=body)
+
+""" 식단 켈린더 삭제 """
+async def delete_meal(db, body: dict) -> CommonResponse:
+    if 'user_hash' not in body or not body['user_hash']:
+        return CommonResponse(success=False, error="user_hash는 필수 항목입니다.", data=None)
+
+    user = Users.findByViewHash(db, body['user_hash'])
+    if not user:
+        return CommonResponse(success=False, error="유효하지 않은 회원정보입니다.", data=None)
+
+    meal_calendar = MealsCalendars.findByViewHash(db, body['meal_hash'])
+    if not meal_calendar or meal_calendar.user_id != user.id:
+        return CommonResponse(success=False, error="삭제할 식단 캘린더 정보를 찾을 수 없습니다.", data=None)
+
+    try:
+        db.delete(meal_calendar)
+        db.commit()
+        return CommonResponse(success=True, error=None, data={"message": "식단 캘린더가 성공적으로 삭제되었습니다."})
+    except Exception as e:
+        db.rollback()
+        return CommonResponse(success=False, error="식단 캘린더 삭제 중 오류가 발생했습니다. " + str(e), data=None)
 
 
 

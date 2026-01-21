@@ -1,0 +1,143 @@
+import { StyleSheet } from 'react-native';
+import { colors, shadows } from './common.styles';
+
+const styles = StyleSheet.create({
+  keyboardAvoid: {
+    flex: 1,
+  },
+  container: {
+    flex: 1,
+    backgroundColor: '#FFF9F5',
+  },
+  content: {
+    padding: 24,
+  },
+  headerSection: {
+    alignItems: 'center',
+    marginBottom: 40,
+    marginTop: 20,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#4A4A4A',
+    marginTop: 16,
+    marginBottom: 12,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: '#B0B0B0',
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 32,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  tab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    gap: 8,
+  },
+  activeTab: {
+    backgroundColor: '#FFF5F0',
+  },
+  tabText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#B0B0B0',
+  },
+  activeTabText: {
+    color: '#FF9AA2',
+  },
+  formContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 3,
+    marginBottom: 24,
+  },
+  label: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#4A4A4A',
+    marginBottom: 12,
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF9F5',
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#FFE5E5',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 24,
+  },
+  input: {
+    flex: 1,
+    fontSize: 15,
+    color: '#4A4A4A',
+    marginLeft: 12,
+    padding: 0,
+  },
+  submitButton: {
+    backgroundColor: '#FF9AA2',
+    borderRadius: 12,
+    paddingVertical: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    shadowColor: '#FF9AA2',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  disabledButton: {
+    backgroundColor: '#FFB5B5',
+    opacity: 0.7,
+  },
+  submitButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  helpSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    backgroundColor: '#FFFBF7',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FFE5E5',
+  },
+  helpText: {
+    fontSize: 13,
+    color: '#B0B0B0',
+    lineHeight: 18,
+  },
+});
+
+export default styles;

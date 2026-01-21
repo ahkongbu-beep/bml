@@ -4,6 +4,7 @@
     "slug": "bml",
     "version": "1.0.0",
     "orientation": "portrait",
+    "sdkVersion": "54.0.0",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "splash": {
@@ -27,6 +28,14 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "d199e4f7-e0ad-46db-b44a-ac3c5055ee2c"
+      }
+    },
+    "plugins": [
+      "expo-web-browser"
+    ]
   }
 }

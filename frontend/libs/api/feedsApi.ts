@@ -1,5 +1,5 @@
 import { fetchGet, fetchPost, fetchPut, fetchDelete, fetchPostFormData, fetchPutFormData } from './config';
-import { Feed } from '../types/FeedType';
+import { Feed, CopyFeedRequest } from '../types/FeedType';
 import {
   ApiResponse,
   PaginationResponse,
@@ -14,6 +14,7 @@ import {
  * 피드 목록 조회
  */
 export const getFeeds = async (params?: FeedListParams): Promise<PaginationResponse<Feed>> => {
+  console.log("params in getFeeds:", params);
   return fetchGet<PaginationResponse<Feed>>('/feeds/list', params);
 };
 
@@ -21,6 +22,7 @@ export const getFeeds = async (params?: FeedListParams): Promise<PaginationRespo
  * 특정 피드 상세 조회
  */
 export const getFeedById = async (id: number): Promise<Feed> => {
+    console.log("id", id);
   const response = await fetchGet<ApiResponse<Feed>>(`/feeds/detail/${id}`);
   return response.data;
 };
@@ -28,8 +30,8 @@ export const getFeedById = async (id: number): Promise<Feed> => {
 /**
  * 특정 피드 이미지를 요약
  */
-export const summaryFeedImage = async ({ feedId, imageId, user_hash, prompt }: { feedId: number; imageId: number; user_hash: string; prompt: string }): Promise<string> => {
-  const data = { feed_id: feedId, image_id: imageId, user_hash, prompt };
+export const summaryFeedImage = async ({ feedId, imageId, prompt }: { feedId: number; imageId: number; prompt: string }): Promise<string> => {
+  const data = { feed_id: feedId, image_id: imageId, prompt };
   const response = await fetchPost<ApiResponse<string>>('/summaries/feed/item', data);
   return response.data;
 }
@@ -40,12 +42,10 @@ export const summaryFeedImage = async ({ feedId, imageId, user_hash, prompt }: {
 export const createFeed = async (data: CreateFeedRequest): Promise<Feed> => {
   const formData = new FormData();
 
-  formData.append('user_hash', data.user_hash || '');
   formData.append('title', data.title);
   formData.append('content', data.content);
   formData.append('is_public', data.is_public || 'Y');
   formData.append('is_share_meal_plan', data.is_share_meal_plan || 'N');
-  console.log("DATA CATEGORY CODE:", data.category_id);
   if (data.category_id !== undefined) {
     formData.append('category_id', data.category_id.toString());
   }
@@ -109,17 +109,16 @@ export const updateFeed = async (id: number, data: UpdateFeedRequest): Promise<F
 /**
  * 피드 삭제
  */
-export const deleteFeed = async (id: number, userHash: string): Promise<void> => {
-  console.log("deleteFeed called with id:", id, "userHash:", userHash);
-  return await fetchDelete<void>(`/feeds/delete/${id}`, { user_hash: userHash });
+export const deleteFeed = async (feedId: number): Promise<void> => {
+  console.log("deleteFeed called with id:", feedId);
+  return await fetchDelete<void>(`/feeds/delete/${feedId}`);
 };
 
 /**
  * 피드 좋아요 토글
  */
-export const toggleLike = async (feedId: number, userHash: string): Promise<ToggleResponse> => {
-
-  return fetchPost<ToggleResponse>(`/feeds/like/${feedId}/toggle`, { user_hash: userHash });
+export const toggleLike = async (feedId: number): Promise<ToggleResponse> => {
+  return fetchPost<ToggleResponse>(`/feeds/like/${feedId}/toggle`);
 };
 
 /**
@@ -132,36 +131,55 @@ export const toggleBookmark = async (feedId: number): Promise<ToggleResponse> =>
 /**
  * 사용자 차단
  */
-export const blockUser = async (user_hash: string, deny_user_hash:string): Promise<ApiResponse<null>> => {
-  return fetchPost<ApiResponse<null>>(`/users/denies`, { user_hash, deny_user_hash });
+export const blockUser = async (deny_user_hash: string): Promise<ApiResponse<null>> => {
+  return fetchPost<ApiResponse<null>>(`/users/denies`, { deny_user_hash });
 };
 
 /**
  * 내가 작성한 피드 목록
  */
-export const getMyFeeds = async (params?: FeedListParams): Promise<PaginationResponse<Feed>> => {
-    console.log("RUN MY FEED", params);
-  params = { ...params, type: "owner", page: params?.page || 1, limit: params?.limit || 30 };
-  return fetchGet<PaginationResponse<Feed>>('/feeds/list', params);
+export const getMyFeeds = async (params?: Omit<FeedListParams, 'user_hash'>): Promise<PaginationResponse<Feed>> => {
+  const finalParams = { ...params, type: "owner", page: params?.page || 1, limit: params?.limit || 30 };
+  return fetchGet<PaginationResponse<Feed>>('/feeds/list', finalParams);
+};
+
+/**
+ * 피드 복사 -> 캘린더로
+ */
+export const copyFeed = async (data: CopyFeedRequest): Promise<null> => {
+  const params = {
+    category_code: data.categoryCode,
+    target_feed_id: data.targetFeedId,
+    target_user_hash: data.targetUserHash,
+    input_date: data.inputDate,
+    memo: data.memo,
+    title: data.title
+  }
+
+  console.log("params", params);
+  const response = await fetchPost<ApiResponse<null>>('/feeds/copy', params);
+  return response.data;
 };
 
 /**
  * 특정 사용자의 피드 목록
+ * userHash를 통해 해당 사용자의 피드 조회
  */
 export const getUserFeeds = async (
-  userId: number,
+  userHash: string,
   params?: FeedListParams
 ): Promise<PaginationResponse<Feed>> => {
-  return fetchGet<PaginationResponse<Feed>>(`/users/${userId}/feeds`, params);
+  // target_user_hash로 특정 사용자의 피드만 조회
+  return fetchGet<PaginationResponse<Feed>>('/feeds/list', { ...params, type: 'list', target_user_hash: userHash });
 };
 /**
  * 댓글 등록
  */
 export const createFeedComment = async (data: CreateFeedCommentRequest): Promise<any> => {
   console.log("createFeedComment data:", data);
-  const { user_hash, feed_id, comment, parent_hash } = data;
+  const { feed_id, comment, parent_hash } = data;
 
-  const body: any = { feed_id, user_hash, comment };
+  const body: any = { feed_id, comment };
   if (parent_hash !== undefined) {
     body.parent_hash = parent_hash;
   }
@@ -174,9 +192,9 @@ export const createFeedComment = async (data: CreateFeedCommentRequest): Promise
 /**
  * 댓글 삭제
  */
-export const deleteFeedComment = async (comment_hash: string, user_hash: string): Promise<void> => {
-  console.log("deleteFeedComment commentHash:", comment_hash, "userHash:", user_hash);
-  const response = await fetchDelete<void>(`/feeds/comments/${comment_hash}`, { user_hash: user_hash });
+export const deleteFeedComment = async (comment_hash: string): Promise<void> => {
+  console.log("deleteFeedComment commentHash:", comment_hash);
+  const response = await fetchDelete<void>(`/feeds/comments/${comment_hash}`);
   console.log("deleteFeedComment response:", response);
   return response;
 }
@@ -186,11 +204,10 @@ export const deleteFeedComment = async (comment_hash: string, user_hash: string)
  */
 export const getFeedComments = async (
   feedId: number,
-  userHash: string,
   limit?: number,
   offset?: number
 ): Promise<any[]> => {
-  const params: any = { feed_id: feedId, user_hash: userHash };
+  const params: any = { feed_id: feedId };
   if (limit !== undefined) params.limit = limit;
   if (offset !== undefined) params.offset = offset;
 
@@ -210,12 +227,10 @@ export const searchTags = async (query: string): Promise<string[]> => {
  * 좋아요한 피드 목록 조회
  */
 export const getLikedFeeds = async (
-  userHash: string,
   limit: number = 30,
   offset: number = 0
 ): Promise<any[]> => {
   const response = await fetchGet<ApiResponse<any[]>>('/feeds/like/list', {
-    user_hash: userHash,
     limit,
     offset
   });

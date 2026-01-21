@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional, List
-
 from pydantic import BaseModel
+from app.schemas.users_schemas import UserChildItemSchema
 
 class FeedLikeToggleRequest(BaseModel):
     user_hash: str
@@ -9,16 +9,29 @@ class FeedLikeToggleRequest(BaseModel):
 class FeedDeleteCommentRequest(BaseModel):
     user_hash: str
 
+class FeedCopyRequest(BaseModel):
+    category_code: int
+    input_date: str
+    memo: str
+    title: str
+    target_feed_id: int
+    target_user_hash: str
+
+class FeedLikeResponseData(BaseModel):
+    feed_id: int
+    like_count: int
+    is_liked: bool
+
 class FeedDeleteRequest(BaseModel):
     user_hash: str
 
 class FeedCreateCommentRequest(BaseModel):
-    user_hash: str
     feed_id: int
     comment: str
     parent_hash: Optional[str] = None
 
 class FeedsUserResponse(BaseModel):
+    id: Optional[int] = None
     nickname: Optional[str] = None
     profile_image: Optional[str] = None
     user_hash: Optional[str] = None
@@ -35,6 +48,7 @@ class FeedsCommentResponse(BaseModel):
     parent_hash:str
     user: Optional[FeedsUserResponse] = None
     children: List['FeedsCommentResponse'] = []
+
 
 # Forward reference를 위한 model rebuild
 FeedsCommentResponse.model_rebuild()
@@ -54,4 +68,5 @@ class FeedsResponse(BaseModel):
     images: List[str] = []
     user_hash: Optional[str] = None
     user: Optional[FeedsUserResponse] = None
+    childs: Optional[UserChildItemSchema] = None
     comments: List[FeedsCommentResponse] = []

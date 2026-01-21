@@ -6,6 +6,7 @@ export const STORAGE_KEYS = {
   USER_INFO: 'user_info',
   IS_LOGGED_IN: 'is_logged_in',
   LAST_LOGIN: 'last_login',
+  NEED_CHILD_REGISTRATION: 'need_child_registration',
 } as const;
 
 // User 정보 저장
@@ -46,6 +47,35 @@ export const getToken = async (): Promise<string | null> => {
   } catch (error) {
     console.error('Failed to get token:', error);
     return null;
+  }
+};
+
+// 자녀 등록 필요 플래그 저장
+export const setNeedChildRegistration = async (need: boolean) => {
+  try {
+    await AsyncStorage.setItem(STORAGE_KEYS.NEED_CHILD_REGISTRATION, JSON.stringify(need));
+  } catch (error) {
+    console.error('Failed to set need child registration flag:', error);
+  }
+};
+
+// 자녀 등록 필요 플래그 가져오기
+export const getNeedChildRegistration = async (): Promise<boolean> => {
+  try {
+    const value = await AsyncStorage.getItem(STORAGE_KEYS.NEED_CHILD_REGISTRATION);
+    return value ? JSON.parse(value) : false;
+  } catch (error) {
+    console.error('Failed to get need child registration flag:', error);
+    return false;
+  }
+};
+
+// 자녀 등록 필요 플래그 삭제
+export const clearNeedChildRegistration = async () => {
+  try {
+    await AsyncStorage.removeItem(STORAGE_KEYS.NEED_CHILD_REGISTRATION);
+  } catch (error) {
+    console.error('Failed to clear need child registration flag:', error);
   }
 };
 

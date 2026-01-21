@@ -1,4 +1,4 @@
-import { fetchPost, fetchPutFormData } from './config';
+import { fetchGet, fetchPost, fetchPutFormData } from './config';
 import { LoginRequest, LoginResponse, RegisterRequest, User } from '../types/UserType';
 import { ApiResponse } from '../types/ApiTypes';
 
@@ -35,15 +35,61 @@ export const getMyInfo = async (userHash: string): Promise<User> => {
  * sns_id로 프로필 조회
  */
 export const getProfileBySnsId = async (sns_id: string): Promise<ApiResponse<User>> => {
-  const { fetchGet } = await import('./config');
   return fetchGet<ApiResponse<User>>(`/users/profile`, { user_id: sns_id });
 };
+
+/**
+ * user_hash로 사용자 프로필 조회 (타인 프로필)
+ */
+export const getUserProfile = async (userHash: string): Promise<User> => {
+  const response = await fetchGet<ApiResponse<User>>(`/users/profile`, { user_hash: userHash });
+  return response.data;
+};
+
+/*
+ * 사용자 요청에 의한 이메일 계정 검색
+ */
+export const getUserEmail = async (user_name: string, user_phone: string): Promise<ApiResponse<null>> => {
+  const params: Record<string, string> = {
+    user_name: user_name,
+    user_phone: user_phone,
+  };
+
+  return fetchPost<ApiResponse<null>>('/users/confirm/email', params);
+};
+
+/*
+ * 비밀번호 찾기 (회원조회 email or phone)
+ */
+export const getConfirmUser = async (type: 'email' | 'phone', value: string): Promise<ApiResponse<null>> => {
+  const params: Record<string, string> = {
+    search_type: type,
+  };
+
+  if (type === 'email') {
+    params.user_email = value;
+  } else if (type === 'phone') {
+    params.user_phone = value;
+  } else {
+    throw new Error("type은 'email' 또는 'phone'이어야 합니다.");
+  }
+
+  return fetchPost<ApiResponse<null>>('/users/confirm/user', params);
+};
+
+export const setResetUserPassword = async (type: 'email' | 'phone', user_hash: string): Promise<ApiResponse<null>> => {
+  const params: Record<string, string> = {
+    search_type: type,
+    user_hash: user_hash,
+  };
+
+  return fetchPost<ApiResponse<null>>('/users/reset/password', params);
+}
 
 /**
  * 프로필 업데이트
  */
 export interface UpdateProfileRequest {
-  view_hash: string;
   nickname?: string;
   email?: string;
   description?: string;
@@ -56,9 +102,6 @@ export interface UpdateProfileRequest {
 
 export const updateProfile = async (data: UpdateProfileRequest): Promise<ApiResponse<User>> => {
   const formData = new FormData();
-
-  // 필수 필드
-  formData.append('view_hash', data.view_hash);
 
   // 선택 필드
   if (data.nickname) formData.append('nickname', data.nickname);
@@ -87,4 +130,13 @@ export const updateProfile = async (data: UpdateProfileRequest): Promise<ApiResp
   return fetchPutFormData<ApiResponse<User>>('/users/update', formData);
 };
 
+interface ChildRegistration {
+  child_name: string;
+  child_birth: string; // YYYY-MM-DD 형식
+  child_gender: 'M' | 'F';
+  is_agent: string; // 'Y' | 'N'
+}
 
+export const setRegisterChildren = async (children: ChildRegistration[]): Promise<ApiResponse<null>> => {
+  return fetchPost<ApiResponse<null>>('/users/children/create', children);
+}

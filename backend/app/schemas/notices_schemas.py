@@ -26,3 +26,17 @@ class NoticesResponse(BaseModel):
     is_important: str
     category_text: str
     view_hash: str
+
+class NoticesDetailResponseData(BaseModel):
+    view_hash: str
+    category_id: int
+    category_text: str
+    title: str
+    content: str
+    is_important: str
+    status: str
+    created_at: datetime
+    updated_at: datetime
+    admin_name: str
+    id: Optional[int] = None
+    ip: Optional[str] = None

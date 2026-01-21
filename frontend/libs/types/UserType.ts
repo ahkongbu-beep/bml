@@ -5,13 +5,13 @@ export interface User {
   name: string;
   profile_image: string;
   description?: string;
-  child_birth?: string;
-  child_gender?: 'M' | 'W';
-  child_age_group?: number;
   marketing_agree: boolean;
   push_agree: boolean;
   created_at: string;
   view_hash?: string;
+  feed_count?: number;
+  like_count?: number;
+  meal_count?: number;
 }
 
 export interface UserProfile{

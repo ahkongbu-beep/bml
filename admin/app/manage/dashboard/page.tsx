@@ -6,6 +6,7 @@ import { useDashboard } from "@/hooks/useDashboard";
 
 export default function DashboardPage() {
   const { loading, initStat, fetchInitStat } = useDashboard();
+  const appName = process.env.EXPO_PUBLIC_APP_NAME || "";
 
   useEffect(() => {
     fetchInitStat();
@@ -16,7 +17,7 @@ export default function DashboardPage() {
       {/* 대시보드 헤더 */}
       <div className="mb-8">
         <h2 className="text-3xl font-bold text-white mb-2">대시보드</h2>
-        <p className="text-gray-400">BML 관리자 대시보드에 오신 것을 환영합니다</p>
+        <p className="text-gray-400">{appName} 관리자 대시보드에 오신 것을 환영합니다</p>
       </div>
 
       {/* 통계 카드 */}

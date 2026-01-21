@@ -46,7 +46,8 @@ class Feeds(Base):
             content=params.get("content", ""),
             is_public=params.get("is_public", 'Y'),
             view_count=params.get("view_count", 0),
-            like_count=params.get("like_count", 0)
+            like_count=params.get("like_count", 0),
+            is_share_meal_plan=params.get("is_share_meal_plan", 'N'),
         )
 
         session.add(feed)
@@ -82,6 +83,7 @@ class Feeds(Base):
         from app.models.feeds_tags import FeedsTags
         from app.models.feeds_images import FeedsImages
         from app.models.feeds_likes import FeedsLikes
+        from app.models.users_childs import UsersChilds
         from app.models.users import Users
 
         # 페이징 처리
@@ -107,11 +109,26 @@ class Feeds(Base):
 
         image_subquery = (
             session.query(
-                FeedsImages.feed_id,
+                FeedsImages.img_model_id.label('feed_id'),
                 sql_func.group_concat(FeedsImages.image_url).label('images'),
                 sql_func.group_concat(FeedsImages.id).label('image_ids')
             )
-            .group_by(FeedsImages.feed_id)
+            .group_by(FeedsImages.img_model_id)
+            .subquery()
+        )
+
+        # 대표 자녀 서브쿼리 (user_id별로 하나만 선택)
+        from sqlalchemy import func as sql_func, literal_column
+
+        user_childs_subquery = (
+            session.query(
+                UsersChilds.user_id,
+                sql_func.max(UsersChilds.child_name).label('child_name'),
+                sql_func.max(UsersChilds.child_birth).label('child_birth'),
+                sql_func.max(UsersChilds.child_gender).label('child_gender')
+            )
+            .filter(UsersChilds.is_agent == 'Y')
+            .group_by(UsersChilds.user_id)
             .subquery()
         )
 
@@ -133,12 +150,16 @@ class Feeds(Base):
                 Users.nickname,
                 Users.profile_image,
                 Users.view_hash,
+                user_childs_subquery.c.child_name,
+                user_childs_subquery.c.child_birth,
+                user_childs_subquery.c.child_gender,
                 case(
                     (FeedsLikes.id.isnot(None), True),
                     else_=False
                 ).label("is_liked")
             )
             .join(Users, Feeds.user_id == Users.id)
+            .outerjoin(user_childs_subquery, Feeds.user_id == user_childs_subquery.c.user_id)
             .join(
                 FeedsLikes,
                 (Feeds.id == FeedsLikes.feed_id) &
@@ -152,7 +173,10 @@ class Feeds(Base):
         if params.get("is_public"):
             query = query.filter(Feeds.is_public == params["is_public"])
 
-        if params.get("user_id"):
+        # target_user_id가 있으면 해당 사용자의 피드만 조회
+        if params.get("target_user_id"):
+            query = query.filter(Feeds.user_id == params["target_user_id"])
+        elif params.get("type") != "list" and params.get("user_id"):
             query = query.filter(Feeds.user_id == params["user_id"])
 
         if params.get("title"):
@@ -180,6 +204,7 @@ class QueryResult:
     def getData(self):
         """직렬화된 Pydantic 모델 리스트 반환"""
         from app.schemas.feeds_schemas import FeedsResponse, FeedsUserResponse
+        from app.schemas.users_schemas import UserChildItemSchema
 
         return [
             FeedsResponse(
@@ -196,9 +221,16 @@ class QueryResult:
                 images=[settings.BACKEND_SHOP_URL + image + "?iid=" + image_id for image, image_id in zip(v.images.split(','), v.image_ids.split(','))] if hasattr(v, 'images') and v.images else [],
                 tags=v.tags.split(',') if v.tags else [],
                 user=FeedsUserResponse(
+                    id=v.user_id,
                     nickname=v.nickname,
                     profile_image=v.profile_image,
                     user_hash=v.view_hash
+                ),
+                childs=UserChildItemSchema(
+                    child_name=v.child_name,
+                    child_birth=v.child_birth,
+                    child_gender=v.child_gender,
+                    is_agent='Y'
                 )
 
             )
@@ -225,6 +257,11 @@ class QueryResult:
                     "nickname": v.nickname,
                     "profile_image": v.profile_image,
                     "user_hash": v.view_hash
+                },
+                "childs": {
+                    "child_name": v.child_name,
+                    "child_birth": v.child_birth,
+                    "child_gender": v.child_gender
                 }
             }
             for v in self._results
@@ -234,7 +271,3 @@ class QueryResult:
         """JSON 문자열 반환"""
         import json
         return json.dumps(self.toDict(), ensure_ascii=False, default=str)
-
-    def getRawData(self):
-        """원본 SQLAlchemy 객체 반환"""
-        return self._results

@@ -7,13 +7,15 @@ from app.services import summary_service
 router = APIRouter()
 
 @router.post("/feed/item")
-async def feed_summary(request: SummaryFeedRequest, db: Session = Depends(get_db)):
-    body = request.dict()
-    return await summary_service.feed_summary(db, body)
+async def feed_summary(request: Request, body: SummaryFeedRequest, db: Session = Depends(get_db)):
+    params = body.dict()
+    params['user_hash'] = getattr(request.state, "user_hash", None)
+    return await summary_service.feed_summary(db, params)
 
+""" 프론트용 : AI 요약 검색 """
 @router.get("/search")
 async def search_summary(
-    user_hash: str = Query(..., description="사용자 hash"),
+    request: Request,
     model: str = Query(None, description="model"),
     model_id: int = Query(None, description="model_id"),
     query: str = Query(None, description="사용자 질의 검색어"),
@@ -21,10 +23,11 @@ async def search_summary(
     offset: int = Query(0, description="offset"),
     db: Session = Depends(get_db)
 ):
+    user_hash = getattr(request.state, "user_hash", None)
     return await summary_service.search_summary(db, user_hash, model, model_id, query, limit, offset)
 
 """
-관리자에서 사용할 리스트
+관리자용: AI 요약 리스트 조회
 """
 @router.get("/lists")
 async def list_summaries(

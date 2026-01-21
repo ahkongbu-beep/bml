@@ -3,12 +3,14 @@
 import React from "react"
 
 export default function Footer() {
+  const appName = process.env.EXPO_PUBLIC_APP_NAME || "";
+  const appSubtitle = process.env.EXPO_PUBLIC_APP_SUBTITLE || "";
   return (
     <footer className="bg-gray-900 border-t border-gray-800 mt-auto">
       <div className="px-6 py-4">
         <div className="flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="text-sm text-gray-400">
-            <p>© 2025 BML (Baby Meal List). All rights reserved.</p>
+            <p>© 2025 {appName} ({appSubtitle}). All rights reserved.</p>
           </div>
 
           <div className="flex items-center gap-6 text-sm text-gray-400">

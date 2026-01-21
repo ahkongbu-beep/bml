@@ -8,7 +8,7 @@ def list_categories_codes(db, cc_type: str = None):
     if cc_type:
         params["type"] = cc_type
 
-    categories_codes = CategoriesCodes.getList(db, params).getData()
+    categories_codes = CategoriesCodes.getList(db, params).serialize()
 
     # type별로 그룹화
     grouped_data = {}
@@ -36,7 +36,6 @@ def save_categories_code(db, data):
             updated_category_code = CategoriesCodes.update(db, category_code.id, data)
 
             # SQLAlchemy 객체를 딕셔너리로 변환
-
             response_data = CategoryCodeResponse(
                 id=updated_category_code.id,
                 type=updated_category_code.type,

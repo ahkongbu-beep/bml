@@ -1,4 +1,5 @@
 import React from 'react';
+import styles from './NoticeDetailScreen.styles';
 import {
   View,
   Text,
@@ -10,6 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Layout from '@/components/Layout';
 import Header from '../components/Header';
 import { useNoticeDetail } from '../libs/hooks/useNotices';
+import { LoadingPage } from '../components/Loading';
 
 export default function NoticeDetailScreen({ route, navigation }: any) {
   const { notice } = route.params;
@@ -27,18 +29,7 @@ export default function NoticeDetailScreen({ route, navigation }: any) {
 
   if (isLoading || !noticeDetail) {
     return (
-      <Layout>
-        <View style={styles.container}>
-          <Header
-            title="공지사항"
-            showBack={true}
-            onBackPress={() => navigation.goBack()}
-          />
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#FF9AA2" />
-          </View>
-        </View>
-      </Layout>
+      <LoadingPage title="공지사항을 불러오는 중" />
     );
   }
 
@@ -93,95 +84,3 @@ export default function NoticeDetailScreen({ route, navigation }: any) {
     </Layout>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FFFBF7',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  content: {
-    padding: 20,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerSection: {
-    marginBottom: 20,
-  },
-  badgeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-    gap: 8,
-  },
-  importantBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FF6B6B',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    gap: 4,
-  },
-  importantBadgeText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  categoryBadge: {
-    backgroundColor: '#FFE5E5',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  categoryText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#FF9AA2',
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#333',
-    lineHeight: 30,
-    marginBottom: 16,
-  },
-  metaInfo: {
-    flexDirection: 'row',
-    gap: 16,
-  },
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  metaText: {
-    fontSize: 13,
-    color: '#999',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#FFE5E5',
-    marginBottom: 20,
-  },
-  contentSection: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
-    shadowColor: '#FFB6C1',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  contentText: {
-    fontSize: 16,
-    color: '#4A4A4A',
-    lineHeight: 26,
-  },
-});

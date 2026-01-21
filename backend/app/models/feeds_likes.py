@@ -33,7 +33,8 @@ class FeedsLikes(Base):
     def findByLikeUserId(session, user_id: int, limit=30, offset=0):
         feed_image_subq = (
             session.query(FeedsImages.image_url)
-            .filter(FeedsImages.feed_id == Feeds.id)
+            .filter(FeedsImages.img_model == "Feeds")
+            .filter(FeedsImages.img_model_id == Feeds.id)
             .order_by(FeedsImages.id.asc())
             .limit(1)
             .correlate(Feeds)

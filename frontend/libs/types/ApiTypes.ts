@@ -27,7 +27,6 @@ export interface ApiError {
 export interface FeedListParams {
   page?: number;
   limit?: number;
-  user_hash?: string;
   tag?: string;
   is_public?: 'Y' | 'N';
   type?: string;
@@ -48,7 +47,6 @@ export interface SummaryFeedImageRequest {
 
 // 피드 생성 요청
 export interface CreateFeedRequest {
-  user_hash: string;
   title: string;
   content: string;
   images?: string[];
@@ -94,9 +92,6 @@ export interface RegisterRequest {
   address?: string;
   profile_image?: string;
   description?: string;
-  child_birth?: string; // YYYY-MM-DD
-  child_gender: 'M' | 'W';
-  child_age_group: number;
   meal_group: number[];
   marketing_agree?: number;
   push_agree?: number;

@@ -3,13 +3,17 @@ from app.models.feeds_tags import FeedsTags
 from app.models.feeds_tags_mappers import FeedsTagsMapper
 from app.models.users import Users
 from app.schemas.common_schemas import CommonResponse
-from app.schemas.feeds_schemas import FeedsResponse, FeedsUserResponse
+from app.schemas.feeds_schemas import FeedsResponse, FeedsUserResponse, FeedLikeResponseData
 from app.models.feeds_images import FeedsImages
 from app.models.feeds_tags import FeedsTags
-from app.models.feeds_tags_mappers import FeedsTagsMapper
+from app.models.categories_codes import CategoriesCodes
+from app.models.meals_calendar import MealsCalendars
 from app.models.feeds_likes import FeedsLikes
 from app.models.denies_users import DeniesUsers
 from app.models.feeds_comments import FeedsComments
+import os
+from datetime import datetime
+
 
 def toggle_feed_like(db, feed_id: int, user_hash: str):
 
@@ -56,12 +60,13 @@ def toggle_feed_like(db, feed_id: int, user_hash: str):
         print(f"⚠️ 좋아요 처리 중 오류: {str(e)}")
         return CommonResponse(success=False, error=f"좋아요 처리 중 오류가 발생했습니다: {str(e)}", data=None)
 
-    return CommonResponse(success=True, message="좋아요 상태가 성공적으로 변경되었습니다.", data={
-        "feed_id": feed_id,
-        "like_count": like_count,
-        "liked": is_liked
-    })
+    data = FeedLikeResponseData(
+        feed_id=feed_id,
+        like_count=like_count,
+        is_liked=is_liked
+    )
 
+    return CommonResponse(success=True, message="좋아요 상태가 성공적으로 변경되었습니다.", data=data)
 
 # 피드 상세보기
 def get_feed_detail(db, feed_id: int):
@@ -82,7 +87,7 @@ def get_feed_detail(db, feed_id: int):
     tags = FeedsTagsMapper.findTagsByFeedAndTag(db, "Feed", feed.id)
 
     """ 이미지 목록 조회 """
-    image_list = FeedsImages.findImagesByFeedId(db, feed_id)
+    image_list = FeedsImages.findImagesByModelId(db, "Feeds", feed_id)
 
     comment_list = FeedsComments.getList(db, {"feed_id": feed.id}, extra={}).getData()
     build_comment_tree = FeedsComments.build_comment_tree(comment_list)
@@ -90,7 +95,6 @@ def get_feed_detail(db, feed_id: int):
     comment = []
     for item in build_comment_tree:
         comment.append(item)
-
 
     feed_data = FeedsResponse(
         id=feed.id,
@@ -106,20 +110,119 @@ def get_feed_detail(db, feed_id: int):
         images=image_list,
         user_hash=user_hash,
         user=FeedsUserResponse(
+            id=user.id,
             nickname=user.nickname,
-            profile_image=user.profile_image
+            profile_image=user.profile_image,
+            user_hash=user.view_hash
         ),
         comments=comment
     )
 
     return CommonResponse(success=True, message="", data=feed_data)
 
+def copy_feed(db, user_hash: str, params):
+
+    user = Users.findByViewHash(db, user_hash)
+    if not user:
+        return CommonResponse(success=False, error="존재하지 않는 사용자입니다.", data=None)
+
+    target_feed = Feeds.findById(db, params.target_feed_id)
+    if not target_feed:
+        return CommonResponse(success=False, error="존재하지 않는 피드입니다.", data=None)
+
+    category_code = CategoriesCodes.findById(db, params.category_code)
+    if not category_code:
+        return CommonResponse(success=False, error="존재하지 않는 카테고리 코드입니다.", data=None)
+
+    exist_calendar = MealsCalendars.findByUserIdAndDate(db, user.id, params.input_date)
+    if exist_calendar:
+        return CommonResponse(success=False, error="해당 날짜에 이미 식단이 존재합니다.", data=None)
+
+    try:
+        new_calcendar = MealsCalendars.create(db, {
+            "user_id": user.id,
+            "title": params.title,
+            "refer_feed_id": target_feed.id,
+            "month": params.input_date[:7],
+            "input_date": params.input_date,
+            "contents": target_feed.content,
+            "category_code": category_code.id
+        })
+
+        if not new_calcendar:
+            raise Exception("식단 복사에 실패했습니다.")
+
+        """
+        이미지 복사
+        - 기존 이미지의 파일을 물리적으로 복사하여 새로운 식단에 연결
+        """
+        import shutil
+        from app.libs.hash_utils import generate_sha256_hash
+
+        target_image = db.query(FeedsImages).filter(
+            FeedsImages.img_model == "Feeds",
+            FeedsImages.img_model_id == target_feed.id,
+            FeedsImages.sort_order == 0
+        ).first()
+
+        # 타인의 이미지를 복사 (첫 번째 이미지만)
+        if target_image:
+            try:
+                # 원본 파일 경로
+                original_file_path = target_image.image_url.lstrip('/')
+
+                if not os.path.exists(original_file_path):
+                    print(f"⚠️ 원본 이미지 파일이 존재하지 않습니다: {original_file_path}")
+                else:
+                    # 확장자 추출
+                    ext = original_file_path.split('.')[-1]
+
+                    # 새로운 파일명 생성 (해시 + _copy_{calendar_id})
+                    filename_hash = generate_sha256_hash(str(new_calcendar.id), str(datetime.utcnow().timestamp()))
+                    filename = f"{filename_hash}_copy_{new_calcendar.id}.{ext}"
+
+                    # 새로운 파일 경로 생성
+                    destination_path = os.path.join(
+                        "attaches",
+                        "Meals",
+                        str(new_calcendar.id)[-2:] if len(str(new_calcendar.id)) >= 2 else "0" + str(new_calcendar.id),
+                        str(new_calcendar.id)
+                    )
+                    os.makedirs(destination_path, exist_ok=True)
+
+                    new_file_path = os.path.join(destination_path, filename)
+
+                    # 파일 복사
+                    shutil.copy2(original_file_path, new_file_path)
+
+                    # URL 경로 생성
+                    file_url = f"/attaches/Meals/{str(new_calcendar.id)[-2:] if len(str(new_calcendar.id)) >= 2 else '0' + str(new_calcendar.id)}/{str(new_calcendar.id)}/{filename}"
+
+                    # DB에 이미지 정보 저장
+                    image_params = {
+                        "img_model": "Meals",
+                        "img_model_id": new_calcendar.id,
+                        "image_url": file_url,
+                        "sort_order": 0,
+                        "width": target_image.width,
+                        "height": target_image.height,
+                        "is_active": "Y"
+                    }
+
+                    FeedsImages.create(db, image_params)
+
+            except Exception as e:
+                print(f"⚠️ 이미지 복사 중 오류: {str(e)}")
+
+        return CommonResponse(success=True, message="피드가 성공적으로 복사되었습니다.", data=None)
+    except Exception as e:
+        return CommonResponse(success=False, error=f"피드 복사 중 오류가 발생했습니다: {str(e)}", data=None)
+
+
 # 피드 목록 조회
-def list_feeds(db, type:str, limit: int, offset: int, user_hash: str = None, title: str = None, nickname: str = None, sort_by: str = "created_at", start_date: str = None, end_date: str = None):
+def list_feeds(db, type:str, limit: int, offset: int, user_hash: str = None, title: str = None, nickname: str = None, sort_by: str = "created_at", start_date: str = None, end_date: str = None, target_user_hash: str = None):
 
     params = {}
-    user_id = None
-
     if title is not None:
         params["title"] = title
 
@@ -130,18 +233,26 @@ def list_feeds(db, type:str, limit: int, offset: int, user_hash: str = None, tit
         params["start_date"] = start_date
         params["end_date"] = end_date
 
+    # target_user_hash가 있으면 해당 사용자의 피드만 조회
+    if target_user_hash is not None:
+        target_user = Users.findByViewHash(db, target_user_hash)
+        if not target_user:
+            return CommonResponse(success=False, error="존재하지 않는 사용자입니다.", data=None)
+        params["target_user_id"] = target_user.id
+
     if user_hash is not None:
         user = Users.findByViewHash(db, user_hash)
 
         if not user:
             return CommonResponse(success=False, error="존재하지 않는 사용자입니다.", data=None)
 
-        user_id = user.id
         params["my_user_id"] = user.id  # is_liked 조회를 위해 항상 설정
+        params['type'] = type
 
         if type == "list":
             deny_users = DeniesUsers.findByUserIds(db, user.id)
             deny_users_ids = [du.deny_user_id for du in deny_users]
+
             params["deny_user_ids"] = deny_users_ids
         else:
             params["user_id"] = user.id
@@ -167,7 +278,11 @@ def delete_feed(db, feed_id, user_hash):
 
     # 피드 삭제 및 첨부된 이미지까지 제거
     try:
-        FeedsImages.deleteByFeedId(db, feed.id)
+        result = FeedsImages.deleteByFeedId(db, "Feeds", feed.id)
+
+        if not result["success"]:
+            raise Exception(result["error"] or "피드 이미지 삭제에 실패했습니다.")
+
         return CommonResponse(success=True, message="피드가 성공적으로 삭제되었습니다.", data=None)
     except Exception as e:
         return CommonResponse(success=False, error=f"피드 삭제 중 오류가 발생했습니다: {str(e)}", data=None)
@@ -194,10 +309,6 @@ feed 생성
  - ex) #tag1#tag2#tag3
 """
 async def create_feed(db, user_hash: str, title: str, content: str, is_public: str, tags: str, is_share_meal_plan: str, category_id: int, files):
-    print(f"🔍 create_feed 파라미터:")
-    print(f"  - is_share_meal_plan: {is_share_meal_plan} (type: {type(is_share_meal_plan)})")
-    print(f"  - category_id: {category_id} (type: {type(category_id)})")
-
     user = Users.findByViewHash(db, user_hash)
 
     if not user:
@@ -213,7 +324,6 @@ async def create_feed(db, user_hash: str, title: str, content: str, is_public: s
 
                 feed_tag = FeedsTags.findOrCreateTag(db, tag)
                 feed_tag_ids.append(feed_tag.id)
-                # FeedsTagsMapper 에 feed_id, tag_id 등록은 feed 생성 후 처리
 
         """ feeds 생성 """
         params = {
@@ -254,25 +364,17 @@ async def create_feed(db, user_hash: str, title: str, content: str, is_public: s
             for idx, file in enumerate(files):
                 if file and file.filename:
                     ext = file.filename.split('.')[-1]
-                    feed_image = await FeedsImages.upload(db, new_feed.id, file, ext, path="feeds", sort_order=idx)
+                    await FeedsImages.upload(db, new_feed.id, file, ext, path="feeds", sort_order=idx)
 
-                    if not feed_image:
-                        print(f"⚠️ 피드 이미지 {idx + 1} 업로드 실패")
-                    else:
-                        print(f"✅ 피드 이미지 {idx + 1} 업로드 성공: {feed_image.image_url}")
     except Exception as e:
         print(f"⚠️ 이미지 업로드 에러: {str(e)}")
 
     # 업로드된 이미지 목록 조회
-    image_list = FeedsImages.findImagesByFeedId(db, new_feed.id)
-
+    image_list = FeedsImages.findImagesByModelId(db, "Feeds", new_feed.id)
     # 태그 목록 조회
     tag_list = FeedsTagsMapper.findTagsByFeedAndTag(db, "Feed", new_feed.id)
-
     # 피드 내용을 식단 리스트에 공유
-    print(f"🔍 식단 공유 체크: is_share_meal_plan = '{is_share_meal_plan}'")
     if is_share_meal_plan == 'Y':
-        print("✅ 식단 공유 조건 충족 - 식단 생성 시작")
         # 현재 날짜 Y-M-D
         from datetime import datetime
         from app.services.meals_service import create_meal
@@ -280,12 +382,12 @@ async def create_feed(db, user_hash: str, title: str, content: str, is_public: s
         input_date = datetime.now().strftime("%Y-%m-%d")
 
         meal_response = await create_meal(db, {
-            "user_hash": user_hash,
+            "tags": tags,
             "title": title,
             "contents": content,
             "category_id": category_id,
-            "tags": tags,
-            "input_date": input_date
+            "input_date": input_date,
+            "user_hash": user_hash
         })
 
         if not meal_response.success:
@@ -305,8 +407,10 @@ async def create_feed(db, user_hash: str, title: str, content: str, is_public: s
         tags=tag_list,
         images=image_list,
         user=FeedsUserResponse(
+            id=user.id,
             nickname=user.nickname,
-            profile_image=user.profile_image
+            profile_image=user.profile_image,
+            user_hash=user.view_hash
         )
     )
 
@@ -344,39 +448,36 @@ async def update_feed(db, feed_id: int, title: str, content: str, is_public: str
             for tag in tag_list:
                 feed_tag = FeedsTags.findOrCreateTag(db, tag)
 
-                mapper_params = {
+                feed_tag_mapper = FeedsTagsMapper.create(db, {
                     "feed_id": feed.id,
                     "tag_id": feed_tag.id
-                }
-
-                feed_tag_mapper = FeedsTagsMapper.create(db, mapper_params)
+                })
 
                 if not feed_tag_mapper:
                     raise Exception("피드 태그 매핑 생성에 실패했습니다.")
 
-        db.commit()
 
     except Exception as e:
         db.rollback()
         return CommonResponse(success=False, error=f"피드 수정 중 오류가 발생했습니다: {str(e)}", data=None)
 
-    # 이미지 업데이트는 트랜잭션 외부에서 처리
+    # 이미지 업데이트 처리
     try:
         if files and len(files) > 0:
             # 기존 이미지 삭제
-            FeedsImages.deleteByFeedId(db, feed.id)
+            FeedsImages.deleteByFeedId(db, "Feeds", feed.id)
 
             # 새로운 이미지 업로드
             for idx, file in enumerate(files):
                 if file and file.filename:
                     ext = file.filename.split('.')[-1]
-                    feed_image = await FeedsImages.upload(db, feed.id, file, ext, path="feeds", sort_order=idx)
-                    if not feed_image:
-                        print(f"⚠️ 피드 이미지 {idx + 1} 업로드 실패")
-                    else:
-                        print(f"✅ 피드 이미지 {idx + 1} 업로드 성공: {feed_image.image_url}")
+                    await FeedsImages.upload(db, feed.id, file, ext, path="feeds", sort_order=idx)
     except Exception as e:
-        print(f"⚠️ 이미지 업로드 에러: {str(e)}")
+        db.rollback()
+        return CommonResponse(success=False, error=f"피드 이미지 수정 중 오류가 발생했습니다: {str(e)}", data=None)
+
+    # 모든 처리 성공 시 커밋
+    db.commit()
 
     return CommonResponse(success=True, message="피드가 성공적으로 수정되었습니다.", data=None)
 
@@ -455,14 +556,21 @@ def delete_feed_comment(db, comment_hash: str, user_hash: str):
         return CommonResponse(success=False, error="댓글 삭제 권한이 없습니다.", data=None)
 
     try:
-        bool_result = FeedsComments.deleteById(db, comment.id)
 
-        if not bool_result:
+        if not FeedsComments.deleteById(db, comment.id):
             raise Exception("댓글 삭제에 실패했습니다.")
 
-        return CommonResponse(success=True, message="댓글이 성공적으로 삭제되었습니다.", data=None)
+        return CommonResponse(
+            success=True,
+            message="댓글이 성공적으로 삭제되었습니다.",
+            data=None
+        )
     except Exception as e:
-        return CommonResponse(success=False, error=f"댓글 삭제 중 오류가 발생했습니다: {str(e)}", data=None)
+        return CommonResponse(
+            success=False,
+            error=f"댓글 삭제 중 오류가 발생했습니다: {str(e)}",
+            data=None
+        )
 
 def list_feed_likes(db, user_hash: str, limit: int, offset: int):
     user = Users.findByViewHash(db, user_hash)
@@ -482,4 +590,8 @@ def list_feed_likes(db, user_hash: str, limit: int, offset: int):
         }
         feed_like_list.append(data)
 
-    return CommonResponse(success=True, message="", data=feed_like_list)
+    return CommonResponse(
+        success=True,
+        message="",
+        data=feed_like_list
+    )

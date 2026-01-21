@@ -1,7 +1,7 @@
 // 회원가입페이지
 // frontend/screens/RegistScreen.tsx
-
 import React, { useState } from 'react';
+import styles from './RegistScreen.styles';
 import {
   View,
   Text,
@@ -22,32 +22,28 @@ import { useRegister } from '../libs/hooks/useUsers';
 import { useAgeGroups, useCategoryCodes } from '../libs/hooks/useCategories';
 import { RegisterRequest } from '../libs/types/ApiTypes';
 import { useAuth } from '../libs/contexts/AuthContext';
-import { saveToken, saveUserInfo } from '../libs/utils/storage';
+import { saveToken, saveUserInfo, setNeedChildRegistration } from '../libs/utils/storage';
 
 export default function RegistScreen({ navigation }: any) {
   // Form State
   const [snsLoginType, setSnsLoginType] = useState<'EMAIL'>('EMAIL');
-  const [name, setName] = useState('');
-  const [nickname, setNickname] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [phone, setPhone] = useState('');
+  const [name, setName] = useState('test100');
+  const [nickname, setNickname] = useState('test100');
+  const [email, setEmail] = useState('test100@naver.com');
+  const [password, setPassword] = useState('test100');
+  const [passwordConfirm, setPasswordConfirm] = useState('test100');
+  const [phone, setPhone] = useState('01090909100');
 
-  const [passwordConfirm, setPasswordConfirm] = useState('');
-  const [address, setAddress] = useState('');
+  const [address, setAddress] = useState('경기');
   const [profileImage, setProfileImage] = useState<string | undefined>();
-  const [description, setDescription] = useState('');
-  const [childBirth, setChildBirth] = useState(''); // YYYY-MM-DD
-  const [childGender, setChildGender] = useState<'M' | 'W'>('M');
+  const [description, setDescription] = useState('아아아');
   const [dietGroup, setDietGroup] = useState<number[]>([]);
-  const [childAgeGroup, setChildAgeGroup] = useState<number>(0);
   const [marketingAgree, setMarketingAgree] = useState<number>(0);
   const [pushAgree, setPushAgree] = useState<number>(0);
   const [showPassword, setShowPassword] = useState(false);
   const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
 
   // Hooks
-  const { data: ageGroups, isLoading: ageGroupsLoading } = useAgeGroups();
   const { data: mealGroups, isLoading: mealGroupsLoading } = useCategoryCodes("MEALS_GROUP");
 
   const registerMutation = useRegister();
@@ -74,23 +70,6 @@ export default function RegistScreen({ navigation }: any) {
     }
   };
 
-  // 생년월일 입력 포맷팅 (YYYY-MM-DD)
-  const handleBirthChange = (text: string) => {
-    // 숫자만 추출
-    const numbers = text.replace(/[^0-9]/g, '');
-
-    let formatted = '';
-    if (numbers.length <= 4) {
-      formatted = numbers;
-    } else if (numbers.length <= 6) {
-      formatted = `${numbers.slice(0, 4)}-${numbers.slice(4)}`;
-    } else {
-      formatted = `${numbers.slice(0, 4)}-${numbers.slice(4, 6)}-${numbers.slice(6, 8)}`;
-    }
-
-    setChildBirth(formatted);
-  };
-
   // 전화번호 입력 포맷팅
   const handlePhoneChange = (text: string) => {
     const numbers = text.replace(/[^0-9]/g, '');
@@ -106,6 +85,7 @@ export default function RegistScreen({ navigation }: any) {
 
     setPhone(formatted);
   };
+
   // 선호 식단 toggle
   const toggleAgeGroup = (id) => {
     setDietGroup((prev) => {
@@ -126,28 +106,29 @@ export default function RegistScreen({ navigation }: any) {
       Alert.alert('알림', '이름을 입력해주세요.');
       return;
     }
+
     if (!nickname.trim()) {
       Alert.alert('알림', '닉네임을 입력해주세요.');
       return;
     }
+
     if (!email.trim()) {
       Alert.alert('알림', '이메일을 입력해주세요.');
       return;
     }
+
     if (!password.trim()) {
       Alert.alert('알림', '비밀번호를 입력해주세요.');
       return;
     }
+
     if (password !== passwordConfirm) {
       Alert.alert('알림', '비밀번호가 일치하지 않습니다.');
       return;
     }
+
     if (!phone.trim()) {
       Alert.alert('알림', '전화번호를 입력해주세요.');
-      return;
-    }
-    if (childAgeGroup === 0) {
-      Alert.alert('알림', '자녀 연령대를 선택해주세요.');
       return;
     }
 
@@ -166,23 +147,26 @@ export default function RegistScreen({ navigation }: any) {
       address: address.trim(),
       profile_image: profileImage,
       description: description.trim(),
-      child_birth: childBirth || undefined,
-      child_gender: childGender,
       meal_group: dietGroup,
-      child_age_group: childAgeGroup,
       marketing_agree: marketingAgree,
       push_agree: pushAgree,
     };
 
     registerMutation.mutate(registerData, {
       onSuccess: async (response) => {
+        console.log('Register Response:', response.data);
         if (response.success) {
           // 회원가입 성공 후 자동으로 로그인
           try {
+            const needsChildRegistration = response.data?.is_child_registered === false;
+
+            // 자녀 등록 필요 여부를 저장
+            await setNeedChildRegistration(needsChildRegistration);
+
             await login({ email, password });
-            Alert.alert('환영합니다!', '회원가입이 완료되었습니다.');
+
+            // 로그인 성공하면 App.tsx에서 자동으로 RegistChild로 이동
           } catch (error) {
-            console.error('Auto-login error:', error);
             Alert.alert('회원가입 완료', '회원가입이 완료되었습니다. 로그인 페이지로 이동합니다.', [
               {
                 text: '확인',
@@ -193,11 +177,9 @@ export default function RegistScreen({ navigation }: any) {
         }
       },
       onError: (error: any) => {
-        console.error('Registration error:', error);
-        console.error('Error response:', error?.response?.data);
         Alert.alert(
           '회원가입 실패',
-          error?.response?.data?.error || error?.response?.data?.message || '회원가입에 실패했습니다.'
+          error?.response?.data?.error || '회원가입에 실패했습니다.'
         );
       },
     });
@@ -360,103 +342,6 @@ export default function RegistScreen({ navigation }: any) {
             </View>
           </View>
 
-          {/* 자녀 정보 */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>자녀 정보</Text>
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>자녀 생년월일</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="YYYY-MM-DD"
-                value={childBirth}
-                onChangeText={handleBirthChange}
-                keyboardType="number-pad"
-                maxLength={10}
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>
-                자녀 성별 <Text style={styles.required}>*</Text>
-              </Text>
-              <View style={styles.genderContainer}>
-                <TouchableOpacity
-                  style={[
-                    styles.genderButton,
-                    childGender === 'M' && styles.genderButtonActive,
-                  ]}
-                  onPress={() => setChildGender('M')}
-                >
-                  <Ionicons
-                    name="male"
-                    size={20}
-                    color={childGender === 'M' ? '#FFFFFF' : '#4A4A4A'}
-                  />
-                  <Text
-                    style={[
-                      styles.genderButtonText,
-                      childGender === 'M' && styles.genderButtonTextActive,
-                    ]}
-                  >
-                    남자아이
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.genderButton,
-                    childGender === 'W' && styles.genderButtonActive,
-                  ]}
-                  onPress={() => setChildGender('W')}
-                >
-                  <Ionicons
-                    name="female"
-                    size={20}
-                    color={childGender === 'W' ? '#FFFFFF' : '#4A4A4A'}
-                  />
-                  <Text
-                    style={[
-                      styles.genderButtonText,
-                      childGender === 'W' && styles.genderButtonTextActive,
-                    ]}
-                  >
-                    여자아이
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>
-                자녀 연령대 <Text style={styles.required}>*</Text>
-              </Text>
-              {ageGroupsLoading ? (
-                <ActivityIndicator color="#FF9AA2" />
-              ) : (
-                <View style={styles.ageGroupContainer}>
-                  {ageGroups?.map((group) => (
-                    <TouchableOpacity
-                      key={group.id}
-                      style={[
-                        styles.ageGroupButton,
-                        childAgeGroup === group.id && styles.ageGroupButtonActive,
-                      ]}
-                      onPress={() => setChildAgeGroup(group.id)}
-                    >
-                      <Text
-                        style={[
-                          styles.ageGroupButtonText,
-                          childAgeGroup === group.id && styles.ageGroupButtonTextActive,
-                        ]}
-                      >
-                        {group.value}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
-            </View>
-          </View>
-
           {/* 선호하는 식습관 */}
           <View style={styles.section}>
               <Text style={styles.label}>
@@ -542,183 +427,3 @@ export default function RegistScreen({ navigation }: any) {
     </Layout>
   );
 }
-
-const styles = StyleSheet.create({
-  scrollView: {
-    flex: 1,
-    backgroundColor: '#FFFBF7',
-  },
-  container: {
-    padding: 20,
-  },
-  imageSection: {
-    alignItems: 'center',
-    marginBottom: 32,
-  },
-  imageContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    overflow: 'hidden',
-  },
-  profileImage: {
-    width: '100%',
-    height: '100%',
-  },
-  imagePlaceholder: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#FFE5E5',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  imagePlaceholderText: {
-    marginTop: 8,
-    fontSize: 14,
-    color: '#4A4A4A',
-    fontWeight: '600',
-  },
-  imageOptionalText: {
-    fontSize: 12,
-    color: '#B0B0B0',
-    marginTop: 2,
-  },
-  section: {
-    marginBottom: 32,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#4A4A4A',
-    marginBottom: 16,
-  },
-  inputGroup: {
-    marginBottom: 20,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#4A4A4A',
-    marginBottom: 8,
-  },
-  required: {
-    color: '#FF6B6B',
-  },
-  input: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#FFE5E5',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
-    color: '#4A4A4A',
-  },
-  textArea: {
-    height: 100,
-    paddingTop: 14,
-  },
-  passwordContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#FFE5E5',
-    paddingHorizontal: 16,
-  },
-  passwordInput: {
-    flex: 1,
-    paddingVertical: 14,
-    fontSize: 16,
-    color: '#4A4A4A',
-  },
-  eyeIcon: {
-    padding: 4,
-  },
-  genderContainer: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  genderButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#FFE5E5',
-    paddingVertical: 14,
-    gap: 8,
-  },
-  genderButtonActive: {
-    backgroundColor: '#FF9AA2',
-    borderColor: '#FF9AA2',
-  },
-  genderButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#4A4A4A',
-  },
-  genderButtonTextActive: {
-    color: '#FFFFFF',
-  },
-  ageGroupContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  ageGroupButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#FFE5E5',
-  },
-  ageGroupButtonActive: {
-    backgroundColor: '#FF9AA2',
-    borderColor: '#FF9AA2',
-  },
-  ageGroupButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#4A4A4A',
-  },
-  ageGroupButtonTextActive: {
-    color: '#FFFFFF',
-  },
-  checkboxRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-    gap: 10,
-  },
-  checkboxText: {
-    fontSize: 14,
-    color: '#4A4A4A',
-  },
-  registerButton: {
-    backgroundColor: '#FF9AA2',
-    borderRadius: 12,
-    height: 56,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 8,
-    marginBottom: 32,
-    shadowColor: '#FF9AA2',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  registerButtonDisabled: {
-    opacity: 0.6,
-  },
-  registerButtonText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '700',
-  },
-});

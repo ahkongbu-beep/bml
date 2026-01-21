@@ -11,12 +11,13 @@ from app.models.meals_calendar import MealsCalendars
 from app.models.meals_mappers import MealsMappers
 from app.models.categories_codes import CategoriesCodes
 from app.models.denies_users import DeniesUsers
+from app.models.users_childs import UsersChilds
+
 from app.schemas.users_schemas import UserResponseSchema
 from app.schemas.common_schemas import CommonResponse
 from app.libs.password_utils import hash_password
 from app.core.config import settings
 from app.models.feeds_comments import FeedsComments
-from app.schemas.feeds_schemas import FeedsCommentResponse
 
 """ 비밀번호 찾기 """
 async def find_password(db, data) -> CommonResponse:
@@ -126,9 +127,11 @@ async def create_user(db, user_data) -> CommonResponse:
 
     # meal_group은 relationship이므로 Users 생성 시 제외
     user_create_data = {k: v for k, v in user_data.items() if k not in ['meal_group', 'file']}
+
+    # 1) 계정등록
     new_user = Users.create(db, user_create_data, is_commit=False)
 
-    """ 이미지 등록 """
+    # 2) 이미지 등록
     if not new_user :
         return CommonResponse(success=False, error="회원 생성에 실패했습니다.", data=None)
 
@@ -140,6 +143,7 @@ async def create_user(db, user_data) -> CommonResponse:
         success, result, original_filename = await save_upload_file(user_data["file"], save_dir)
 
         if not success:
+            db.rollback()
             return CommonResponse(success=False, error=result, data=None)
 
         # URL로 변환하여 사용자 프로필 이미지로 설정
@@ -148,7 +152,7 @@ async def create_user(db, user_data) -> CommonResponse:
     else:
         new_user.profile_image = None
 
-    """ 회원 식단 선호도 """
+    # 3) 회원 식단 선호도 등록
     if user_data.get("meal_group"):
         import json
 
@@ -178,9 +182,19 @@ async def create_user(db, user_data) -> CommonResponse:
     db.commit()
     db.refresh(new_user)
 
-    # SQLAlchemy 모델을 Pydantic 모델로 변환
+    # 자식 정보 등록 여부
+    user_childs = UsersChilds.findByUserId(db, new_user.id)
+
+    is_child_registered = False
+    if user_childs:
+        is_child_registered = True
+
+    # SQLAlchemy 모델을 Pydantic 모델로 변환하고 dict로 변환
     user_response = UserResponseSchema.model_validate(new_user)
-    return CommonResponse(success=True, message="회원이 성공적으로 생성되었습니다.", data=user_response)
+    user_response_dict = user_response.model_dump()
+    user_response_dict["is_child_registered"] = is_child_registered
+
+    return CommonResponse(success=True, message="회원이 성공적으로 생성되었습니다.", data=user_response_dict)
 
 # 회원 정보 수정
 async def update_user(db, data):
@@ -199,10 +213,9 @@ async def update_user(db, data):
         if data.get("file"):
             from app.libs.file_utils import save_upload_file, delete_file, get_file_url
             import os
-
             # 기존 프로필 이미지 삭제
             if user.profile_image:
-                old_file_path = user.profile_image.replace('http://172.30.1.3:8000/', '')
+                old_file_path = user.profile_image.replace(settings.FRONTEND_URL, '')
                 if os.path.exists(old_file_path):
                     delete_file(old_file_path)
 
@@ -262,7 +275,7 @@ async def update_user(db, data):
         return CommonResponse(success=False, error=f"회원 정보 수정 중 오류가 발생했습니다: {str(e)}", data=None)
 
     # 식단 선호도 조회하여 응답에 포함
-    meals_mapper = MealsMappers.getList(db, updated_user.id).getData()
+    meals_mapper = MealsMappers.getList(db, updated_user.id).serialize()
     meal_group_ids = [mapper.category_id for mapper in meals_mapper]
 
     user_response = UserResponseSchema.model_validate(updated_user)
@@ -270,6 +283,34 @@ async def update_user(db, data):
     user_response_dict["meal_group"] = meal_group_ids
 
     return CommonResponse(success=True, message=f"회원 정보가 성공적으로 수정되었습니다.", data=user_response_dict)
+
+# 자녀등록
+async def create_user_child(db, user_hash, children):
+    user = Users.findByViewHash(db, user_hash)
+
+    if not user:
+        return CommonResponse(success=False, error="회원 정보를 찾을 수 없습니다.", data=None)
+
+    try:
+        if not children:
+            return CommonResponse(success=False, error="등록할 자녀 정보가 없습니다.", data=None)
+
+        for child in children:
+            UsersChilds.create(
+                db,
+                user_id=user.id,
+                child_name=child.child_name,
+                child_birth=child.child_birth,
+                child_gender=child.child_gender,
+                is_agent=child.is_agent if child.is_agent else "N",
+                is_commit=False
+            )
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        return CommonResponse(success=False, error=f"자녀 정보 등록 중 오류가 발생했습니다: {str(e)}", data=None)
+
+    return CommonResponse(success=True, message="자녀 정보가 성공적으로 등록되었습니다.", data=None)
 
 # 회원차단
 async def deny_usre_profile(db, user_hash, deny_user_hash):
@@ -290,10 +331,13 @@ async def deny_usre_profile(db, user_hash, deny_user_hash):
         if exist_deny_user:
             DeniesUsers.deleteByUserIdAndDenyUserId(db, user.id, deny_user.id)
         else:
-            DeniesUsers.create(db, {
+            result = DeniesUsers.create(db, {
                 "user_id": user.id,
                 "deny_user_id": deny_user.id
             })
+
+            if not result:
+                raise Exception("회원 차단에 실패했습니다.")
 
         return CommonResponse(success=True, message="회원 차단 상태가 성공적으로 변경되었습니다.", data=None)
 
@@ -306,26 +350,54 @@ def get_deny_users_list(db, user_hash):
     if not user:
         return CommonResponse(success=False, error="회원 정보를 찾을 수 없습니다.", data=None)
 
-    deny_users = DeniesUsers.findDenyUsersByUserId(db, user.id).getData()
-
+    deny_users = DeniesUsers.findDenyUsersByUserId(db, user.id).serialize()
     return CommonResponse(success=True, message="", data=deny_users)
 
 # 회원 프로필 조회
-def get_user_profile(db, user_id):
+def get_user_profile(db, user_hash, user_id):
 
-    user = db.query(Users).filter(Users.sns_id == user_id).first()
+    if user_id:
+        user = Users.findById(db, user_id)
+    else:
+        user = Users.findByViewHash(db, user_hash)
+
     if not user:
         return CommonResponse(success=False, error="회원 정보를 찾을 수 없습니다.", data=None)
 
+    # 통계 정보 조회
+    feed_count = db.query(Feeds).filter(Feeds.user_id == user.id).count()
+    like_count = db.query(FeedsLikes).filter(FeedsLikes.user_id == user.id).count()
+    meal_count = db.query(MealsCalendars).filter(MealsCalendars.user_id == user.id).count()
+
     # 식단 선호도 조회
-    meals_mapper = MealsMappers.getList(db, user.id).getData()
+    meals_mapper = MealsMappers.getList(db, user.id).serialize()
     meal_group_ids = [mapper.category_id for mapper in meals_mapper]
 
     user_response = UserResponseSchema.model_validate(user)
     user_response_dict = user_response.model_dump()
     user_response_dict["meal_group"] = meal_group_ids
-
+    user_response_dict["feed_count"] = feed_count
+    user_response_dict["like_count"] = like_count
+    user_response_dict["meal_count"] = meal_count
     return CommonResponse(success=True, message="", data=user_response_dict)
+
+
+""" 회원 검증 email or phone """
+def confirm_user(db, search_type, user_email: str = None, user_phone: str = None) -> CommonResponse:
+    query = db.query(Users)
+
+    if search_type == 'email':
+        query = query.filter(Users.email == user_email)
+    if search_type == 'phone':
+        phone_cleaned = user_phone.replace("-", "")
+        query = query.filter(Users.phone == phone_cleaned)
+
+    user = query.first()
+
+    if not user:
+        return CommonResponse(success=False, error="해당 정보로 가입된 계정이 없습니다.", data=None)
+
+    return CommonResponse(success=True, message="회원 정보를 일치합니다.", data={"user_hash": user.view_hash})
 
 """ 비밀번호 초기화 """
 def reset_password(db, data):
@@ -350,7 +422,14 @@ def reset_password(db, data):
         db.commit()
         db.refresh(user)
 
-        # 실제 서비스에서는 이메일로 임시 비밀번호 전송 로직 필요
+        # TODO : 이메일 또는 휴대폰으로 임시 비밀번호를 전송
+        if data.get("type") == "email":
+            # 이메일로 임시 비밀번호 전송 로직 (생략)
+            pass
+        elif data.get("type") == "phone":
+            # 휴대폰으로 임시 비밀번호 전송 로직 (생략)
+            pass
+
         return CommonResponse(success=True, message="비밀번호가 성공적으로 초기화되었습니다.", data={"temp_password": temp_password})
 
     except Exception as e:
@@ -376,7 +455,9 @@ def user_login(db, data):
     from app.libs.jwt_utils import create_access_token
     token_data = {
         "user_id": user.id,
+        "user_hash": user.view_hash,
         "email": user.email,
+        "nickname": user.nickname,
         "role": user.role.value if hasattr(user.role, 'value') else user.role
     }
     access_token = create_access_token(token_data)
@@ -385,11 +466,8 @@ def user_login(db, data):
     Users.update_last_login(db, user.id)
 
     # 식단 선호도 조회
-    meals_mapper = MealsMappers.getList(db, user.id).getData()
+    meals_mapper = MealsMappers.getList(db, user.id).serialize()
     meal_group_ids = [mapper.category_id for mapper in meals_mapper]
-
-    print(f"🔐🔐🔐로그인 성공: user_id={user.id}, email={user.email}")
-    print(f"meal_group_ids: {meal_group_ids}")
 
     user_response = UserResponseSchema.model_validate(user)
     user_response_dict = user_response.model_dump()
@@ -421,7 +499,6 @@ async def user_logout(db, user_hash):
 
     # JWT 토큰은 프론트엔드에서 삭제하므로 서버에서는 추가 작업 불필요
     return CommonResponse(success=True, message="로그아웃에 성공했습니다.", data=None)
-
 
 # [관리자] 회원 목록 조회 (검색 포함)
 def list_users(db, sns_id: str = None, name: str = None, nickname: str = None, page: int = 1, limit: int = 20):
@@ -462,6 +539,19 @@ def list_users(db, sns_id: str = None, name: str = None, nickname: str = None, p
 
     except Exception as e:
         return CommonResponse(success=False, error=f"회원 목록 조회 중 오류가 발생했습니다: {str(e)}", data=None)
+
+""" 사용자 이메일 계정 찾기 user_name and user_phone """
+def confirm_email(db, user_name: str, user_phone: str) -> CommonResponse:
+    user = db.query(Users).filter(
+        Users.name == user_name,
+        Users.phone == user_phone.replace("-", "")
+    ).first()
+
+    if not user:
+        return CommonResponse(success=False, error="일치하는 회원 정보를 찾을 수 없습니다.", data=None)
+
+    return CommonResponse(success=True, message="회원 정보를 일치합니다.", data={"email": user.email})
+
 
 """ [관리자] 회원 상세 프로필 """
 def get_user_admin_profile(db, user_hash: str):

@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import Navbar from './components/Navbar';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Provider as PaperProvider } from 'react-native-paper';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import FeedListScreen from './screens/FeedListScreen';
 import FeedDetailScreen from './screens/FeedDetailScreen';
@@ -21,8 +23,17 @@ import LoginScreen from './screens/LoginScreen';
 import RegistScreen from './screens/RegistScreen';
 import SummaryListScreen from './screens/SummaryListScreen';
 import FeedLikeListScreen from './screens/FeedLikeListScreen';
-import Navbar from './components/Navbar';
+import UserProfileScreen from './screens/UserProfileScreen';
+import UserSearchAccount from './screens/UserSearchAccount';
+import UserSearchPassword from './screens/UserSearchPassword';
+import RegistChildScreen from './screens/RegistChildScreen';
+import MealCopyByFeedScreen from './screens/MealCopyByFeedScreen';
+import CommunityScreen from './screens/CommunityScreen';
+import CommunityWriteScreen from './screens/CommunityWriteScreen';
+import CommunityModifyScreen from './screens/CommunityModifyScreen';
+import CommunityDetailScreen from './screens/CommunityDetailScreen';
 import { AuthProvider, useAuth } from './libs/contexts/AuthContext';
+import { getNeedChildRegistration, clearNeedChildRegistration } from './libs/utils/storage';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -39,9 +50,34 @@ const queryClient = new QueryClient({
 });
 
 function TabNavigator() {
+  const [initialRoute, setInitialRoute] = useState<string>('MyPage');
+  const [isChecking, setIsChecking] = useState(true);
+
+  useEffect(() => {
+    const checkChildRegistration = async () => {
+      const needsRegistration = await getNeedChildRegistration();
+      if (needsRegistration) {
+        setInitialRoute('RegistChild');
+        // 플래그 확인 후 삭제 (한 번만 리다이렉트)
+        await clearNeedChildRegistration();
+      }
+      setIsChecking(false);
+    };
+
+    checkChildRegistration();
+  }, []);
+
+  if (isChecking) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#FF9AA2" />
+      </View>
+    );
+  }
+
   return (
     <Tab.Navigator
-      initialRouteName="MyPage"
+      initialRouteName={initialRoute}
       tabBar={(props) => (
         <Navbar
           currentRoute={props.state.routes[props.state.index].name}
@@ -63,6 +99,15 @@ function TabNavigator() {
       <Tab.Screen name="MyPage" component={MyPageScreen} />
       <Tab.Screen name="FeedLikeList" component={FeedLikeListScreen} />
       <Tab.Screen name="SummaryList" component={SummaryListScreen} />
+      <Tab.Screen name="UserProfile" component={UserProfileScreen} />
+      <Tab.Screen name="SearchPassword" component={UserSearchPassword} />
+      <Tab.Screen name="SearchAccount" component={UserSearchAccount} />
+      <Tab.Screen name="RegistChild" component={RegistChildScreen} />
+      <Tab.Screen name="MealCopyByFeed" component={MealCopyByFeedScreen} />
+      <Tab.Screen name="Community" component={CommunityScreen} />
+      <Tab.Screen name="CommunityWrite" component={CommunityWriteScreen} />
+      <Tab.Screen name="CommunityModify" component={CommunityModifyScreen} />
+      <Tab.Screen name="CommunityDetail" component={CommunityDetailScreen} />
     </Tab.Navigator>
   );
 }
@@ -79,6 +124,15 @@ function MainNavigator() {
       <Stack.Screen name="MealRegist" component={MealRegistScreen} />
       <Stack.Screen name="FeedLikeList" component={FeedLikeListScreen} />
       <Stack.Screen name="SummaryList" component={SummaryListScreen} />
+      <Stack.Screen name="UserProfile" component={UserProfileScreen} />
+      <Stack.Screen name="SearchPassword" component={UserSearchPassword} />
+      <Stack.Screen name="SearchAccount" component={UserSearchAccount} />
+      <Stack.Screen name="RegistChild" component={RegistChildScreen} />
+      <Stack.Screen name="MealCopyByFeed" component={MealCopyByFeedScreen} />
+      <Stack.Screen name="Community" component={CommunityScreen} />
+      <Stack.Screen name="CommunityWrite" component={CommunityWriteScreen} />
+      <Stack.Screen name="CommunityModify" component={CommunityModifyScreen} />
+      <Stack.Screen name="CommunityDetail" component={CommunityDetailScreen} />
     </Stack.Navigator>
   );
 }
@@ -120,6 +174,9 @@ function AppContent() {
           <>
             <Stack.Screen name="Login" component={LoginScreen} />
             <Stack.Screen name="Regist" component={RegistScreen} />
+            <Stack.Screen name="RegistChild" component={RegistChildScreen} />
+            <Stack.Screen name="SearchPassword" component={UserSearchPassword} />
+            <Stack.Screen name="SearchAccount" component={UserSearchAccount} />
           </>
         )}
       </Stack.Navigator>
@@ -131,11 +188,13 @@ function AppContent() {
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <SafeAreaProvider>
-        <AuthProvider>
-          <AppContent />
-        </AuthProvider>
-      </SafeAreaProvider>
+      <PaperProvider>
+        <SafeAreaProvider>
+          <AuthProvider>
+            <AppContent />
+          </AuthProvider>
+        </SafeAreaProvider>
+      </PaperProvider>
     </QueryClientProvider>
   );
 }

@@ -4,9 +4,10 @@ JWT 토큰 생성 및 검증 유틸리티
 import jwt
 from datetime import datetime, timedelta
 from typing import Dict, Optional
+from app.core.config import settings
 
-# JWT 설정 (실제 환경에서는 환경변수로 관리)
-SECRET_KEY = "your-secret-key-change-this-in-production"  # 실제로는 환경변수로 관리
+# JWT 설정
+SECRET_KEY = settings.SECRET_KEY or "your-secret-key-change-this-in-production"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7일
 
@@ -48,9 +49,15 @@ def verify_token(token: str) -> Optional[Dict]:
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         return payload
-    except jwt.ExpiredSignatureError:
+    except jwt.ExpiredSignatureError as e:
         # 토큰 만료
+        print(f"❌ JWT 토큰 만료: {e}")
         return None
-    except jwt.JWTError:
+    except jwt.InvalidTokenError as e:
         # 토큰 검증 실패
+        print(f"❌ JWT 검증 실패: {e}")
+        return None
+    except Exception as e:
+        # 기타 예외
+        print(f"❌ JWT 에러: {e}")
         return None

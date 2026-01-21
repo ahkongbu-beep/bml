@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import styles from './MyPageScreen.styles';
 import {
   View,
   Text,
@@ -14,7 +15,7 @@ import { useAuth } from '../libs/contexts/AuthContext';
 import { useMyFeeds } from '../libs/hooks/useFeeds';
 import { useGetMyInfo } from '../libs/hooks/useUsers';
 import MyFeedGrid from '../components/MyFeedGrid';
-
+import { LoadingPage } from '../components/Loading';
 import Layout from '../components/Layout';
 
 export default function MyPageScreen({ navigation }: any) {
@@ -23,14 +24,7 @@ export default function MyPageScreen({ navigation }: any) {
 
   if (isLoading) {
     return (
-      <Layout>
-        <View style={styles.container}>
-          <Header title="마이페이지" showMenu={true} />
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#FF9AA2" />
-          </View>
-        </View>
-      </Layout>
+      <LoadingPage title="화면을 구성하는 중" />
     );
   }
 
@@ -46,8 +40,9 @@ export default function MyPageScreen({ navigation }: any) {
       </Layout>
     );
   }
-  const { data: myFeedsData, isLoading: feedsLoading } = useMyFeeds(user?.view_hash);
+  const { data: myFeedsData, isLoading: feedsLoading } = useMyFeeds();
   const { data: myInfoData, isLoading: myInfoLoading } = useGetMyInfo(user?.view_hash || '');
+
   const myFeeds = myFeedsData?.data || [];
 
   return (
@@ -151,169 +146,3 @@ export default function MyPageScreen({ navigation }: any) {
     </Layout>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FFF9F5',
-  },
-  content: {
-    flex: 1,
-  },
-  profileSection: {
-    backgroundColor: '#FFFBF7',
-    padding: 24,
-    alignItems: 'center',
-    marginBottom: 12,
-    shadowColor: '#FFB6C1',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  profileImage: {
-    width: 110,
-    height: 110,
-    borderRadius: 55,
-    marginBottom: 16,
-    borderWidth: 3,
-    borderColor: '#FFE5E5',
-  },
-  nickname: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#FF9AA2',
-    marginBottom: 6,
-  },
-  email: {
-    fontSize: 14,
-    color: '#B0B0B0',
-    marginBottom: 10,
-  },
-  description: {
-    fontSize: 14,
-    color: '#7A7A7A',
-    textAlign: 'center',
-    marginBottom: 20,
-    lineHeight: 20,
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    width: '100%',
-    paddingVertical: 18,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: '#FFE5E5',
-    marginBottom: 20,
-  },
-  statItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  statDivider: {
-    width: 1,
-    backgroundColor: '#FFE5E5',
-  },
-  statNumber: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#FF9AA2',
-    marginBottom: 6,
-  },
-  statLabel: {
-    fontSize: 13,
-    color: '#B0B0B0',
-    fontWeight: '500',
-  },
-  editButton: {
-    width: '100%',
-    height: 44,
-    borderWidth: 2,
-    borderColor: '#FFE5E5',
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-    backgroundColor: '#FFFFFF',
-  },
-  editButtonText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#FF9AA2',
-  },
-  createFeedButton: {
-    width: '100%',
-    height: 50,
-    backgroundColor: '#FF9AA2',
-    borderRadius: 12,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#FF9AA2',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  createFeedButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
-    marginLeft: 8,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#FFF9F5',
-  },
-  errorText: {
-    fontSize: 16,
-    color: '#B0B0B0',
-    textAlign: 'center',
-  },
-  myFeedsSection: {
-    backgroundColor: '#FFFBF7',
-    padding: 20,
-    marginBottom: 12,
-    shadowColor: '#FFB6C1',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#4A4A4A',
-  },
-  menuSection: {
-    backgroundColor: '#FFFBF7',
-    marginBottom: 12,
-    shadowColor: '#FFB6C1',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 18,
-    borderBottomWidth: 1,
-    borderBottomColor: '#FFE5E5',
-  },
-  menuText: {
-    flex: 1,
-    fontSize: 16,
-    color: '#4A4A4A',
-    marginLeft: 14,
-    fontWeight: '500',
-  },
-});

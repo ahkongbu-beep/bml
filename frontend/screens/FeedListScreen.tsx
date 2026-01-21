@@ -1,4 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
+import styles from './FeedListScreen.styles';
 import {
   View,
   Text,
@@ -9,15 +10,24 @@ import {
   RefreshControl,
   TouchableOpacity,
 } from 'react-native';
+import { Portal, Dialog, Button } from 'react-native-paper';
+
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+
+import { Feed } from '../libs/types/FeedType';
+import { useAuth } from '../libs/contexts/AuthContext';
+
 import Layout from '../components/Layout';
 import Header from '../components/Header';
 import CommentModal from '../components/CommentModal';
 import AiSummaryModal from '../components/AiSummaryModal';
+import AiSummaryAnswerModal from '../components/AiSummaryAnswerModal';
 import UserHeader from '../components/UserHeader';
 import BannerCarousel from '../components/BannerCarousel';
 import FeedItem from '../components/FeedItem';
-import { Feed } from '../libs/types/FeedType';
+import { LoadingPage } from '../components/Loading';
+import { ErrorPage } from '../components/ErrorPage';
 import {
   useFeeds,
   useToggleLike,
@@ -28,65 +38,104 @@ import {
   useDeleteFeedComment,
   useSummaryFeedImage
 } from '../libs/hooks/useFeeds';
-import { useAuth } from '../libs/contexts/AuthContext';
+
+
 export default function FeedListScreen() {
+  const appName = process.env.EXPO_PUBLIC_APP_NAME || "";
+  const navigation = useNavigation();
+
+  const { user } = useAuth();
   const [menuVisible, setMenuVisible] = useState<number | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState<{ [key: number]: number }>({});
   const [commentModalVisible, setCommentModalVisible] = useState(false);
   const [selectedFeedId, setSelectedFeedId] = useState<number | null>(null);
   const [likingFeedId, setLikingFeedId] = useState<number | null>(null);
   const [aiSummaryModalVisible, setAiSummaryModalVisible] = useState(false);
+  const [userPrompt, setUserPrompt] = useState<string>('');
+  const [aiAnswerModalVisible, setAiAnswerModalVisible] = useState(false);
+
   const [aiSummaryParams, setAiSummaryParams] = useState<{
     userHash: string;
     feedId: number;
     imageId: string;
   } | null>(null);
-  const [userPrompt, setUserPrompt] = useState<string>('');
-  const { user } = useAuth();
+
+  const [aiAnswerData, setAiAnswerData] = useState<{
+    question: string;
+    answer: string;
+  } | null>(null);
+
+  const [blockDialogVisible, setBlockDialogVisible] = useState(false);
+  const [userToBlock, setUserToBlock] = useState<{
+    userHash: string;
+    nickname: string;
+  } | null>(null);
+
+  // 낙관적 업데이트를 위한 로컬 좋아요 상태
+  const [optimisticLikes, setOptimisticLikes] = useState<{
+    [key: number]: { is_liked: boolean; like_count: number };
+  }>({});
 
   // 댓글 목록 조회 - selectedFeedId가 있을 때만 호출
   const { data: commentsData, refetch: refetchComments } = useFeedComments({
     feedId: selectedFeedId || 0,
-    userHash: user?.view_hash || "",
     limit: 50,
     offset: 0
   }, {
     enabled: !!selectedFeedId && commentModalVisible, // 모달이 열리고 feedId가 있을 때만 실행
   });
 
-  const createFeedCommentMutation = useCreateFeedComment(); // 댓글등록
-  const deleteFeedCommentMutation = useDeleteFeedComment(); // 댓글삭제
-  const summaryFeedImageMutation = useSummaryFeedImage(); // 이미지 요약
-
   // React Query로 피드 데이터 조회
-  const { data, isLoading, isError, error, refetch } = useFeeds({ page: 1, limit: 20, type: 'list', user_hash: user?.view_hash });
-
-  // Mutations
-  const toggleLikeMutation = useToggleLike();
-  const toggleBookmarkMutation = useToggleBookmark();
-  const blockUserMutation = useBlockUser(user?.view_hash, "");
+  const { data, isLoading, isError, error, refetch } = useFeeds({ page: 1, limit: 20, type: 'list' });
 
   const feeds = data?.data;
 
-  const handleLike = useCallback((id: number) => {
-    if (!user?.view_hash) {
-      Alert.alert('오류', '로그인이 필요합니다.');
-      return;
-    }
+  const createFeedCommentMutation = useCreateFeedComment(); // 댓글등록
+  const deleteFeedCommentMutation = useDeleteFeedComment(); // 댓글삭제
+  const summaryFeedImageMutation  = useSummaryFeedImage(); // 이미지 요약
 
-    setLikingFeedId(id);
-    toggleLikeMutation.mutate({ feedId: id, userHash: user.view_hash }, {
+  // Mutations
+  const toggleLikeMutation     = useToggleLike();
+  const blockUserMutation      = useBlockUser();
+  const toggleBookmarkMutation = useToggleBookmark();
+
+  // 좋아요 처리 (낙관적 업데이트)
+  const handleLike = useCallback((id: number) => {
+    // 현재 피드 찾기
+    const currentFeed = feeds?.find(feed => feed.id === id);
+    if (!currentFeed) return;
+
+    // 낙관적으로 UI 먼저 업데이트
+    const newIsLiked = !currentFeed.is_liked;
+    const newLikeCount = newIsLiked
+      ? currentFeed.like_count + 1
+      : currentFeed.like_count - 1;
+
+    setOptimisticLikes(prev => ({
+      ...prev,
+      [id]: {
+        is_liked: newIsLiked,
+        like_count: newLikeCount,
+      },
+    }));
+
+    // 백그라운드에서 API 호출
+    toggleLikeMutation.mutate(id, {
       onSuccess: () => {
-        refetch(); // 성공 후 피드 목록 새로고침
-        setLikingFeedId(null);
+        // 성공 시 서버 데이터로 동기화
+        refetch();
       },
       onError: (error) => {
+        // 실패 시 롤백
+        setOptimisticLikes(prev => {
+          const newState = { ...prev };
+          delete newState[id];
+          return newState;
+        });
         Alert.alert('오류', '좋아요 처리 중 오류가 발생했습니다.');
-        console.error('Like error:', error);
-        setLikingFeedId(null);
       },
     });
-  }, [user?.view_hash, toggleLikeMutation, refetch]);
+  }, [feeds, toggleLikeMutation, refetch]);
 
   const handleSave = (id: number) => {
     setMenuVisible(null);
@@ -98,36 +147,48 @@ export default function FeedListScreen() {
     });
   };
 
-  const handleViewProfile = useCallback((userId: number, nickname: string) => {
+  // 식단캘린더에 복사 추가
+  const handleAddToMealCalendar = (userHash: string, feedId: number) => {
     setMenuVisible(null);
-    Alert.alert('프로필 보기', `${nickname}님의 프로필을 확인합니다.`);
-  }, []);
+    navigation.navigate('MealCopyByFeed', { feedId, userHash });
+  }
 
+
+  // 프로필 이동 (내 프로필 or 타인 프로필)
+  const handleViewProfile = useCallback((userHash: string, nickname: string) => {
+    setMenuVisible(null);
+
+    // 해쉬정보가 같은 경우 내 프로필로 이동
+    if (user.view_hash === userHash) {
+      navigation.navigate('MyPage');
+    } else {
+      // 타인 프로필로 이동
+      navigation.navigate('UserProfile', { userHash });
+    }
+  }, [navigation, user?.view_hash]);
+
+  // 사용자 차단 or 해제
   const handleBlock = useCallback((deny_user_hash: string, nickname: string) => {
     setMenuVisible(null);
-    Alert.alert(
-      '사용자 차단',
-      `${nickname}님을 차단하시겠습니까?`,
-      [
-        { text: '취소', style: 'cancel' },
-        {
-          text: '차단',
-          style: 'destructive',
-          onPress: () => {
-            blockUserMutation.mutate({user_hash: user?.view_hash , deny_user_hash}, {
-              onSuccess: () => {
-                Alert.alert('차단 완료', `${nickname}님을 차단했습니다.`);
-              },
-              onError: (error) => {
-                Alert.alert('오류', '차단 처리 중 오류가 발생했습니다.');
-                console.error('Block error:', error);
-              },
-            });
-          },
-        },
-      ]
-    );
-  }, [blockUserMutation, user?.view_hash]);
+    setUserToBlock({ userHash: deny_user_hash, nickname });
+    setBlockDialogVisible(true);
+  }, []);
+
+  const confirmBlock = () => {
+    if (userToBlock) {
+      blockUserMutation.mutate(userToBlock.userHash, {
+        onSuccess: () => { Alert.alert('차단 완료', `${userToBlock.nickname}님을 차단했습니다.`); },
+        onError: (error) => { Alert.alert('오류', '차단 처리 중 오류가 발생했습니다.'); },
+      });
+    }
+    setBlockDialogVisible(false);
+    setUserToBlock(null);
+  };
+
+  const cancelBlock = () => {
+    setBlockDialogVisible(false);
+    setUserToBlock(null);
+  };
 
   const handleMenuToggle = useCallback((id: number) => {
     setMenuVisible(prev => prev === id ? null : id);
@@ -147,68 +208,127 @@ export default function FeedListScreen() {
     setAiSummaryModalVisible(true);
   }, []);
 
+  // ai 요약 뮤테이션 옵션
+  const aiSummaryMutationOptions = (prompt: string) => ({
+    onSuccess: (data: any) => {
+      setAiSummaryModalVisible(false);
+      setAiAnswerData({ question: prompt, answer: data });
+      setAiAnswerModalVisible(true);
+    },
+    onError: (error: unknown) => {
+      setAiSummaryModalVisible(false);
+      setAiSummaryParams(null);
+      setUserPrompt('');
+      Alert.alert('오류', 'AI 요약 중 오류가 발생했습니다.');
+      console.error('[AI Summary]', error);
+    },
+  });
+
+  // ai 요약 질문 제출
   const handleAiSummarySubmit = useCallback((prompt: string) => {
     if (!aiSummaryParams) return;
 
-    const { userHash, feedId, imageId } = aiSummaryParams;
+    const { feedId, imageId } = aiSummaryParams;
     setUserPrompt(prompt); // 사용자 질문 저장
 
     summaryFeedImageMutation.mutate(
-      {
-        feedId,
-        imageId: parseInt(imageId),
-        user_hash: userHash,
-        prompt
-      },
-      {
-        onSuccess: (data) => {
-          setAiSummaryModalVisible(false);
-          // 사용자 질문과 함께 결과 표시
-          Alert.alert(
-            'AI 요약 결과',
-            `📝 질문: ${prompt}\n\n✨ 답변:\n${data}`,
-            [
-              {
-                text: '확인',
-                onPress: () => {
-                  setAiSummaryParams(null);
-                  setUserPrompt('');
-                }
-              }
-            ]
-          );
-        },
-        onError: (error) => {
-          setAiSummaryModalVisible(false);
-          Alert.alert('오류', 'AI 요약 중 오류가 발생했습니다.');
-          console.error('AI Summary error:', error);
-          setAiSummaryParams(null);
-          setUserPrompt('');
-        }
-      }
+      { feedId, imageId: parseInt(imageId), prompt},
+      aiSummaryMutationOptions(prompt)
     );
   }, [aiSummaryParams, summaryFeedImageMutation]);
 
-  const renderFeed = useCallback(({ item }: { item: Feed }) => (
-    <FeedItem
-      item={item}
-      menuVisible={menuVisible}
-      currentImageIndex={currentImageIndex}
-      isLiking={likingFeedId === item.id}
-      onMenuToggle={handleMenuToggle}
-      onImageScroll={handleImageScroll}
-      onViewProfile={handleViewProfile}
-      onBlock={handleBlock}
-      onLike={handleLike}
-      onCommentPress={handleCommentPress}
-      onAiSummary={handleAiSummary}
-      userHash={user?.view_hash}
-    />
-  ), [menuVisible, currentImageIndex, likingFeedId, handleMenuToggle, handleImageScroll, handleViewProfile, handleBlock, handleLike, handleCommentPress, handleAiSummary, user?.view_hash]);
+  // ai 답변 모달 닫기
+  const onHandleAiAnswerModalClose = () => {
+    setAiAnswerModalVisible(false);
+    setAiAnswerData(null);
+    setAiSummaryParams(null);
+    setUserPrompt('');
+  }
+
+  // ai 모달닫기
+  const onHandleAiModalClose = () => {
+    setAiSummaryModalVisible(false);
+    setAiSummaryParams(null);
+    setUserPrompt('');
+  }
+
+  // 댓글 등록
+  const onHandleCommentSubmit = (content: string, parentHash: string | null) => {
+    if (!selectedFeedId) {
+      Alert.alert('오류', '피드 정보가 없습니다.');
+      return;
+    }
+    createFeedCommentMutation.mutate(
+      {
+        feed_id: selectedFeedId,
+        comment: content,
+        parent_hash: parentHash || '',
+      },
+      {
+        onSuccess: () => {
+          Alert.alert('성공', '댓글이 등록되었습니다.');
+          refetchComments(); // 댓글 목록 새로고침
+        },
+        onError: (error) => {
+          Alert.alert('오류', '댓글 등록 중 오류가 발생했습니다.');
+          console.error('Comment create error:', error);
+        },
+      }
+    );
+  }
+
+  // 댓글삭제
+  const onHandleCommentDelete = (commentHash: string) => {
+    deleteFeedCommentMutation.mutate(
+      commentHash,
+      {
+        onSuccess: () => {
+          Alert.alert('성공', '댓글이 삭제되었습니다.');
+          refetchComments(); // 댓글 목록 새로고침
+        },
+        onError: (error) => {
+          Alert.alert('오류', '댓글 삭제 중 오류가 발생했습니다.');
+          console.error('Comment delete error:', error);
+        },
+      }
+    );
+  }
+
+  // 댓글 모달 닫기
+  const onHandleCommentModalClose = () => {
+    setCommentModalVisible(false);
+    setSelectedFeedId(null);
+  }
 
   const keyExtractor = useCallback((item: Feed) => item.id.toString(), []);
 
-  // FlatList 헤더
+  const renderFeed = useCallback(({ item }: { item: Feed }) => {
+    // 낙관적 업데이트가 있으면 그것을 우선 사용
+    const optimisticState = optimisticLikes[item.id];
+    const feedItem = optimisticState ? {
+      ...item,
+      is_liked: optimisticState.is_liked,
+      like_count: optimisticState.like_count,
+    } : item;
+
+    return (
+      <FeedItem
+        item={feedItem}
+        menuVisible={menuVisible}
+        currentImageIndex={currentImageIndex}
+        isLiking={likingFeedId === item.id}
+        onMenuToggle={handleMenuToggle}
+        onImageScroll={handleImageScroll}
+        onViewProfile={handleViewProfile}
+        onBlock={handleBlock}
+        onLike={handleLike}
+        onCommentPress={handleCommentPress}
+        onAiSummary={handleAiSummary}
+        onAddToMealCalendar={handleAddToMealCalendar}
+        userHash={user?.view_hash}
+      />
+    );
+  }, [menuVisible, currentImageIndex, likingFeedId, optimisticLikes, handleMenuToggle, handleImageScroll, handleViewProfile, handleBlock, handleLike, handleCommentPress, handleAiSummary, user?.view_hash]);
   const renderListHeader = () => (
     <View>
       <UserHeader user={user} />
@@ -217,39 +337,21 @@ export default function FeedListScreen() {
     </View>
   );
 
-  // 로딩 상태
-  if (isLoading) {
-    return (
-      <Layout>
-        <Header title="BML" showMenu={true} />
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#FF9AA2" />
-          <Text style={styles.loadingText}>피드를 불러오는 중...</Text>
-        </View>
-      </Layout>
-    );
-  }
 
   // 에러 상태
   if (isError) {
     return (
-      <Layout>
-        <Header title="BML" showMenu={true} />
-        <View style={styles.centerContainer}>
-          <Ionicons name="alert-circle-outline" size={60} color="#FF9AA2" />
-          <Text style={styles.errorText}>피드를 불러올 수 없습니다</Text>
-          <Text style={styles.errorSubText}>{error?.message || '네트워크 연결을 확인해주세요'}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={() => refetch()}>
-            <Text style={styles.retryButtonText}>다시 시도</Text>
-          </TouchableOpacity>
-        </View>
-      </Layout>
+      <ErrorPage
+        message="피드를 불러올 수 없습니다"
+        subMessage={error?.message}
+        refetch={refetch}
+      />
     );
   }
 
   return (
     <Layout>
-      <Header title="BML" showMenu={true} />
+      <Header title={appName} showMenu={true} />
       <FlatList
         data={feeds}
         renderItem={renderFeed}
@@ -274,117 +376,44 @@ export default function FeedListScreen() {
       {/* 댓글 모달 */}
       <CommentModal
         visible={commentModalVisible}
-        onClose={() => {
-          setCommentModalVisible(false);
-          setSelectedFeedId(null);
-        }}
+        onClose={onHandleCommentModalClose}
         feedId={selectedFeedId || 0}
         comments={commentsData || []}
-        onSubmit={(content, parentHash) => {
-          if (!user?.view_hash || !selectedFeedId) {
-            Alert.alert('오류', '로그인이 필요합니다.');
-            return;
-          }
-
-          createFeedCommentMutation.mutate(
-            {
-              feed_id: selectedFeedId,
-              user_hash: user.view_hash,
-              comment: content,
-              parent_hash: parentHash || '',
-            },
-            {
-              onSuccess: () => {
-                Alert.alert('성공', '댓글이 등록되었습니다.');
-                refetchComments(); // 댓글 목록 새로고침
-              },
-              onError: (error) => {
-                Alert.alert('오류', '댓글 등록 중 오류가 발생했습니다.');
-                console.error('Comment create error:', error);
-              },
-            }
-          );
-        }}
-        onDelete={(commentHash) => {
-          deleteFeedCommentMutation.mutate(
-            {
-              comment_hash: commentHash,
-              user_hash: user?.view_hash || '',
-            },
-            {
-              onSuccess: () => {
-                Alert.alert('성공', '댓글이 삭제되었습니다.');
-                refetchComments(); // 댓글 목록 새로고침
-              },
-              onError: (error) => {
-                Alert.alert('오류', '댓글 삭제 중 오류가 발생했습니다.');
-                console.error('Comment delete error:', error);
-              },
-            }
-          );
-        }}
+        onSubmit={(content, parentHash) => onHandleCommentSubmit(content, parentHash)}
+        onDelete={(commentHash) => onHandleCommentDelete(commentHash)}
       />
 
-      {/* AI 요약 모달 */}
+      {/* AI 요약 질문 모달 */}
       <AiSummaryModal
         visible={aiSummaryModalVisible}
-        onClose={() => {
-          setAiSummaryModalVisible(false);
-          setAiSummaryParams(null);
-          setUserPrompt('');
-        }}
+        onClose={onHandleAiModalClose}
         onSubmit={handleAiSummarySubmit}
         isLoading={summaryFeedImageMutation.isPending}
         userPrompt={userPrompt}
       />
+
+      {/* AI 요약 답변 모달 */}
+      <AiSummaryAnswerModal
+        visible={aiAnswerModalVisible}
+        onClose={onHandleAiAnswerModalClose}
+        question={aiAnswerData?.question || ''}
+        answer={aiAnswerData?.answer || ''}
+        title="AI 요약 결과"
+      />
+
+      {/* 사용자 차단 확인 Dialog */}
+      <Portal>
+        <Dialog visible={blockDialogVisible} onDismiss={cancelBlock}>
+          <Dialog.Title>사용자 차단</Dialog.Title>
+          <Dialog.Content>
+            <Text>{userToBlock?.nickname}님을 차단하시겠습니까?</Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={cancelBlock}>취소</Button>
+            <Button onPress={confirmBlock} textColor="#FF6B6B">차단</Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </Layout>
   );
 }
-
-const styles = StyleSheet.create({
-  centerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: '#4A4A4A',
-    fontWeight: '500',
-  },
-  errorText: {
-    marginTop: 16,
-    fontSize: 18,
-    color: '#4A4A4A',
-    fontWeight: '700',
-  },
-  errorSubText: {
-    marginTop: 8,
-    fontSize: 14,
-    color: '#B0B0B0',
-    textAlign: 'center',
-  },
-  retryButton: {
-    marginTop: 24,
-    backgroundColor: '#FF9AA2',
-    paddingHorizontal: 32,
-    paddingVertical: 12,
-    borderRadius: 24,
-    shadowColor: '#FF9AA2',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  retryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  feedDivider: {
-    height: 8,
-    backgroundColor: '#F5F5F5',
-  },
-});

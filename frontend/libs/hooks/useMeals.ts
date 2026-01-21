@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient, UseQueryResult } from '@tanstack/react-query';
-import { createMeal, getMealsCalendar, getDailyMeals } from '../api/mealsApi';
+import { createMeal, updateMeal, deleteMeal, getMealsCalendar, getDailyMeals } from '../api/mealsApi';
 import { MealCalendarParams } from '../types/MealType';
 import {
   PaginationResponse,
@@ -43,6 +43,32 @@ export const useCreateMeal = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (mealData: any) => createMeal(mealData),
+    onSuccess: () => {
+      queryClient.invalidateQueries(mealKeys.all);
+    },
+  });
+};
+
+/*
+ * 식단 수정
+ */
+export const useUpdateMeal = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ mealHash, mealData }: { mealHash: string; mealData: any }) => updateMeal(mealHash, mealData),
+    onSuccess: () => {
+      queryClient.invalidateQueries(mealKeys.all);
+    },
+  });
+};
+
+/*
+ * 식단 삭제
+ */
+export const useDeleteMeal = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (mealHash: string) => deleteMeal(mealHash),
     onSuccess: () => {
       queryClient.invalidateQueries(mealKeys.all);
     },

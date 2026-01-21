@@ -60,6 +60,7 @@ def load_prompt_template(template_name: str) -> str:
     - 반환값: 템플릿 문자열
     """
     template_path = Path(settings.PROMPT_TEMPLATES_DIR) / template_name
+
     try:
         with open(template_path, 'r', encoding='utf-8') as file:
             template_content = file.read()
@@ -97,6 +98,7 @@ async def list_summaries(db, user_hash: str, model: str, model_id: int, search_t
 """
 이미지 기반 피드 요약 생성
 - openai_call 함수를 사용하여 OpenAI API 호출
+- 상현 요청에 의해 같은 피드ID + 같은 질의 시 같은 응답을 반환하도록 수정
 """
 async def feed_summary(db, data) -> CommonResponse:
 
@@ -118,20 +120,19 @@ async def feed_summary(db, data) -> CommonResponse:
     if not feed:
         return CommonResponse(success=False, message="존재하지 않는 피드입니다.", data=[])
 
+    # 동일한 요약이 있는 경우 재사용
+    exist_summary = SummariesAgents.findByModelIdAndQuestion(db, "FeedsImages", data["image_id"], data["prompt"].strip())
+    if exist_summary:
+        return CommonResponse(success=True, message="요약 검색 성공", data=exist_summary.answer)
+
     feed_image = db.query(FeedsImages).filter(
         FeedsImages.id == data["image_id"],
-        FeedsImages.feed_id == data["feed_id"]
+        FeedsImages.img_model == "Feeds",
+        FeedsImages.img_model_id == data["feed_id"]
     ).first()
 
     if not feed_image:
         return CommonResponse(success=False, message="존재하지 않는 피드 이미지입니다.", data=[])
-
-    # system_prompt = f"""
-    # 당신은 뛰어난 요리사 입니다.
-    # 주어진 이미지와 프롬프트를 참고하여 사용자에게 요리와 관련된 유용한 정보를 제공해주세요.
-    # 이미지에 대한 설명과 프롬프트를 바탕으로 상세하고 흥미로운 답변을 작성해주세요.
-    # 답변은 한국어로 작성해주세요.
-    # """.strip()
 
     system_prompt = load_prompt_template("system.md").strip()
 
@@ -162,7 +163,6 @@ async def feed_summary(db, data) -> CommonResponse:
 
         # OpenAI API 응답에서 에러 체크
         if "error" in response:
-            print(f"OpenAI API 오류: {response['error']}")
             return CommonResponse(
                 success=False,
                 message=f"OpenAI API 오류: {response['error']}",

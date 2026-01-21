@@ -1,21 +1,28 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
+import styles from './MealPlanScreen.styles';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
+  Alert,
   TouchableOpacity,
   ActivityIndicator,
+  Modal,
+  Pressable,
 } from 'react-native';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
+import { Dialog, Button, Portal } from 'react-native-paper';
 import Header from '../components/Header';
 import Layout from '@/components/Layout';
 import { useAuth } from '../libs/contexts/AuthContext';
-import { useMeals } from '../libs/hooks/useMeals';
+import { useMeals, useDeleteMeal } from '../libs/hooks/useMeals';
 import { MealItem } from '../libs/types/MealType';
 import { normalizeDate } from '../libs/utils/common';
 import { MEAL_CATEGORIES } from '../libs/utils/codes/MealCalendarCode';
+import MealPlanItem from '../components/MealPlanItem';
 
 // 한국어 설정
 LocaleConfig.locales['kr'] = {
@@ -37,9 +44,21 @@ export default function MealPlanScreen({ navigation }: any) {
   const [selectedDate, setSelectedDate] = useState('');
   const [viewMode, setViewMode] = useState<'week' | 'month'>('month');
   const [isLoading] = useState(false);
+  const [menuVisible, setMenuVisible] = useState<string | null>(null);
+  const [menuPosition, setMenuPosition] = useState<{ x: number; y: number } | null>(null);
+  const [deleteDialogVisible, setDeleteDialogVisible] = useState(false);
+  const [mealToDelete, setMealToDelete] = useState<MealItem | null>(null);
+  const deleteMealMutation = useDeleteMeal();
   const { user } = useAuth();
 
-  const { data: mealsCalendar, isLoading: mealsLoading } = useMeals({ user_hash: user?.view_hash, month: new Date().toISOString().slice(0, 7) });
+  const { data: mealsCalendar, isLoading: mealsLoading, refetch } = useMeals({ month: new Date().toISOString().slice(0, 7) });
+
+  // 화면이 포커스될 때마다 데이터 새로고침
+  useFocusEffect(
+    useCallback(() => {
+      refetch();
+    }, [refetch])
+  );
 
   const today = new Date().toISOString().split('T')[0];
 
@@ -68,76 +87,59 @@ export default function MealPlanScreen({ navigation }: any) {
   if (!markedDates[today]) {
     markedDates[today] = {};
   }
+
   markedDates[today].today = true;
   markedDates[today].todayTextColor = '#FF9AA2';
 
-  const renderMealItem = (meal: MealItem) => {
-    const category = MEAL_CATEGORIES.find((c) => c.name === meal.category_name);
+  const handleEditMeal = (meal: MealItem) => {
+    setMenuVisible(null);
+    setMenuPosition(null);
+    navigation.getParent()?.navigate('MealRegist', { meal, selectedDate });
+  };
 
-    return (
-      <View
-        key={meal.view_hash}
-        style={[styles.mealCard, { backgroundColor: category?.color || '#F5F5F5' }]}
-      >
-        <View style={styles.mealHeader}>
-          <View style={styles.mealCategory}>
-            <Text style={styles.mealIcon}>{category?.icon}</Text>
-            <Text style={styles.mealCategoryName}>{meal.category_name}</Text>
-          </View>
-          <TouchableOpacity>
-            <Ionicons name="ellipsis-vertical" size={20} color="#666" />
-          </TouchableOpacity>
-        </View>
-        <Text style={styles.mealTitle}>{meal.title}</Text>
-        <Text style={styles.mealContents}>{meal.contents}</Text>
-        {meal.tags.length > 0 && (
-          <View style={styles.mealTags}>
-            {meal.tags.map((tag, index) => (
-              <View key={index} style={styles.tag}>
-                <Text style={styles.tagText}>#{tag}</Text>
-              </View>
-            ))}
-          </View>
-        )}
-      </View>
-    );
+  const handleDeleteMeal = (meal: MealItem) => {
+    setMenuVisible(null);
+    setMenuPosition(null);
+    setMealToDelete(meal);
+    setDeleteDialogVisible(true);
+  };
+
+  const confirmDelete = () => {
+    if (mealToDelete) {
+      const result = deleteMealMutation.mutate(mealToDelete.view_hash);
+      if (result.success === true) {
+        Alert.alert('식단이 삭제되었습니다.');
+      }
+    }
+    setDeleteDialogVisible(false);
+    setMealToDelete(null);
+  };
+
+  const cancelDelete = () => {
+    setDeleteDialogVisible(false);
+    setMealToDelete(null);
+  };
+
+  const handleDetailFeed = (feedId: number) => {
+    navigation.navigate('FeedDetail', { feedId });
+  }
+
+  const handleMenuPress = (meal: MealItem, event: any) => {
+    if (menuVisible === meal.view_hash) {
+      setMenuVisible(null);
+      setMenuPosition(null);
+    } else {
+      event.target.measure((x: number, y: number, width: number, height: number, pageX: number, pageY: number) => {
+        setMenuPosition({ x: pageX, y: pageY + height });
+        setMenuVisible(meal.view_hash);
+      });
+    }
   };
 
   return (
     <Layout>
       <View style={styles.container}>
         <Header title="식단 관리" />
-
-        {/* 주/월 전환 버튼 - TODO: 기능 구현 필요 */}
-        {/* <View style={styles.viewModeContainer}>
-          <TouchableOpacity
-            style={[styles.viewModeButton, viewMode === 'week' && styles.viewModeButtonActive]}
-            onPress={() => setViewMode('week')}
-          >
-            <Text
-              style={[
-                styles.viewModeText,
-                viewMode === 'week' && styles.viewModeTextActive,
-              ]}
-            >
-              주간
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.viewModeButton, viewMode === 'month' && styles.viewModeButtonActive]}
-            onPress={() => setViewMode('month')}
-          >
-            <Text
-              style={[
-                styles.viewModeText,
-                viewMode === 'month' && styles.viewModeTextActive,
-              ]}
-            >
-              월간
-            </Text>
-          </TouchableOpacity>
-        </View> */}
-
         <ScrollView style={styles.content}>
           {/* 캘린더 */}
           <Calendar
@@ -176,7 +178,7 @@ export default function MealPlanScreen({ navigation }: any) {
                 </Text>
                 <TouchableOpacity
                   style={styles.addButton}
-                  onPress={() => navigation.navigate('MealRegist', { selectedDate })}
+                  onPress={() => navigation.getParent()?.navigate('MealRegist', { selectedDate })}
                 >
                   <Ionicons name="add-circle" size={24} color="#FF9AA2" />
                   <Text style={styles.addButtonText}>식단 추가</Text>
@@ -187,7 +189,14 @@ export default function MealPlanScreen({ navigation }: any) {
                 <ActivityIndicator size="large" color="#FF9AA2" />
               ) : selectedMeals.length > 0 ? (
                 <View style={styles.mealsContainer}>
-                  {selectedMeals.map((meal) => renderMealItem(meal))}
+                  {selectedMeals.map((meal) => (
+                    <MealPlanItem
+                      key={meal.view_hash}
+                      meal={meal}
+                      handleMenuPress={handleMenuPress}
+                      handleDetailFeed={handleDetailFeed}
+                    />
+                  ))}
                 </View>
               ) : (
                 <View style={styles.emptyMeals}>
@@ -213,161 +222,73 @@ export default function MealPlanScreen({ navigation }: any) {
           )}
         </ScrollView>
       </View>
+
+      {/* 드롭다운 메뉴 모달 */}
+      <Modal
+        visible={menuVisible !== null}
+        transparent={true}
+        animationType="none"
+        onRequestClose={() => {
+          setMenuVisible(null);
+          setMenuPosition(null);
+        }}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => {
+            setMenuVisible(null);
+            setMenuPosition(null);
+          }}
+        >
+          {menuPosition && menuVisible && (
+            <View
+              style={[
+                styles.dropdownMenuModal,
+                {
+                  top: menuPosition.y,
+                  right: 16,
+                }
+              ]}
+            >
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => {
+                  const meal = selectedMeals.find(m => m.view_hash === menuVisible);
+                  if (meal) handleEditMeal(meal);
+                }}
+              >
+                <Ionicons name="pencil-outline" size={18} color="#4A4A4A" />
+                <Text style={styles.menuItemText}>수정</Text>
+              </TouchableOpacity>
+              <View style={styles.menuDivider} />
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => {
+                  const meal = selectedMeals.find(m => m.view_hash === menuVisible);
+                  if (meal) handleDeleteMeal(meal);
+                }}
+              >
+                <Ionicons name="trash-outline" size={18} color="#FF6B6B" />
+                <Text style={[styles.menuItemText, { color: '#FF6B6B' }]}>삭제</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </Pressable>
+      </Modal>
+
+      {/* 삭제 확인 Dialog */}
+      <Portal>
+        <Dialog visible={deleteDialogVisible} onDismiss={cancelDelete}>
+          <Dialog.Title>식단 삭제</Dialog.Title>
+          <Dialog.Content>
+            <Text>정말로 이 식단을 삭제하시겠습니까?</Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={cancelDelete}>취소</Button>
+            <Button onPress={confirmDelete} textColor="#FF6B6B">삭제</Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </Layout>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FFFBF7',
-  },
-  content: {
-    flex: 1,
-  },
-  viewModeContainer: {
-    flexDirection: 'row',
-    padding: 16,
-    gap: 8,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#FFE5E5',
-  },
-  viewModeButton: {
-    flex: 1,
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#FFE5E5',
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-  },
-  viewModeButtonActive: {
-    backgroundColor: '#FF9AA2',
-    borderColor: '#FF9AA2',
-  },
-  viewModeText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#4A4A4A',
-  },
-  viewModeTextActive: {
-    color: '#FFFFFF',
-  },
-  mealsSection: {
-    padding: 16,
-  },
-  mealsSectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  selectedDateText: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#4A4A4A',
-  },
-  addButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  addButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#FF9AA2',
-  },
-  mealsContainer: {
-    gap: 12,
-  },
-  mealCard: {
-    borderRadius: 12,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  mealHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  mealCategory: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  mealIcon: {
-    fontSize: 20,
-  },
-  mealCategoryName: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#4A4A4A',
-  },
-  mealTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#4A4A4A',
-    marginBottom: 4,
-  },
-  mealContents: {
-    fontSize: 14,
-    color: '#666666',
-    lineHeight: 20,
-  },
-  mealTags: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginTop: 8,
-  },
-  tag: {
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  tagText: {
-    fontSize: 12,
-    color: '#666666',
-  },
-  emptyMeals: {
-    alignItems: 'center',
-    paddingVertical: 40,
-  },
-  emptyMealsText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#4A4A4A',
-    marginTop: 12,
-  },
-  emptyMealsSubtext: {
-    fontSize: 14,
-    color: '#999999',
-    marginTop: 4,
-  },
-  guideContainer: {
-    alignItems: 'center',
-    paddingVertical: 60,
-    paddingHorizontal: 20,
-  },
-  guideText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#4A4A4A',
-    marginTop: 16,
-    textAlign: 'center',
-  },
-  guideSubtext: {
-    fontSize: 14,
-    color: '#999999',
-    marginTop: 8,
-    textAlign: 'center',
-  },
-});

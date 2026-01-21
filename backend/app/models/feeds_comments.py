@@ -147,6 +147,7 @@ class QueryResult:
                 view_hash=v.view_hash,
                 parent_hash=v.parent_hash,
                 user=FeedsUserResponse(
+                    id=v.user_id if hasattr(v, 'user_id') else None,
                     nickname=v.nickname,
                     profile_image=v.profile_image,
                     user_hash=v.user_hash

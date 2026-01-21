@@ -1,6 +1,9 @@
 // 백엔드 API 기본 URL
 // React Native에서는 localhost 대신 실제 IP를 사용해야 함
-const API_BASE_URL = "http://172.30.1.3:8000";
+
+import { getToken } from '../utils/storage';
+
+const API_BASE_URL = process.env.EXPO_PUBLIC_STATIC_BASE_URL || "http://10.11.1.205:8000";
 
 // Fetch API 에러 클래스
 export class ApiError extends Error {
@@ -20,11 +23,11 @@ const getHeaders = async (): Promise<HeadersInit> => {
     'Content-Type': 'application/json',
   };
 
-  // AsyncStorage에서 토큰을 가져와서 헤더에 추가
-  // const token = await AsyncStorage.getItem('accessToken');
-  // if (token) {
-  //   headers.Authorization = `Bearer ${token}`;
-  // }
+  // AsyncStorage에서 JWT 토큰을 가져와서 Authorization 헤더에 추가
+  const token = await getToken();
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
 
   return headers;
 };
@@ -58,8 +61,6 @@ const handleResponse = async (response: Response) => {
     }
 
     const { status } = response;
-
-    console.log("API Error Response:", status, errorData);
 
     switch (status) {
       case 401:
@@ -95,6 +96,11 @@ export const fetchGet = async <T>(endpoint: string, params?: Record<string, any>
       method: 'GET',
       headers,
     });
+
+    if (!response.ok) {
+      console.log("GET Request URL:", url);
+    }
+
     return handleResponse(response);
   } catch (error) {
     console.error('Network error:', error);
@@ -109,14 +115,12 @@ export const fetchPost = async <T>(endpoint: string, data?: any): Promise<T> => 
     const url = `${API_BASE_URL}${endpoint}`;
     console.log("POST Request URL:", url);
     console.log(JSON.stringify(data, null, 2));
+    console.log("headers:", headers);
     const response = await fetch(url, {
       method: 'POST',
       headers,
       body: data ? JSON.stringify(data) : undefined,
     });
-
-    const data11 = await response.clone().json();
-    console.dir(data11, { depth: null });
 
     return handleResponse(response);
   } catch (error) {
@@ -130,6 +134,8 @@ export const fetchPut = async <T>(endpoint: string, data?: any): Promise<T> => {
   const headers = await getHeaders();
   const url = `${API_BASE_URL}${endpoint}`;
 
+  console.log("PUT Request URL:", url);
+  console.log(JSON.stringify(data, null, 2));
   const response = await fetch(url, {
     method: 'PUT',
     headers,
@@ -167,9 +173,17 @@ export const fetchPostFormData = async <T>(endpoint: string, formData: FormData)
       console.log(`${key}: ${value}`);
     });
 
+    // FormData 요청에도 JWT 토큰 추가
+    const token = await getToken();
+    const headers: HeadersInit = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
     // FormData를 사용할 때는 Content-Type을 설정하지 않음 (자동으로 multipart/form-data 설정됨)
     const response = await fetch(url, {
       method: 'POST',
+      headers,
       body: formData,
     });
 
@@ -185,8 +199,16 @@ export const fetchPutFormData = async <T>(endpoint: string, formData: FormData):
   try {
     const url = `${API_BASE_URL}${endpoint}`;
 
+    // FormData 요청에도 JWT 토큰 추가
+    const token = await getToken();
+    const headers: HeadersInit = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
     const response = await fetch(url, {
       method: 'PUT',
+      headers,
       body: formData,
     });
 

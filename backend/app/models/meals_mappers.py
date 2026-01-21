@@ -1,5 +1,6 @@
 from sqlalchemy import BigInteger, Column, ForeignKey
 from app.core.database import Base
+from app.libs.serializers.query import SerializerQueryResult
 
 class MealsMappers(Base):
     __tablename__ = "meals_mappers"
@@ -56,44 +57,4 @@ class MealsMappers(Base):
             MealsMappers.user_id == user_id
         ).all()
 
-        return QueryResult(result)
-
-
-class QueryResult:
-    """쿼리 결과를 감싸는 래퍼 클래스 - 체이닝 패턴 지원"""
-
-    def __init__(self, results):
-        self._results = results
-
-    def getData(self):
-        """직렬화된 Pydantic 모델 리스트 반환"""
-        from app.schemas.meals_mappers_schemas import MealsMappersResponse
-
-        return [
-            MealsMappersResponse(
-                user_id=v.user_id,
-                category_id=v.category_id,
-                category_name=v.category_name
-            )
-            for v in self._results
-        ]
-
-    def toDict(self):
-        """딕셔너리 리스트 반환"""
-        return [
-            {
-                "user_id": v.user_id,
-                "category_id": v.category_id,
-                "category_name": v.category_name
-            }
-            for v in self._results
-        ]
-
-    def toJSON(self):
-        """JSON 문자열 반환"""
-        import json
-        return json.dumps(self.toDict(), ensure_ascii=False, default=str)
-
-    def getRawData(self):
-        """원본 SQLAlchemy 객체 반환"""
-        return self._results
+        return SerializerQueryResult(result)

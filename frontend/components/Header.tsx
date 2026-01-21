@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useState, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../libs/contexts/AuthContext';
@@ -34,12 +34,27 @@ export default function Header({
 
   const navigation = useNavigation();
   const [menuVisible, setMenuVisible] = useState(false);
+  const [menuPosition, setMenuPosition] = useState({ top: 60, right: 16 });
+  const menuButtonRef = useRef<TouchableOpacity>(null);
   const { user, logoutLocal } = useAuth();
 
   const handleMenuPress = () => {
-    setMenuVisible(!menuVisible);
-    if (onMenuPress) {
-      onMenuPress();
+    if (menuButtonRef.current) {
+      menuButtonRef.current.measure((x, y, width, height, pageX, pageY) => {
+        setMenuPosition({
+          top: pageY + height - 2,
+          right: Dimensions.get('window').width - pageX - width,
+        });
+        setMenuVisible(!menuVisible);
+        if (onMenuPress) {
+          onMenuPress();
+        }
+      });
+    } else {
+      setMenuVisible(!menuVisible);
+      if (onMenuPress) {
+        onMenuPress();
+      }
     }
   };
 
@@ -67,7 +82,7 @@ export default function Header({
         <Text style={styles.title}>{title}</Text>
         <View style={styles.rightContainer}>
           {showMenu && (
-            <TouchableOpacity onPress={handleMenuPress} style={styles.iconButton}>
+            <TouchableOpacity ref={menuButtonRef} onPress={handleMenuPress} style={styles.iconButton}>
               <Ionicons name="menu" size={24} color="#FF9AA2" />
             </TouchableOpacity>
           )}
@@ -81,7 +96,10 @@ export default function Header({
       </View>
 
       {showMenu && menuVisible && (
-        <View style={styles.menuBox}>
+        <View style={[
+          styles.menuBox,
+          { top: menuPosition.top, right: menuPosition.right }
+        ]}>
           <TouchableOpacity
             style={styles.menuItem}
             onPress={() => {
@@ -173,8 +191,6 @@ const styles = StyleSheet.create({
   },
   menuBox: {
     position: 'absolute',
-    top: 60,
-    right: 16,
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     borderWidth: 1,

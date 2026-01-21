@@ -12,8 +12,9 @@ export default function Navbar({ currentRoute, onNavigate }: NavbarProps) {
   const insets = useSafeAreaInsets();
   const navItems = [
     { name: 'FeedList', icon: 'home', label: '피드' },
-    { name: 'Notice', icon: 'create', label: '공지사항' },
     { name: 'MealPlan', icon: 'calendar', label: '식단' },
+    { name: 'Community', icon: 'people', label: '커뮤니티' },
+    { name: 'Notice', icon: 'create', label: '공지사항' },
     { name: 'MyPage', icon: 'person', label: '마이' },
   ];
 

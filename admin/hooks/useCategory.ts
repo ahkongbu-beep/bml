@@ -35,6 +35,7 @@ export function useCategory() {
         ...(data.age_group || []),
         ...(data.notices_group || []),
         ...(data.meals_group || []),
+        ...(data.topic_group || []),
       ]
 
       // 검색 필터링

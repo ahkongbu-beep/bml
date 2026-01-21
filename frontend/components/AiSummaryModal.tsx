@@ -14,6 +14,7 @@ import {
   Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { suggestedPrompts } from '../libs/utils/codes/AiSummaryCode';
 
 interface AiSummaryModalProps {
   visible: boolean;
@@ -77,13 +78,6 @@ const AiSummaryModal: React.FC<AiSummaryModalProps> = ({
     onClose();
   };
 
-  // 추천 프롬프트
-  const suggestedPrompts = [
-    '이 음식의 레시피를 알려줘',
-    '이 음식의 칼로리와 영양 정보를 알려줘',
-    '이 음식과 어울리는 음식을 추천해줘',
-    '이 음식의 조리 팁을 알려줘',
-  ];
 
   // 로딩 중일 때 세련된 로딩 화면
   if (isLoading) {
@@ -148,9 +142,9 @@ const AiSummaryModal: React.FC<AiSummaryModalProps> = ({
     >
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.modalOverlay}
+        style={{ flex: 1 }}
       >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss} style={{ flex: 1 }}>
           <View style={styles.modalOverlay}>
             <TouchableWithoutFeedback>
               <View style={styles.modalContainer}>
@@ -191,12 +185,12 @@ const AiSummaryModal: React.FC<AiSummaryModalProps> = ({
                 <View style={styles.inputContainer}>
                   <TextInput
                     style={styles.input}
-                    placeholder="예: 이 음식의 레시피를 알려줘"
+                    placeholder="버튼을 눌러 질문을 선택하세요."
                     placeholderTextColor="#B0B0B0"
                     value={prompt}
-                    onChangeText={setPrompt}
                     multiline
                     maxLength={200}
+                    readOnly={true}
                     editable={!isLoading}
                   />
                   <Text style={styles.charCount}>{prompt.length}/200</Text>
@@ -291,22 +285,21 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   suggestionsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+    gap: 10,
   },
   suggestionChip: {
     backgroundColor: '#FFF5F0',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#FFE5E5',
+    width: '100%',
   },
   suggestionText: {
-    fontSize: 12,
+    fontSize: 14,
     color: '#FF9AA2',
-    fontWeight: '500',
+    fontWeight: '600',
   },
   inputContainer: {
     marginBottom: 20,

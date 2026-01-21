@@ -1,4 +1,5 @@
 import React from 'react';
+import styles from './NoticeScreen.styles';
 import {
   View,
   Text,
@@ -11,17 +12,11 @@ import { Ionicons } from '@expo/vector-icons';
 import Header from '../components/Header';
 import { useNotices } from '../libs/hooks/useNotices';
 import Layout from '@/components/Layout';
+import { LoadingPage } from '../components/Loading';
+import { formatDate } from '@/libs/utils/common';
 
 export default function NoticeScreen({ navigation }: any) {
   const { notices, isLoading } = useNotices('active');
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}.${month}.${day}`;
-  };
 
   const handleNoticePress = (notice: Notice) => {
     navigation.navigate('NoticeDetail', { notice });
@@ -29,14 +24,7 @@ export default function NoticeScreen({ navigation }: any) {
 
   if (isLoading) {
     return (
-      <Layout>
-        <View style={styles.container}>
-          <Header title="공지사항" />
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#FF9AA2" />
-          </View>
-        </View>
-      </Layout>
+      <LoadingPage title="공지사항을 불러오는 중" />
     );
   }
 
@@ -88,96 +76,3 @@ export default function NoticeScreen({ navigation }: any) {
     </Layout>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FFFBF7',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  content: {
-    padding: 16,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  noticeCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 18,
-    marginBottom: 12,
-    shadowColor: '#FFB6C1',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-    borderWidth: 1,
-    borderColor: '#FFE5E5',
-  },
-  importantCard: {
-    backgroundColor: '#FFF5F5',
-    borderColor: '#FF9AA2',
-    borderWidth: 2,
-  },
-  noticeHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-    gap: 8,
-  },
-  importantBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FF6B6B',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    gap: 4,
-  },
-  importantBadgeText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  categoryBadge: {
-    backgroundColor: '#FFE5E5',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  categoryText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#FF9AA2',
-  },
-  noticeTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#333',
-    marginBottom: 12,
-    lineHeight: 22,
-  },
-  noticeFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  noticeDate: {
-    fontSize: 13,
-    color: '#999',
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 80,
-  },
-  emptyText: {
-    fontSize: 16,
-    color: '#999',
-    marginTop: 16,
-  },
-});

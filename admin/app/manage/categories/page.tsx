@@ -15,6 +15,7 @@ export default function CategoriesPage() {
   const [noticeCurrentPage, setNoticeCurrentPage] = useState(1)
   const [ageCurrentPage, setAgeCurrentPage] = useState(1)
   const [mealCurrentPage, setMealCurrentPage] = useState(1)
+  const [topicCurrentPage, setTopicCurrentPage] = useState(1)
 
   const [isNoticeExpanded, setIsNoticeExpanded] = useState(() => {
     const saved = Cookies.get("noticeExpanded")
@@ -23,6 +24,11 @@ export default function CategoriesPage() {
 
   const [isAgeExpanded, setIsAgeExpanded] = useState(() => {
     const saved = Cookies.get("ageExpanded")
+    return saved !== undefined ? saved === "true" : true
+  })
+
+  const [isTopicExpanded, setIsTopicExpanded] = useState(() => {
+    const saved = Cookies.get("topicExpanded")
     return saved !== undefined ? saved === "true" : true
   })
 
@@ -58,6 +64,12 @@ export default function CategoriesPage() {
     const newState = !isAgeExpanded
     setIsAgeExpanded(newState)
     Cookies.set("ageExpanded", String(newState), { expires: 365 })
+  }
+
+  const toggleTopicExpanded = () => {
+    const newState = !isTopicExpanded
+    setIsTopicExpanded(newState)
+    Cookies.set("topicExpanded", String(newState), { expires: 365 })
   }
 
   // 초기 데이터 로드
@@ -102,8 +114,22 @@ export default function CategoriesPage() {
   const ageTotalPages = Math.ceil(ageCategories.length / ITEMS_PER_PAGE)
   const mealTotalPages = Math.ceil(mealCategories.length / ITEMS_PER_PAGE)
 
+  const topicCategories = useMemo(() => {
+    return categories.filter(cat => cat.type === "TOPIC_GROUP")
+  }, [categories])
+  console.log("topicCategories:", topicCategories)
+
+  const paginatedTopicCategories = useMemo(() => {
+    const startIndex = (topicCurrentPage - 1) * ITEMS_PER_PAGE
+    const endIndex = startIndex + ITEMS_PER_PAGE
+    return topicCategories.slice(startIndex, endIndex)
+  }, [topicCategories, topicCurrentPage])
+
+
+  const topicTotalPages = Math.ceil(topicCategories.length / ITEMS_PER_PAGE)
+
   // 모달 열기 (신규 등록)
-  const handleOpenModal = (type: "NOTICES_GROUP" | "AGE_GROUP" | "MEALS_GROUP") => {
+  const handleOpenModal = (type: "NOTICES_GROUP" | "AGE_GROUP" | "MEALS_GROUP" | "TOPIC_GROUP") => {
     setEditingId(null)
 
     // 해당 타입의 카테고리 중 가장 큰 sort 값 찾기
@@ -158,6 +184,7 @@ export default function CategoriesPage() {
       setNoticeCurrentPage(1)
       setAgeCurrentPage(1)
       setMealCurrentPage(1)
+      setTopicCurrentPage(1)
 
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : (editingId ? "카테고리 수정에 실패했습니다" : "카테고리 등록에 실패했습니다")
@@ -194,7 +221,7 @@ export default function CategoriesPage() {
       ) : error ? (
         <div className="text-center py-8 text-red-400">{error}</div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* 공지 카테고리 섹션 */}
           <div className="bg-gray-900 rounded-2xl p-4 md:p-6 border border-gray-800">
             <div className="flex items-center justify-between mb-4">
@@ -202,8 +229,8 @@ export default function CategoriesPage() {
                 onClick={toggleNoticeExpanded}
                 className="flex items-center gap-2 lg:cursor-default lg:pointer-events-none"
               >
-                <span className="text-2xl">📢</span>
-                <h3 className="text-lg font-bold text-white">공지 카테고리</h3>
+                <span className="text-sm">📢</span>
+                <h3 className="text-sm font-bold text-white">공지 카테고리</h3>
                 <span className="text-sm text-gray-500">({noticeCategories.length}개)</span>
                 <span className="lg:hidden text-gray-400 ml-2 transition-transform duration-200" style={{ transform: isNoticeExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>
                   ▼
@@ -211,10 +238,9 @@ export default function CategoriesPage() {
               </button>
               <button
                 onClick={() => handleOpenModal("NOTICES_GROUP")}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-xl transition-colors flex items-center space-x-1 text-sm"
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-1 px-3 rounded-lg transition-colors flex items-center space-x-1 text-xs"
               >
                 <span>➕</span>
-                <span className="hidden sm:inline">추가</span>
               </button>
             </div>
 
@@ -232,7 +258,7 @@ export default function CategoriesPage() {
                     >
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex-1">
-                          <h4 className="text-white font-medium text-lg mb-1">{category.value}</h4>
+                          <h4 className="text-white font-medium text-md mb-1">{category.value}</h4>
                           <p className="text-gray-500 text-xs">코드: {category.code}</p>
                         </div>
                         <span className={`px-2 py-1 text-xs font-medium rounded-full ${
@@ -249,13 +275,13 @@ export default function CategoriesPage() {
                         <div className="flex space-x-2">
                           <button
                             onClick={() => handleEditModal(category.id)}
-                            className="text-indigo-400 hover:text-indigo-300 text-sm font-medium transition-colors"
+                            className="text-indigo-400 hover:text-indigo-300 text-xs font-medium transition-colors"
                           >
                             수정
                           </button>
                           <button
                             onClick={() => handleDelete(category.id)}
-                            className="text-red-400 hover:text-red-300 text-sm font-medium transition-colors"
+                            className="text-red-400 hover:text-red-300 text-xs font-medium transition-colors"
                           >
                             삭제
                           </button>
@@ -284,8 +310,8 @@ export default function CategoriesPage() {
                 onClick={toggleAgeExpanded}
                 className="flex items-center gap-2 lg:cursor-default lg:pointer-events-none"
               >
-                <span className="text-2xl">👶</span>
-                <h3 className="text-lg font-bold text-white">연령구간 카테고리</h3>
+                <span className="text-sm">👶</span>
+                <h3 className="text-sm font-bold text-white">연령구간 카테고리</h3>
                 <span className="text-sm text-gray-500">({ageCategories.length}개)</span>
                 <span className="lg:hidden text-gray-400 ml-2 transition-transform duration-200" style={{ transform: isAgeExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>
                   ▼
@@ -293,10 +319,9 @@ export default function CategoriesPage() {
               </button>
               <button
                 onClick={() => handleOpenModal("AGE_GROUP")}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-xl transition-colors flex items-center space-x-1 text-sm"
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-1 px-3 rounded-lg transition-colors flex items-center space-x-1 text-xs"
               >
                 <span>➕</span>
-                <span className="hidden sm:inline">추가</span>
               </button>
             </div>
 
@@ -314,7 +339,7 @@ export default function CategoriesPage() {
                     >
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex-1">
-                          <h4 className="text-white font-medium text-lg mb-1">{category.value}</h4>
+                          <h4 className="text-white font-medium text-md mb-1">{category.value}</h4>
                           <p className="text-gray-500 text-xs">코드: {category.code}</p>
                         </div>
                         <span className={`px-2 py-1 text-xs font-medium rounded-full ${
@@ -331,13 +356,13 @@ export default function CategoriesPage() {
                         <div className="flex space-x-2">
                           <button
                             onClick={() => handleEditModal(category.id)}
-                            className="text-indigo-400 hover:text-indigo-300 text-sm font-medium transition-colors"
+                            className="text-indigo-400 hover:text-indigo-300 text-xs font-medium transition-colors"
                           >
                             수정
                           </button>
                           <button
                             onClick={() => handleDelete(category.id)}
-                            className="text-red-400 hover:text-red-300 text-sm font-medium transition-colors"
+                            className="text-red-400 hover:text-red-300 text-xs font-medium transition-colors"
                           >
                             삭제
                           </button>
@@ -366,8 +391,8 @@ export default function CategoriesPage() {
                 onClick={toggleAgeExpanded}
                 className="flex items-center gap-2 lg:cursor-default lg:pointer-events-none"
               >
-                <span className="text-2xl">👶</span>
-                <h3 className="text-lg font-bold text-white">식단 카테고리</h3>
+                <span className="text-sm">👶</span>
+                <h3 className="text-sm font-bold text-white">식단 카테고리</h3>
                 <span className="text-sm text-gray-500">({mealCategories.length}개)</span>
                 <span className="lg:hidden text-gray-400 ml-2 transition-transform duration-200" style={{ transform: isAgeExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>
                   ▼
@@ -375,10 +400,9 @@ export default function CategoriesPage() {
               </button>
               <button
                 onClick={() => handleOpenModal("MEALS_GROUP")}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-xl transition-colors flex items-center space-x-1 text-sm"
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-1 px-3 rounded-lg transition-colors flex items-center space-x-1 text-xs"
               >
                 <span>➕</span>
-                <span className="hidden sm:inline">추가</span>
               </button>
             </div>
 
@@ -396,7 +420,7 @@ export default function CategoriesPage() {
                     >
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex-1">
-                          <h4 className="text-white font-medium text-lg mb-1">{category.value}</h4>
+                          <h4 className="text-white font-medium text-md mb-1">{category.value}</h4>
                           <p className="text-gray-500 text-xs">코드: {category.code}</p>
                         </div>
                         <span className={`px-2 py-1 text-xs font-medium rounded-full ${
@@ -413,13 +437,13 @@ export default function CategoriesPage() {
                         <div className="flex space-x-2">
                           <button
                             onClick={() => handleEditModal(category.id)}
-                            className="text-indigo-400 hover:text-indigo-300 text-sm font-medium transition-colors"
+                            className="text-indigo-400 hover:text-indigo-300 text-xs font-medium transition-colors"
                           >
                             수정
                           </button>
                           <button
                             onClick={() => handleDelete(category.id)}
-                            className="text-red-400 hover:text-red-300 text-sm font-medium transition-colors"
+                            className="text-red-400 hover:text-red-300 text-xs font-medium transition-colors"
                           >
                             삭제
                           </button>
@@ -435,6 +459,87 @@ export default function CategoriesPage() {
                     currentPage={mealCurrentPage}
                     totalPages={mealTotalPages}
                     onPageChange={setMealCurrentPage}
+                  />
+                )}
+              </>
+            ))}
+          </div>
+
+          {/* 주제별 카테고리 섹션 */}
+          <div className="bg-gray-900 rounded-2xl p-4 md:p-6 border border-gray-800">
+            <div className="flex items-center justify-between mb-4">
+              <button
+                onClick={toggleTopicExpanded}
+                className="flex items-center gap-2 lg:cursor-default lg:pointer-events-none"
+              >
+                <span className="text-sm">🏷️</span>
+                <h3 className="text-sm font-bold text-white">주제별 카테고리</h3>
+                <span className="text-sm text-gray-500">({topicCategories.length}개)</span>
+                <span className="lg:hidden text-gray-400 ml-2 transition-transform duration-200" style={{ transform: isTopicExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+                  ▼
+                </span>
+              </button>
+              <button
+                onClick={() => handleOpenModal("TOPIC_GROUP")}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-1 px-3 rounded-lg transition-colors flex items-center space-x-1 text-xs"
+              >
+                <span>➕</span>
+              </button>
+            </div>
+
+            {(isTopicExpanded || isDesktop) && (topicCategories.length === 0 ? (
+              <div className="text-center py-8 text-gray-400">
+                등록된 주제별 카테고리가 없습니다
+              </div>
+            ) : (
+              <>
+                <div className="space-y-3">
+                  {paginatedTopicCategories.map((category) => (
+                    <div
+                      key={category.id}
+                      className="bg-gray-800 rounded-xl p-4 border border-gray-700 hover:border-gray-600 transition-colors"
+                    >
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1">
+                          <h4 className="text-white font-medium text-md mb-1">{category.value}</h4>
+                          <p className="text-gray-500 text-xs">코드: {category.code}</p>
+                        </div>
+                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                          category.is_active === "Y"
+                            ? "bg-green-600/20 text-green-400"
+                            : "bg-gray-600/20 text-gray-400"
+                        }`}>
+                          {category.is_active === "Y" ? "활성" : "비활성"}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-3 border-t border-gray-700">
+                        <span className="text-xs text-gray-500">순서: {category.sort}</span>
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => handleEditModal(category.id)}
+                            className="text-indigo-400 hover:text-indigo-300 text-xs font-medium transition-colors"
+                          >
+                            수정
+                          </button>
+                          <button
+                            onClick={() => handleDelete(category.id)}
+                            className="text-red-400 hover:text-red-300 text-xs font-medium transition-colors"
+                          >
+                            삭제
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {topicTotalPages > 1 && (
+                  <Pager
+                    className="mt-4"
+                    currentPage={topicCurrentPage}
+                    totalPages={topicTotalPages}
+                    onPageChange={setTopicCurrentPage}
                   />
                 )}
               </>
@@ -480,6 +585,7 @@ export default function CategoriesPage() {
                   <option value="NOTICES_GROUP">📢 공지 카테고리</option>
                   <option value="AGE_GROUP">👶 연령구간 카테고리</option>
                   <option value="MEALS_GROUP">🍽️ 식단 카테고리</option>
+                  <option value="TOPIC_GROUP">🏷️ 주제별 카테고리</option>
                 </select>
               </div>
 

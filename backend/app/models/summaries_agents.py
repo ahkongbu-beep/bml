@@ -1,3 +1,4 @@
+from operator import and_
 from sqlalchemy import (
     Column,
     Integer,
@@ -40,8 +41,12 @@ class SummariesAgents(Base):
     )
 
     @staticmethod
-    def findByUserId(session, user_id: int):
-        return session.query(SummariesAgents).filter(SummariesAgents.user_id == user_id).all()
+    def findByModelIdAndQuestion(session, model: str, model_id: int, question: str):
+        return session.query(SummariesAgents).filter(
+            SummariesAgents.model == model,
+            SummariesAgents.model_id == model_id,
+            SummariesAgents.question == question
+        ).first()
 
     @staticmethod
     def findUsedCountByUserId(session, user_id: int):
@@ -59,8 +64,11 @@ class SummariesAgents(Base):
                 FeedsImages.image_url.label("feed_image_url"),
             )
             .select_from(SummariesAgents)
-            .outerjoin(FeedsImages, SummariesAgents.model_id == FeedsImages.id)
-            .outerjoin(Feeds, FeedsImages.feed_id == Feeds.id)
+            .outerjoin(FeedsImages, and_(
+                SummariesAgents.model_id == FeedsImages.id,
+                FeedsImages.img_model == "Feeds"
+            ))
+            .outerjoin(Feeds, FeedsImages.img_model_id == Feeds.id)
         )
 
         if 'user_id' in params:

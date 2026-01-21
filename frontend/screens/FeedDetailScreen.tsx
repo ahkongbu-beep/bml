@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import styles from './FeedDetailScreen.styles';
 import {
   View,
   Text,
@@ -19,10 +20,10 @@ export default function FeedDetailScreen({ route, navigation }: any) {
   const { feedId } = route.params;
   const { user } = useAuth();
   const { data: feed, isLoading } = useFeed(feedId);
-  const deleteFeedMutation = useDeleteFeed();
+  const deleteFeedMutation = useDeleteFeed(feedId);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
-  const handleDelete = (feedId, userHash) => {
+  const handleDelete = (feedId) => {
     Alert.alert(
       '피드 삭제',
       '정말로 이 피드를 삭제하시겠습니까?',
@@ -36,7 +37,8 @@ export default function FeedDetailScreen({ route, navigation }: any) {
           style: 'destructive',
           onPress: async () => {
             try {
-              await deleteFeedMutation.mutateAsync({ id: feedId, userHash });
+              const result = await deleteFeedMutation.mutateAsync(feedId);
+              console.log('피드 삭제 결과:', result);
               Alert.alert('성공', '피드가 삭제되었습니다.', [
                 { text: '확인', onPress: () => navigation.navigate('MyPage') },
               ]);
@@ -112,7 +114,7 @@ export default function FeedDetailScreen({ route, navigation }: any) {
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.deleteButton}
-                  onPress={() => handleDelete(feed.id, user?.view_hash)}
+                  onPress={() => handleDelete(feed.id)}
                 >
                   <Ionicons name="trash" size={20} color="#FF6B6B" />
                 </TouchableOpacity>
@@ -195,143 +197,3 @@ export default function FeedDetailScreen({ route, navigation }: any) {
     </Layout>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FFFBF7',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  imageSection: {
-    position: 'relative',
-  },
-  feedImage: {
-    width: 400,
-    height: 400,
-    backgroundColor: '#FFF5F0',
-  },
-  imageIndicator: {
-    position: 'absolute',
-    bottom: 16,
-    right: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  imageIndicatorText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  userSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#FFE5E5',
-  },
-  userImage: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginRight: 12,
-  },
-  userInfo: {
-    flex: 1,
-  },
-  userName: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#333',
-    marginBottom: 2,
-  },
-  feedDate: {
-    fontSize: 12,
-    color: '#999',
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  editButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#FFF5F0',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#FFE5E5',
-  },
-  deleteButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#FFF5F5',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#FFE5E5',
-  },
-  titleSection: {
-    padding: 16,
-    paddingBottom: 8,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#333',
-    lineHeight: 28,
-  },
-  contentSection: {
-    padding: 16,
-    paddingTop: 8,
-  },
-  content: {
-    fontSize: 16,
-    color: '#4A4A4A',
-    lineHeight: 24,
-  },
-  tagsSection: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    padding: 16,
-    gap: 8,
-  },
-  tag: {
-    backgroundColor: '#FFE5E5',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  tagText: {
-    fontSize: 14,
-    color: '#FF9AA2',
-    fontWeight: '600',
-  },
-  statsSection: {
-    flexDirection: 'row',
-    padding: 16,
-    gap: 20,
-    borderTopWidth: 1,
-    borderTopColor: '#FFE5E5',
-  },
-  statItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  statText: {
-    fontSize: 14,
-    color: '#666',
-    fontWeight: '600',
-  },
-});

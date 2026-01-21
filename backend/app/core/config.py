@@ -15,13 +15,14 @@ class Settings():
 
     # CORS 설정
     BACKEND_CORS_ORIGINS: list = ["http://localhost:3000", "http://localhost:3001"]
-    BACKEND_SHOP_URL : str = os.getenv("BACKEND_SHOP_URL", "http://172.30.1.3:8000")
+    FRONTEND_URL : str = os.getenv("FRONTEND_URL", "")
+    BACKEND_SHOP_URL : str = os.getenv("BACKEND_SHOP_URL", '')
     SECRET_KEY: str = os.getenv("SECRET_KEY", "")
     PASSWORD_RESET_TOKEN_EXPIRE_TIME_MINUTES: int = int(os.getenv("PASSWORD_RESET_TOKEN_EXPIRE_TIME_MINUTES", "10"))
     PASSWORD_RESET_DAILY_LIMIT: int = int(os.getenv("PASSWORD_RESET_DAILY_LIMIT", "5"))
     OPENAI_API_KEY:str = os.getenv("OPENAI_API_KEY", "")
     OPENAI_CALL_URL:str = os.getenv("OPENAI_CALL_URL", "")
-    STATIC_BASE_URL:str = os.getenv("STATIC_BASE_URL", "http://172.30.1.3:8000/")
+    STATIC_BASE_URL:str = os.getenv("STATIC_BASE_URL", "")
     FREE_SUMMARY_AGENT_COUNT:int = int(os.getenv("FREE_SUMMARY_AGENT_COUNT", "10"))
     PROMPT_TEMPLATES_DIR: str = os.getenv("PROMPT_TEMPLATES_DIR", "prompts")
 settings = Settings()

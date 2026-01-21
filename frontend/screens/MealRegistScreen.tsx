@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import styles from './MealRegistScreen.styles';
 import {
   View,
   Text,
@@ -17,18 +18,31 @@ import Layout from '@/components/Layout';
 import { useAuth } from '../libs/contexts/AuthContext';
 import { MEAL_CATEGORIES } from '../libs/utils/codes/MealCalendarCode';
 import { useCategoryCodes } from '../libs/hooks/useCategories';
-import { useCreateMeal } from '../libs/hooks/useMeals';
+import { useCreateMeal, useUpdateMeal } from '../libs/hooks/useMeals';
 
 export default function MealRegistScreen({ route, navigation }: any) {
-  const { selectedDate } = route.params || {};
+  const { selectedDate, meal } = route.params || {};
   const { user } = useAuth();
   const { data: categoryCodes } = useCategoryCodes('MEALS_GROUP');
   const createMealMutation = useCreateMeal();
+  const updateMealMutation = useUpdateMeal();
+  const isEditMode = !!meal;
+
   const [title, setTitle] = useState('');
   const [contents, setContents] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
+
+  // 수정 모드일 때 초기값 설정
+  useEffect(() => {
+    if (meal) {
+      setTitle(meal.title || '');
+      setContents(meal.contents || '');
+      setSelectedCategory(meal.category_id || null);
+      setTags(meal.tags || []);
+    }
+  }, [meal]);
 
   const handleAddTag = () => {
     const cleanTag = tagInput.replace('#', '').trim();
@@ -43,23 +57,15 @@ export default function MealRegistScreen({ route, navigation }: any) {
   };
 
   const handleSubmit = async () => {
-    console.log('handleSubmit 호출됨');
-    console.log('title:', title);
-    console.log('contents:', contents);
-    console.log('selectedCategory:', selectedCategory);
-
     if (!title.trim()) {
-      console.log('제목 없음');
       Alert.alert('알림', '제목을 입력해주세요.');
       return;
     }
     if (!contents.trim()) {
-      console.log('내용 없음');
       Alert.alert('알림', '내용을 입력해주세요.');
       return;
     }
     if (!selectedCategory) {
-      console.log('카테고리 선택 안됨');
       Alert.alert('알림', '식사 시간을 선택해주세요.');
       return;
     }
@@ -73,34 +79,54 @@ export default function MealRegistScreen({ route, navigation }: any) {
       tags: tags,
     };
 
-    console.log('등록할 식단 데이터:', mealData);
+    if (isEditMode) {
+      // 수정 모드
+      updateMealMutation.mutate(
+        { mealHash: meal.view_hash, mealData },
+        {
+          onSuccess: (response) => {
+            if (!response.success) {
+              Alert.alert('오류', response.error || response.message || '식단 수정에 실패했습니다.');
+              return;
+            }
 
-    createMealMutation.mutate(mealData, {
-      onSuccess: (response) => {
-        let message = '식단이 등록되었습니다.';
-        if (!response.success) {
-          message = response.error || response.message ||'식단 등록에 실패했습니다.';
-          Alert.alert('오류', message);
-          return;
+            Alert.alert('성공', '식단이 수정되었습니다.', [{
+              text: '확인',
+              onPress: () => navigation.goBack(),
+            }]);
+          },
+          onError: (error) => {
+            console.error('식단 수정 오류:', error);
+            Alert.alert('오류', '식단 수정에 실패했습니다.');
+          },
         }
-
-        Alert.alert('성공', message, [{
+      );
+    } else {
+      // 등록 모드
+      createMealMutation.mutate(mealData, {
+        onSuccess: (response) => {
+          if (!response.success) {
+            Alert.alert('오류', response.error || response.message || '식단 등록에 실패했습니다.');
+            return;
+          }
+          Alert.alert('성공', '식단이 등록되었습니다.', [{
             text: '확인',
-            onPress: () => navigation.navigate('MealPlan'),
-        }]);
-      },
-      onError: (error) => {
-        console.error('식단 등록 오류:', error);
-        Alert.alert('오류', '식단 등록에 실패했습니다.');
-      },
-    });
+            onPress: () => navigation.goBack(),
+          }]);
+        },
+        onError: (error) => {
+          console.error('식단 등록 오류:', error);
+          Alert.alert('오류', '식단 등록에 실패했습니다.');
+        },
+      });
+    }
   };
 
   return (
     <Layout>
       <View style={styles.container}>
         <Header
-          title="식단 추가"
+          title={isEditMode ? '식단 수정' : '식단 추가'}
           leftButton={{
             icon: 'arrow-back',
             onPress: () => navigation.goBack(),
@@ -243,163 +269,3 @@ export default function MealRegistScreen({ route, navigation }: any) {
     </Layout>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FFFBF7',
-  },
-  keyboardView: {
-    flex: 1,
-  },
-  content: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 300,
-  },
-  dateSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 20,
-    gap: 8,
-  },
-  dateText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#4A4A4A',
-  },
-  section: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#4A4A4A',
-    marginBottom: 12,
-  },
-  categoryScroll: {
-    marginHorizontal: -16,
-    paddingHorizontal: 16,
-  },
-  categoryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    borderWidth: 1.5,
-    borderColor: '#FFE5E5',
-    backgroundColor: '#FFFFFF',
-    marginRight: 10,
-    gap: 6,
-  },
-  categoryButtonActive: {
-    backgroundColor: '#FF9AA2',
-    borderColor: '#FF9AA2',
-  },
-  categoryIcon: {
-    fontSize: 18,
-  },
-  categoryText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#4A4A4A',
-  },
-  categoryTextActive: {
-    color: '#FFFFFF',
-  },
-  input: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 15,
-    color: '#4A4A4A',
-    borderWidth: 1,
-    borderColor: '#FFE5E5',
-  },
-  textArea: {
-    minHeight: 120,
-    maxHeight: 200,
-  },
-  charCount: {
-    fontSize: 12,
-    color: '#999999',
-    textAlign: 'right',
-    marginTop: 4,
-  },
-  tagInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  tagInput: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 15,
-    color: '#4A4A4A',
-    borderWidth: 1,
-    borderColor: '#FFE5E5',
-  },
-  tagAddButton: {
-    width: 48,
-    height: 48,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#FFE5E5',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  tagList: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 12,
-  },
-  tag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFE5E5',
-    paddingVertical: 6,
-    paddingLeft: 12,
-    paddingRight: 8,
-    borderRadius: 16,
-    gap: 4,
-  },
-  tagText: {
-    fontSize: 14,
-    color: '#4A4A4A',
-    fontWeight: '500',
-  },
-  tagRemoveButton: {
-    padding: 2,
-  },
-  submitButton: {
-    backgroundColor: '#FF9AA2',
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-    marginTop: 8,
-    marginBottom: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  submitButtonDisabled: {
-    opacity: 0.6,
-  },
-  submitButtonText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-});

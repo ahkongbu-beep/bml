@@ -48,9 +48,6 @@ class Users(Base):
     profile_image = Column(String(255), nullable=False, default='')
     description = Column(Text, nullable=True)
     is_active = Column(SmallInteger, nullable=False, default=1)
-    child_birth = Column(Date, nullable=True, default=None)
-    child_gender = Column(Enum(GenderEnum), nullable=False, default=GenderEnum.M)
-    child_age_group = Column(Integer, nullable=False, default=0)
     marketing_agree = Column(SmallInteger, nullable=False, default=0)
     push_agree = Column(SmallInteger, nullable=False, default=0)
     created_at = Column(DateTime, nullable=False, default=datetime(1970,1,1))
@@ -72,8 +69,6 @@ class Users(Base):
         Index('idx_users_is_active', 'is_active'),
         Index('idx_users_created_at', 'created_at'),
         Index('idx_users_last_login_at', 'last_login_at'),
-        Index('idx_child_birth', 'child_birth'),
-        Index('idx_child_age_group', 'child_age_group'),
     )
 
     @staticmethod
@@ -108,9 +103,6 @@ class Users(Base):
         - address: str
         - profile_image: str
         - description: str
-        - child_birth: date
-        - child_gender: GenderEnum
-        - child_age_group: int
         - marketing_agree: int (0 or 1)
         - push_agree: int (0 or 1)
         """
@@ -145,9 +137,6 @@ class Users(Base):
             description=params.get('description', None),
             role=params.get('role', RoleEnum.USER),
             is_active=params.get('is_active', 1),
-            child_birth=params.get('child_birth', None),
-            child_gender=params.get('child_gender', GenderEnum.M),
-            child_age_group=params.get('child_age_group', 0),
             marketing_agree=params.get('marketing_agree', 0),
             push_agree=params.get('push_agree', 0),
             created_at=now,
@@ -178,12 +167,9 @@ class Users(Base):
             "address",
             "profile_image",
             "description",
-            "child_birth",
             "password",
             "marketing_agree",
             "push_agree",
-            "child_gender",
-            "child_age_group",
             "is_active",
         ]
 
@@ -208,15 +194,6 @@ class Users(Base):
                         continue
 
                     value = hash_password(value)
-
-                if key == "child_birth" and value:
-                    try:
-                        value = datetime.strptime(value, "%Y-%m-%d").date()
-                    except:
-                        raise ValueError("child_birth 형식이 올바르지 않습니다. YYYY-MM-DD 형식이어야 합니다.")
-
-                if key == "child_age_group":
-                    value = int(value)
 
                 setattr(user_instance, key, value)
 

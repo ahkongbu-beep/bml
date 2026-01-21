@@ -3,12 +3,13 @@
 import Link from "next/link";
 
 export default function Header() {
+  const appName = process.env.EXPO_PUBLIC_APP_NAME || "";
   return (
     <header className="fixed top-0 left-0 right-0 bg-white shadow-sm z-40">
       <div className="max-w-md mx-auto px-4 py-3 flex items-center justify-between">
         <Link href="/client" className="flex items-center space-x-2">
           <div className="w-8 h-8 bg-gradient-to-br from-pink-400 to-purple-400 rounded-full flex items-center justify-center">
-            <span className="text-white font-bold text-sm">BML</span>
+            <span className="text-white font-bold text-sm">{appName}</span>
           </div>
           <span className="text-lg font-bold text-gray-800">Baby Meal List</span>
         </Link>

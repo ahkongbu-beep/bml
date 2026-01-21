@@ -18,17 +18,19 @@ import {
   RefreshControl,
   Dimensions,
 } from 'react-native';
+import styles from './FeedLikeListScreen.styles';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import Layout from '../components/Layout';
 import Header from '../components/Header';
 import { useLikedFeeds, useToggleLike } from '../libs/hooks/useFeeds';
+import { getLikedFeeds } from '../libs/api/feedsApi';
 import { useAuth } from '../libs/contexts/AuthContext';
 import { formatDate } from '@/libs/utils/common';
 import { LikedFeed } from '../libs/types/FeedType';
 
 const { width } = Dimensions.get('window');
-const API_BASE_URL = process.env.STATIC_BASE_URL || 'http://172.30.1.3:8000';
+const API_BASE_URL = process.env.STATIC_BASE_URL;
 
 interface LikedFeedItem extends LikedFeed {}
 
@@ -42,11 +44,8 @@ export default function FeedLikeListScreen() {
   const limit = 30;
 
   // 좋아요한 피드 목록 조회 (초기 로드만)
-  const { data: likedFeeds, isLoading, isError, refetch } = useLikedFeeds(
-    user?.view_hash || '',
-    limit,
-    0  // 항상 offset 0으로 초기 데이터만 가져옴
-  );
+  // 항상 offset 0으로 초기 데이터만 가져옴
+  const { data: likedFeeds, isLoading, isError, refetch } = useLikedFeeds(limit, 0);
 
   // 좋아요 토글 mutation
   const toggleLikeMutation = useToggleLike();
@@ -73,10 +72,7 @@ export default function FeedLikeListScreen() {
 
   // 초기 로딩 시 데이터 설정
   React.useEffect(() => {
-    console.log('likedFeeds data:', likedFeeds);
-    console.log('isLoading:', isLoading);
     if (likedFeeds) {
-      console.log('Setting allFeeds with:', likedFeeds.length, 'items');
       setAllFeeds(likedFeeds);
     }
   }, [likedFeeds]);
@@ -85,23 +81,18 @@ export default function FeedLikeListScreen() {
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/feeds/like/list?user_hash=${user?.view_hash}&limit=${limit}&offset=0`
-      );
-      const result = await response.json();
-
+      const result = await refetch();
       if (result.data) {
         setAllFeeds(result.data);
       } else {
         setAllFeeds([]);
       }
     } catch (error) {
-      console.error('Refresh error:', error);
       setAllFeeds([]);
     } finally {
       setIsRefreshing(false);
     }
-  }, [user?.view_hash, limit]);
+  }, [refetch]);
 
   // 더 많은 데이터 로드
   const handleLoadMore = useCallback(async () => {
@@ -113,21 +104,17 @@ export default function FeedLikeListScreen() {
     const newOffset = allFeeds.length;
 
     try {
-      // 다음 페이지 데이터를 가져오기 위해 새로운 쿼리 실행
-      const response = await fetch(
-        `${API_BASE_URL}/feeds/like/list?user_hash=${user?.view_hash}&limit=${limit}&offset=${newOffset}`
-      );
-      const result = await response.json();
+      const result = await getLikedFeeds(limit, newOffset);
 
-      if (result.data && result.data.length > 0) {
-        setAllFeeds(prev => [...prev, ...result.data]);
+      if (result && result.length > 0) {
+        setAllFeeds(prev => [...prev, ...result]);
       }
     } catch (error) {
       console.error('Load more error:', error);
     } finally {
       setIsLoadingMore(false);
     }
-  }, [isLoadingMore, allFeeds.length, limit, user?.view_hash]);
+  }, [isLoadingMore, allFeeds.length, limit]);
 
   // 피드 상세로 이동
   const handleFeedPress = (feedId: number) => {
@@ -193,19 +180,26 @@ export default function FeedLikeListScreen() {
   if (isLoading && allFeeds.length === 0) {
     return (
       <Layout>
-        <Header title="좋아요한 피드" showBackButton />
+        <Header
+          title="좋아요한 피드"
+          showBack
+          onBackPress={() => navigation.goBack()}
+        />
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color="#4A90E2" />
         </View>
       </Layout>
     );
   }
-
   // 에러
   if (isError) {
     return (
       <Layout>
-        <Header title="좋아요한 피드" showBackButton />
+        <Header
+          title="좋아요한 피드"
+          showBack
+          onBackPress={() => navigation.goBack()}
+        />
         <View style={styles.centerContainer}>
           <Text style={styles.errorText}>데이터를 불러오는 중 오류가 발생했습니다.</Text>
           <TouchableOpacity style={styles.retryButton} onPress={handleRefresh}>
@@ -220,7 +214,11 @@ export default function FeedLikeListScreen() {
   if (!isLoading && (!allFeeds || allFeeds.length === 0)) {
     return (
       <Layout>
-        <Header title="좋아요한 피드" showBackButton />
+        <Header
+          title="좋아요한 피드"
+          showBack
+          onBackPress={() => navigation.goBack()}
+        />
         <View style={styles.centerContainer}>
           <Ionicons name="heart-outline" size={64} color="#CCC" />
           <Text style={styles.emptyText}>좋아요한 피드가 없습니다.</Text>
@@ -231,7 +229,11 @@ export default function FeedLikeListScreen() {
 
   return (
     <Layout>
-      <Header title="좋아요한 피드" showBackButton />
+      <Header
+        title="좋아요한 피드"
+        showBack
+        onBackPress={() => navigation.goBack()}
+      />
       <FlatList
         data={allFeeds}
         keyExtractor={(item, index) => `${item.feed_id}-${index}`}
@@ -253,98 +255,3 @@ export default function FeedLikeListScreen() {
     </Layout>
   );
 }
-
-const styles = StyleSheet.create({
-  centerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  listContainer: {
-    padding: 16,
-  },
-  feedItem: {
-    flexDirection: 'row',
-    backgroundColor: '#FFF',
-    borderRadius: 12,
-    marginBottom: 12,
-    padding: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    alignItems: 'center',
-  },
-  feedImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 8,
-    marginRight: 12,
-    backgroundColor: '#F5F5F5',
-  },
-  feedContent: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  feedTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 4,
-  },
-  feedDescription: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 8,
-    lineHeight: 20,
-  },
-  feedFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  likeInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  likedAtText: {
-    fontSize: 12,
-    color: '#999',
-    marginLeft: 4,
-  },
-  likeButton: {
-    padding: 8,
-    marginLeft: 4,
-  },
-  chevron: {
-    marginLeft: 8,
-  },
-  emptyText: {
-    fontSize: 16,
-    color: '#999',
-    marginTop: 16,
-  },
-  errorText: {
-    fontSize: 16,
-    color: '#FF6B6B',
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  retryButton: {
-    backgroundColor: '#4A90E2',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  retryButtonText: {
-    color: '#FFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  footerLoader: {
-    paddingVertical: 20,
-    alignItems: 'center',
-  },
-});
-

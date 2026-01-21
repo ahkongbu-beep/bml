@@ -1,0 +1,268 @@
+import { StyleSheet } from 'react-native';
+import { colors, shadows } from './common.styles';
+
+const styles = StyleSheet.create({
+  scrollView: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  container: {
+    padding: 20,
+  },
+  headerSection: {
+    alignItems: 'center',
+    marginBottom: 32,
+    paddingTop: 20,
+  },
+  headerIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#FFE5E5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#4A4A4A',
+    marginBottom: 8,
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: '#B0B0B0',
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  section: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 24,
+    marginBottom: 20,
+    ...shadows.card,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#4A4A4A',
+    marginBottom: 20,
+  },
+  inputGroup: {
+    marginBottom: 20,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#4A4A4A',
+    marginBottom: 8,
+  },
+  required: {
+    color: '#FF6B6B',
+  },
+  input: {
+    backgroundColor: '#FFF9F5',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FFE5E5',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 16,
+    color: '#4A4A4A',
+  },
+  inputDescription: {
+    fontSize: 12,
+    color: '#B0B0B0',
+    marginTop: 6,
+  },
+  ageDisplay: {
+    backgroundColor: '#FFF5F0',
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginTop: 8,
+  },
+  ageText: {
+    fontSize: 14,
+    color: '#FF9AA2',
+    fontWeight: '600',
+  },
+  genderContainer: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  genderButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#FFE5E5',
+    backgroundColor: '#FFFFFF',
+    gap: 8,
+  },
+  genderButtonActive: {
+    borderColor: '#FF9AA2',
+    backgroundColor: '#FFF5F0',
+  },
+  genderText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#B0B0B0',
+  },
+  genderTextActive: {
+    color: '#FF9AA2',
+  },
+  checkboxContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF9F5',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FFE5E5',
+    padding: 16,
+    gap: 12,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: '#FFE5E5',
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkboxActive: {
+    borderColor: '#FF9AA2',
+    backgroundColor: '#FF9AA2',
+  },
+  checkboxLabel: {
+    flex: 1,
+    fontSize: 15,
+    color: '#4A4A4A',
+    fontWeight: '500',
+  },
+  infoBox: {
+    backgroundColor: '#FFFBF7',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FFE5E5',
+    padding: 16,
+    marginBottom: 20,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+    gap: 8,
+  },
+  infoText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#4A4A4A',
+    lineHeight: 20,
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 12,
+  },
+  button: {
+    flex: 1,
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  skipButton: {
+    backgroundColor: '#F5F5F5',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  submitButton: {
+    backgroundColor: '#FF9AA2',
+    ...shadows.button,
+  },
+  disabledButton: {
+    backgroundColor: '#FFB5B5',
+    opacity: 0.6,
+  },
+  buttonText: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  skipButtonText: {
+    color: '#B0B0B0',
+  },
+  submitButtonText: {
+    color: '#FFFFFF',
+  },
+  childListContainer: {
+    marginTop: 20,
+  },
+  childCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#FFE5E5',
+  },
+  childInfo: {
+    flex: 1,
+  },
+  childName: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#4A4A4A',
+    marginBottom: 4,
+  },
+  childDetails: {
+    fontSize: 13,
+    color: '#B0B0B0',
+    marginBottom: 2,
+  },
+  agentBadge: {
+    backgroundColor: '#FF9AA2',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+    marginTop: 6,
+  },
+  agentBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  deleteButton: {
+    padding: 8,
+  },
+  addAnotherButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#FF9AA2',
+    borderStyle: 'dashed',
+    backgroundColor: '#FFFFFF',
+    gap: 8,
+    marginTop: 8,
+  },
+  addAnotherButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#FF9AA2',
+  },
+});
+
+export default styles;

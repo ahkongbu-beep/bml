@@ -3,17 +3,17 @@ import { getDenyUsers } from '../api/deny_userApi'
 import { blockUser } from '../api/feedsApi';
 import { PaginationResponse } from '../types/ApiTypes';
 export const denyUserKeys = {
-  lists: (user_hash: string) => ['denyUsers', user_hash] as const,
+  lists: () => ['denyUsers'] as const,
 }
 
 /**
  * 차단 목록 조회 HOOK
  */
-export const useDenyUsers = (user_hash: string | null) => {
+export const useDenyUsers = () => {
   return useQuery({
-    queryKey: denyUserKeys.lists(user_hash || ''),
-    queryFn: () => getDenyUsers(user_hash!),
-    enabled: !!user_hash,
+    queryKey: denyUserKeys.lists(),
+    queryFn: () => getDenyUsers(),
+    enabled: true,
     select: (response) => {
       return response || [];
     }
@@ -25,8 +25,8 @@ export const useUnblockUser = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ user_hash, deny_user_hash }: { user_hash: string; deny_user_hash: string }) => {
-      return blockUser(user_hash, deny_user_hash);
+    mutationFn: ({ deny_user_hash }: { deny_user_hash: string }) => {
+      return blockUser(deny_user_hash);
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: denyUserKeys.lists(variables.user_hash) });

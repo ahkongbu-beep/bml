@@ -8,8 +8,6 @@ import { User } from '../types/UserType';
 export const register = async (data: RegisterRequest): Promise<ApiResponse<User>> => {
   const formData = new FormData();
 
-  console.log("Preparing registration data:", data);
-
   formData.append('sns_login_type', data.sns_login_type);
   if (data.sns_id) formData.append('sns_id', data.sns_id);
   formData.append('name', data.name);
@@ -19,10 +17,7 @@ export const register = async (data: RegisterRequest): Promise<ApiResponse<User>
   if (data.phone) formData.append('phone', data.phone);
   if (data.address) formData.append('address', data.address);
   if (data.description) formData.append('description', data.description);
-  if (data.child_birth) formData.append('child_birth', data.child_birth);
-  formData.append('child_gender', data.child_gender);
   formData.append('meal_group', JSON.stringify(data.meal_group));
-  formData.append('child_age_group', data.child_age_group.toString());
   formData.append('marketing_agree', data.marketing_agree?.toString() || '0');
   formData.append('push_agree', data.push_agree?.toString() || '0');
 

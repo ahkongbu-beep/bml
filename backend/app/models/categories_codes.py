@@ -1,5 +1,6 @@
 from sqlalchemy import Column, Integer, String, Index, UniqueConstraint
 from app.core.database import Base
+from app.libs.serializers.query import SerializerQueryResult
 
 class CategoriesCodes(Base):
     __tablename__ = "categories_codes"
@@ -126,51 +127,4 @@ class CategoriesCodes(Base):
             CategoriesCodes.sort.asc()
         ).all()
 
-        # NoticesQueryResult 래퍼 객체 반환 (체이닝 가능)
-        return NoticesQueryResult(results)
-
-
-class NoticesQueryResult:
-    """쿼리 결과를 감싸는 래퍼 클래스 - 체이닝 패턴 지원"""
-
-    def __init__(self, results):
-        self._results = results
-
-    def getData(self):
-        """직렬화된 Pydantic 모델 리스트 반환"""
-        from app.schemas.categories_codes_schemas import CategoryCodeResponse
-
-        return [
-            CategoryCodeResponse(
-                id=v.id,
-                type=v.type,
-                code=v.code,
-                value=v.value,
-                sort=v.sort,
-                is_active=v.is_active
-            )
-            for v in self._results
-        ]
-
-    def toDict(self):
-        """딕셔너리 리스트 반환"""
-        return [
-            {
-                "id": v.id,
-                "type": v.type,
-                "code": v.code,
-                "value": v.value,
-                "sort": v.sort,
-                "is_active": v.is_active
-            }
-            for v in self._results
-        ]
-
-    def toJSON(self):
-        """JSON 문자열 반환"""
-        import json
-        return json.dumps(self.toDict(), ensure_ascii=False, default=str)
-
-    def getRawData(self):
-        """원본 SQLAlchemy 객체 반환"""
-        return self._results
+        return SerializerQueryResult(results)

@@ -46,10 +46,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
             // 2. 백그라운드에서 최신 프로필 정보 가져오기
             try {
-              console.log('Fetching latest profile from backend...');
-              const response = await getProfileBySnsId(savedUser.sns_id);
+              const response = await getProfileBySnsId(savedUser.view_hash);
               if (response.success && response.data) {
-                console.log('Latest profile fetched, updating user info');
                 await saveUserInfo(response.data);
                 setUser(response.data);
               }
@@ -73,18 +71,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loginMutation = useMutation({
     mutationFn: (credentials: LoginRequest) => loginApi(credentials),
     onSuccess: async (data) => {
-      console.log('Login onSuccess called', data);
+
       if (data.success && data.data) {
         const { user, token } = data.data;
-        console.log('User and token found:', { user: !!user, token: !!token });
+
         if (token && user) {
           await saveToken(token);
           await saveUserInfo(user);
           setUser(user);
           setIsAuthenticated(true);
-          console.log('isAuthenticated set to true in context');
         }
-      }
+      } else {
+        throw new Error(data.message || '로그인에 실패했습니다.');}
     },
   });
 
