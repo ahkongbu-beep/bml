@@ -49,6 +49,7 @@ import { CommunityPost } from '../libs/types/CommunitiesType';
 import styles from './CommunityScreen.styles';
 
 export default function CommunityScreen({ navigation }: any) {
+  const API_BASE_URL = process.env.EXPO_PUBLIC_STATIC_BASE_URL;
   const { user } = useAuth();
   const [selectedCategory, setSelectedCategory] = useState('ALL');
   const [isLoading, setIsLoading] = useState(false);
@@ -348,7 +349,7 @@ export default function CommunityScreen({ navigation }: any) {
         >
           <View style={styles.postHeader}>
             <Image
-              source={{ uri: item.profile_image || 'https://via.placeholder.com/40' }}
+              source={{ uri: API_BASE_URL + (item.profile_image + "_small.webp" || '/default-profile.png') }}
               style={styles.profileImage}
             />
             <View style={styles.postUserInfo}>

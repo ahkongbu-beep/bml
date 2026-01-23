@@ -14,21 +14,24 @@ const MealPlanItem = React.memo(({
   meal,
   handleMenuPress,
   handleDetailFeed,
+  onPress,
 }: MealItemProps) => {
-
+  const API_BASE_URL = process.env.EXPO_PUBLIC_STATIC_BASE_URL;
   const category = MEAL_CATEGORIES.find((c) => c.name === meal.category_name);
   const hasImage = !!meal.image_url;
 
   return (
-    <View
+    <TouchableOpacity
       style={[styles.mealCard, { backgroundColor: category?.color || '#F5F5F5' }]}
+      onPress={() => onPress?.(meal)}
+      activeOpacity={0.7}
     >
       <View style={hasImage ? styles.cardContentWithImage : styles.cardContentNoImage}>
         {/* 왼쪽 이미지 영역 */}
         {hasImage && (
           <View style={styles.imageContainer}>
             <Image
-              source={{ uri: meal.image_url }}
+              source={{ uri: API_BASE_URL + meal.image_url + '_medium.webp' }}
               style={styles.mealImage}
               resizeMode="cover"
             />
@@ -39,41 +42,40 @@ const MealPlanItem = React.memo(({
         <View style={hasImage ? styles.contentContainer : styles.contentContainerFull}>
           <View style={styles.mealHeader}>
             <View style={styles.mealCategory}>
-              <Text style={styles.mealIcon}>{category?.icon}</Text>
-              <Text style={styles.mealCategoryName}>{meal.category_name}</Text>
+              <Text style={styles.mealIcon}>{category?.icon || ''}</Text>
+              <Text style={styles.mealCategoryName}>{meal.category_name || ''}</Text>
             </View>
             <TouchableOpacity onPress={(e) => handleMenuPress(meal, e)}>
               <Ionicons name="ellipsis-vertical" size={20} color="#666" />
             </TouchableOpacity>
           </View>
-          <Text style={styles.mealTitle}>{meal.title}</Text>
+          <Text style={styles.mealTitle}>{meal.title || ''}</Text>
           <Text style={styles.mealContents} numberOfLines={hasImage ? 2 : 3}>
-            {meal.contents}
+            {meal.contents || ''}
           </Text>
-          {meal.tags.length > 0 && (
+          {meal.tags && meal.tags.length > 0 && (
             <View style={styles.mealTags}>
               {meal.tags.map((tag, index) => (
                 <View key={index} style={styles.tag}>
-                  <Text style={styles.tagText}>#{tag}</Text>
+                  <Text style={styles.tagText}>#{tag || ''}</Text>
                 </View>
               ))}
             </View>
           )}
 
           {/* 출처 표시 */}
-          {meal.refer_feed_id && (
+          {!!meal.refer_feed_id && (
             <TouchableOpacity
                 onPress={() => handleDetailFeed(meal.refer_feed_id)}
+                style={styles.sourceContainer}
             >
-              <View style={styles.sourceContainer}>
-                <Ionicons name="copy-outline" size={12} color="#999" />
-                <Text style={styles.sourceText}>복사된 식단</Text>
-              </View>
+              <Ionicons name="copy-outline" size={12} color="#999" />
+              <Text style={styles.sourceText}>복사된 식단</Text>
             </TouchableOpacity>
           )}
         </View>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 });
 
@@ -159,12 +161,10 @@ const styles = StyleSheet.create({
     color: '#666666',
   },
   sourceContainer: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    marginTop: 8,
   },
   sourceText: {
     fontSize: 11,

@@ -14,6 +14,7 @@ import {
   Platform,
   KeyboardAvoidingView,
   ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { formatDate } from '../libs/utils/common';
@@ -199,20 +200,25 @@ export default function CommentModal({
                   onChangeText={setCommentText}
                   multiline
                   maxLength={500}
+                  editable={!isLoading}
                 />
                 <TouchableOpacity
                   style={[
                     styles.sendButton,
-                    !commentText.trim() && styles.sendButtonDisabled,
+                    (!commentText.trim() || isLoading) && styles.sendButtonDisabled,
                   ]}
                   onPress={handleSubmit}
                   disabled={!commentText.trim() || isLoading}
                 >
-                  <Ionicons
-                    name="send"
-                    size={20}
-                    color={commentText.trim() ? '#FFFFFF' : '#CCC'}
-                  />
+                  {isLoading ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Ionicons
+                      name="send"
+                      size={20}
+                      color={commentText.trim() ? '#FFFFFF' : '#CCC'}
+                    />
+                  )}
                 </TouchableOpacity>
               </View>
             </View>

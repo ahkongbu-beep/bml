@@ -3,7 +3,7 @@
 
 import { getToken } from '../utils/storage';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_STATIC_BASE_URL || "http://10.11.1.205:8000";
+const API_BASE_URL = process.env.EXPO_PUBLIC_STATIC_BASE_URL || "https://bml-e3uz.onrender.com";
 
 // Fetch API 에러 클래스
 export class ApiError extends Error {

@@ -22,6 +22,8 @@ export default function MyPageScreen({ navigation }: any) {
   const { user, isLoading } = useAuth();
   const [viewType, setViewType] = useState<'grid' | 'list'>('grid');
 
+  const API_BASE_URL = process.env.EXPO_PUBLIC_STATIC_BASE_URL;
+
   if (isLoading) {
     return (
       <LoadingPage title="화면을 구성하는 중" />
@@ -54,7 +56,7 @@ export default function MyPageScreen({ navigation }: any) {
           <View style={styles.profileSection}>
             <Image
               source={{
-                uri: user.profile_image || 'https://i.pravatar.cc/200?img=5'
+                uri: API_BASE_URL + user.profile_image + "_small.webp" || 'https://i.pravatar.cc/200?img=5'
               }}
               style={styles.profileImage}
             />

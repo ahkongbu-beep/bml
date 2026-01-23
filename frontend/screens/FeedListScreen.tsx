@@ -43,7 +43,6 @@ import {
 export default function FeedListScreen() {
   const appName = process.env.EXPO_PUBLIC_APP_NAME || "";
   const navigation = useNavigation();
-
   const { user } = useAuth();
   const [menuVisible, setMenuVisible] = useState<number | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState<{ [key: number]: number }>({});

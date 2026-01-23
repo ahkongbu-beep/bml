@@ -32,6 +32,7 @@ export default function MyFeedGrid({
   viewType,
   onFeedPress
 }: MyFeedGridProps) {
+  const API_BASE_URL = process.env.EXPO_PUBLIC_STATIC_BASE_URL;
   if (isLoading) {
     return (
       <View style={styles.feedLoadingContainer}>
@@ -59,7 +60,7 @@ export default function MyFeedGrid({
             onPress={() => onFeedPress(feed.id)}
           >
             <Image
-              source={{ uri: feed.images?.[0] || 'https://via.placeholder.com/400' }}
+              source={{ uri: feed.images?.[0] ? `${API_BASE_URL}${feed.images[0]}_medium.webp` : 'https://via.placeholder.com/400' }}
               style={styles.feedImage}
             />
             {feed.images && feed.images.length > 1 && (
@@ -83,7 +84,7 @@ export default function MyFeedGrid({
           onPress={() => onFeedPress(feed.id)}
         >
           <Image
-            source={{ uri: feed.images?.[0] || 'https://via.placeholder.com/400' }}
+            source={{ uri: feed.images?.[0] ? `${API_BASE_URL}${feed.images[0]}_medium.webp` : 'https://via.placeholder.com/400' }}
             style={styles.feedListImage}
           />
           <View style={styles.feedListContent}>

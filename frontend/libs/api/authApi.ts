@@ -1,4 +1,4 @@
-import { fetchGet, fetchPost, fetchPutFormData } from './config';
+import { fetchGet, fetchPost, fetchPostFormData, fetchPutFormData } from './config';
 import { LoginRequest, LoginResponse, RegisterRequest, User } from '../types/UserType';
 import { ApiResponse } from '../types/ApiTypes';
 
@@ -13,7 +13,39 @@ export const login = async (data: LoginRequest): Promise<LoginResponse> => {
  * 회원가입
  */
 export const register = async (data: RegisterRequest): Promise<ApiResponse<User>> => {
-  return fetchPost<ApiResponse<User>>('/users/create', data);
+  const formData = new FormData();
+
+  // 필수 필드
+  formData.append('sns_id', data.sns_id);
+  formData.append('sns_type', data.sns_type);
+  if (data.nickname) formData.append('nickname', data.nickname);
+  if (data.user_name) formData.append('user_name', data.user_name);
+  if (data.user_phone) formData.append('user_phone', data.user_phone);
+  if (data.email) formData.append('email', data.email);
+
+  // 선택 필드
+  if (data.description) formData.append('description', data.description);
+  if (data.child_birth) formData.append('child_birth', data.child_birth);
+  if (data.child_gender) formData.append('child_gender', data.child_gender);
+  if (data.child_age_group !== undefined) formData.append('child_age_group', data.child_age_group.toString());
+  if (data.meal_group !== undefined) formData.append('meal_group', JSON.stringify(data.meal_group));
+  if (data.marketing_agree !== undefined) formData.append('marketing_agree', data.marketing_agree ? '1' : '0');
+  if (data.push_agree !== undefined) formData.append('push_agree', data.push_agree ? '1' : '0');
+
+  // 프로필 이미지 처리
+  if (data.profile_image && data.profile_image.startsWith('file://')) {
+    const filename = data.profile_image.split('/').pop() || 'profile.jpg';
+    const match = /\.(\w+)$/.exec(filename);
+    const type = match ? `image/${match[1]}` : 'image/jpeg';
+
+    formData.append('file', {
+      uri: data.profile_image,
+      name: filename,
+      type,
+    } as any);
+  }
+
+  return fetchPostFormData<ApiResponse<User>>('/users/create', formData);
 };
 
 /**
@@ -35,13 +67,15 @@ export const getMyInfo = async (userHash: string): Promise<User> => {
  * sns_id로 프로필 조회
  */
 export const getProfileBySnsId = async (sns_id: string): Promise<ApiResponse<User>> => {
-  return fetchGet<ApiResponse<User>>(`/users/profile`, { user_id: sns_id });
+  const response = fetchGet<ApiResponse<User>>(`/users/profile`, { user_id: sns_id });
+  return response.data;
 };
 
 /**
  * user_hash로 사용자 프로필 조회 (타인 프로필)
  */
 export const getUserProfile = async (userHash: string): Promise<User> => {
+  console.log("you");
   const response = await fetchGet<ApiResponse<User>>(`/users/profile`, { user_hash: userHash });
   return response.data;
 };

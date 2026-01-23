@@ -23,6 +23,7 @@ import { MealItem } from '../libs/types/MealType';
 import { normalizeDate } from '../libs/utils/common';
 import { MEAL_CATEGORIES } from '../libs/utils/codes/MealCalendarCode';
 import MealPlanItem from '../components/MealPlanItem';
+import MealDetailModal from '../components/MealDetailModal';
 
 // 한국어 설정
 LocaleConfig.locales['kr'] = {
@@ -48,6 +49,8 @@ export default function MealPlanScreen({ navigation }: any) {
   const [menuPosition, setMenuPosition] = useState<{ x: number; y: number } | null>(null);
   const [deleteDialogVisible, setDeleteDialogVisible] = useState(false);
   const [mealToDelete, setMealToDelete] = useState<MealItem | null>(null);
+  const [selectedMeal, setSelectedMeal] = useState<MealItem | null>(null);
+  const [detailModalVisible, setDetailModalVisible] = useState(false);
   const deleteMealMutation = useDeleteMeal();
   const { user } = useAuth();
 
@@ -124,6 +127,41 @@ export default function MealPlanScreen({ navigation }: any) {
     navigation.navigate('FeedDetail', { feedId });
   }
 
+  const handleMealPress = (meal: MealItem) => {
+    setSelectedMeal(meal);
+    setDetailModalVisible(true);
+  };
+
+  const handleCloseDetailModal = () => {
+    setDetailModalVisible(false);
+    setSelectedMeal(null);
+  };
+
+  const handleEditFromModal = () => {
+    if (selectedMeal) {
+      setDetailModalVisible(false);
+      navigation.getParent()?.navigate('MealRegist', { meal: selectedMeal, selectedDate });
+      setSelectedMeal(null);
+    }
+  };
+
+  const handleDeleteFromModal = () => {
+    if (selectedMeal) {
+      setDetailModalVisible(false);
+      setMealToDelete(selectedMeal);
+      setDeleteDialogVisible(true);
+      setSelectedMeal(null);
+    }
+  };
+
+  const handleViewSourceFromModal = () => {
+    if (selectedMeal?.refer_feed_id) {
+      setDetailModalVisible(false);
+      handleDetailFeed(selectedMeal.refer_feed_id);
+      setSelectedMeal(null);
+    }
+  };
+
   const handleMenuPress = (meal: MealItem, event: any) => {
     if (menuVisible === meal.view_hash) {
       setMenuVisible(null);
@@ -195,6 +233,7 @@ export default function MealPlanScreen({ navigation }: any) {
                       meal={meal}
                       handleMenuPress={handleMenuPress}
                       handleDetailFeed={handleDetailFeed}
+                      onPress={handleMealPress}
                     />
                   ))}
                 </View>
@@ -289,6 +328,18 @@ export default function MealPlanScreen({ navigation }: any) {
           </Dialog.Actions>
         </Dialog>
       </Portal>
+
+      {/* 식단 상세 모달 */}
+      {selectedMeal && (
+        <MealDetailModal
+          visible={detailModalVisible}
+          meal={selectedMeal}
+          onClose={handleCloseDetailModal}
+          onEdit={handleEditFromModal}
+          onDelete={handleDeleteFromModal}
+          onViewSource={selectedMeal.refer_feed_id ? handleViewSourceFromModal : undefined}
+        />
+      )}
     </Layout>
   );
 }

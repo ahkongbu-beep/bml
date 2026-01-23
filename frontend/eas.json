@@ -11,13 +11,21 @@
     "preview": {
       "distribution": "internal",
       "android": {
-        "buildType": "apk"
+        "buildType": "apk",
+        "env": {
+          "EXPO_PUBLIC_API_URL": "https://bml-e3uz.onrender.com",
+          "EXPO_PUBLIC_STATIC_BASE_URL": "https://bml-e3uz.onrender.com"
+        }
       }
     },
     "production": {
       "autoIncrement": true,
       "android": {
         "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://bml-e3uz.onrender.com",
+        "EXPO_PUBLIC_STATIC_BASE_URL": "https://bml-e3uz.onrender.com"
       }
     }
   },

@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient, UseQueryResult } from '@tanstack/react-query';
-import { createMeal, updateMeal, deleteMeal, getMealsCalendar, getDailyMeals } from '../api/mealsApi';
+import { createMeal, updateMeal, deleteMeal, getMealsCalendar, getDailyMeals, createMealWithImage, updateMealWithImage } from '../api/mealsApi';
 import { MealCalendarParams } from '../types/MealType';
 import {
   PaginationResponse,
@@ -50,12 +50,38 @@ export const useCreateMeal = () => {
 };
 
 /*
+ * 식단 등록 (이미지 포함)
+ */
+export const useCreateMealWithImage = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (formData: FormData) => createMealWithImage(formData),
+    onSuccess: () => {
+      queryClient.invalidateQueries(mealKeys.all);
+    },
+  });
+};
+
+/*
  * 식단 수정
  */
 export const useUpdateMeal = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ mealHash, mealData }: { mealHash: string; mealData: any }) => updateMeal(mealHash, mealData),
+    onSuccess: () => {
+      queryClient.invalidateQueries(mealKeys.all);
+    },
+  });
+};
+
+/*
+ * 식단 수정 (이미지 포함)
+ */
+export const useUpdateMealWithImage = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ mealHash, formData }: { mealHash: string; formData: FormData }) => updateMealWithImage(mealHash, formData),
     onSuccess: () => {
       queryClient.invalidateQueries(mealKeys.all);
     },

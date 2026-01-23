@@ -31,4 +31,5 @@ export interface MealItemProps {
   meal: MealItem;
   handleMenuPress: (meal: MealItem, event: any) => void;
   handleDetailFeed: (feedId: number) => void;
+  onPress?: (meal: MealItem) => void;
 }

@@ -1,6 +1,6 @@
     import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import { login as loginApi, logout as logoutApi, updateProfile as updateProfileApi, UpdateProfileRequest, getProfileBySnsId } from '../api/authApi';
+import { login as loginApi, logout as logoutApi, updateProfile as updateProfileApi, UpdateProfileRequest, getUserProfile } from '../api/authApi';
 import { LoginRequest, User } from '../types/UserType';
 import {
   isLoggedIn as checkIsLoggedIn,
@@ -39,6 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const loggedIn = await checkIsLoggedIn();
         if (loggedIn) {
           const savedUser = await getUserInfo();
+          console.log("savedUser", savedUser);
           if (savedUser) {
             // 1. 먼저 저장된 정보로 빠르게 로드
             setUser(savedUser);
@@ -46,10 +47,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
             // 2. 백그라운드에서 최신 프로필 정보 가져오기
             try {
-              const response = await getProfileBySnsId(savedUser.view_hash);
-              if (response.success && response.data) {
-                await saveUserInfo(response.data);
-                setUser(response.data);
+              const responseData = await getUserProfile(savedUser.view_hash);
+              console.log("responseData", responseData);
+              if (responseData) {
+                await saveUserInfo(responseData);
+                setUser(responseData);
               }
             } catch (profileError) {
               console.error('Failed to fetch latest profile:', profileError);

@@ -21,7 +21,7 @@ import { useAuth } from '../libs/contexts/AuthContext';
 import { useAgeGroups, useCategoryCodes } from '../libs/hooks/useCategories';
 
 export default function EditProfileScreen({ navigation }: any) {
-
+  const API_BASE_URL = process.env.EXPO_PUBLIC_STATIC_BASE_URL;
   const { user, isLoading, updateProfile, updateProfileLoading } = useAuth();
   const [nickname, setNickname] = useState('');
   const [email, setEmail] = useState('');
@@ -46,7 +46,7 @@ export default function EditProfileScreen({ navigation }: any) {
       setNickname(user.nickname || '');
       setEmail(user.email || '');
       setDescription(user.description || '');
-      setProfileImage(user.profile_image || 'https://via.placeholder.com/100');
+      setProfileImage(API_BASE_URL + (user.profile_image + "_small.webp" || '/default_profile_image'));
       setChildBirth(user.child_birth || '');
       setChildGender(user.child_gender || '');
       setChildAgeGroup(user.child_age_group || 0);

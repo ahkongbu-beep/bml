@@ -72,8 +72,6 @@ class FeedsImages(Base):
                 FeedsImages.img_model_id == model_id
             ).delete()
 
-            session.query(Feeds).filter(Feeds.id == model_id).delete()
-
             session.commit()
 
             result["db_deleted"] = True

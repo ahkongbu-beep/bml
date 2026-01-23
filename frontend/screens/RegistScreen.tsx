@@ -27,16 +27,16 @@ import { saveToken, saveUserInfo, setNeedChildRegistration } from '../libs/utils
 export default function RegistScreen({ navigation }: any) {
   // Form State
   const [snsLoginType, setSnsLoginType] = useState<'EMAIL'>('EMAIL');
-  const [name, setName] = useState('test100');
-  const [nickname, setNickname] = useState('test100');
-  const [email, setEmail] = useState('test100@naver.com');
-  const [password, setPassword] = useState('test100');
-  const [passwordConfirm, setPasswordConfirm] = useState('test100');
-  const [phone, setPhone] = useState('01090909100');
+  const [name, setName] = useState('test101');
+  const [nickname, setNickname] = useState('test101');
+  const [email, setEmail] = useState('test101@naver.com');
+  const [password, setPassword] = useState('test101');
+  const [passwordConfirm, setPasswordConfirm] = useState('test101');
+  const [phone, setPhone] = useState('0101231231312');
 
-  const [address, setAddress] = useState('경기');
+  const [address, setAddress] = useState('');
   const [profileImage, setProfileImage] = useState<string | undefined>();
-  const [description, setDescription] = useState('아아아');
+  const [description, setDescription] = useState('');
   const [dietGroup, setDietGroup] = useState<number[]>([]);
   const [marketingAgree, setMarketingAgree] = useState<number>(0);
   const [pushAgree, setPushAgree] = useState<number>(0);
@@ -102,6 +102,11 @@ export default function RegistScreen({ navigation }: any) {
   // 회원가입 처리
   const handleRegister = () => {
     // 필수 입력 검증
+    if (!profileImage) {
+        Alert.alert('알림', '프로필 사진을 선택해주세요.');
+        return;
+    }
+
     if (!name.trim()) {
       Alert.alert('알림', '이름을 입력해주세요.');
       return;

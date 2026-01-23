@@ -141,6 +141,7 @@ export default function LoginScreen({ navigation }: any) {
               </TouchableOpacity>
             </View>
           </View>
+
         </ScrollView>
       </KeyboardAvoidingView>
     </Layout>

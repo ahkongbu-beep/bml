@@ -214,24 +214,46 @@ async def update_meal(db, body: dict) -> CommonResponse:
         if body.get('attaches'):
             try:
                 file = body['attaches']
+                print(f"🖼️ 이미지 업로드 시작 - meal_id: {meal_calendar.id}, filename: {file.filename}")
+
                 # 기존 이미지 삭제
-                FeedsImages.deleteByFeedId(db, "Meals", meal_calendar.id)
+                delete_result = FeedsImages.deleteByFeedId(db, "Meals", meal_calendar.id)
+                print(f"🗑️ 기존 이미지 삭제 결과: {delete_result}")
 
                 # 파일 확장자 추출
                 filename = file.filename or "image.jpg"
                 ext = filename.split('.')[-1] if '.' in filename else 'jpg'
 
                 # FeedsImages.upload 사용하여 이미지 저장
-                await FeedsImages.upload(db, meal_calendar.id, file, ext, path="Meals", sort_order=0)
+                uploaded_image = await FeedsImages.upload(db, meal_calendar.id, file, ext, path="Meals", sort_order=0)
+
+                if uploaded_image:
+                    print(f"✅ 이미지 업로드 성공 - image_id: {uploaded_image.id}, url: {uploaded_image.image_url}")
+                else:
+                    print(f"❌ 이미지 업로드 실패 - upload returned None")
+
             except Exception as e:
                 # 이미지 저장 실패해도 식단 수정은 유지
-                print(f"이미지 업로드 실패: {str(e)}")
+                print(f"❌ 이미지 업로드 예외 발생: {str(e)}")
+                import traceback
+                traceback.print_exc()
 
     except Exception as e:
         db.rollback()
         return CommonResponse(success=False, error="식단 캘린더 수정 중 오류가 발생했습니다. " + str(e), data=None)
 
-    return CommonResponse(success=True, error=None, data=body)
+    # 응답 데이터 구성 (UploadFile 제외)
+    response_data = {
+        "meal_hash": body.get('meal_hash'),
+        "user_hash": body.get('user_hash'),
+        "category_id": body.get('category_id'),
+        "input_date": body.get('input_date'),
+        "title": body.get('title'),
+        "contents": body.get('contents'),
+        "tags": body.get('tags', [])
+    }
+
+    return CommonResponse(success=True, error=None, data=response_data)
 
 """ 식단 켈린더 삭제 """
 async def delete_meal(db, body: dict) -> CommonResponse:
