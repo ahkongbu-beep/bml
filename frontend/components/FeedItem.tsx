@@ -97,7 +97,7 @@ const FeedItem = React.memo(({
           onPress={() => onViewProfile(item.user.user_hash || '', item.user.nickname)}
         >
           <Image
-            source={{ uri: `${API_BASE_URL}${item.user.profile_image}_small.webp` }}
+            source={{ uri: `${API_BASE_URL}${item.user.profile_image}_thumbnail.webp` }}
             style={styles.profileImage}
           />
           <View>
@@ -191,7 +191,7 @@ const FeedItem = React.memo(({
             {item.images.map((imageUri, index) => (
               <Image
                 key={`${item.id}-image-${extractImageId(imageUri) || index}`}
-                source={{ uri: `${API_BASE_URL}${imageUri}_thumbnail.webp` }}
+                source={{ uri: `${API_BASE_URL}${imageUri}_medium.webp` }}
                 style={styles.feedImage}
               />
             ))}

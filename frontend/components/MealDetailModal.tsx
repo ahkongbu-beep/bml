@@ -94,7 +94,7 @@ const MealDetailModal: React.FC<MealDetailModalProps> = ({
                 <View style={styles.userInfo}>
                   {meal.user.profile_image && (
                     <Image
-                      source={{ uri: `${API_BASE_URL}${meal.user.profile_image}_small.webp` }}
+                      source={{ uri: `${API_BASE_URL}${meal.user.profile_image}_thumbnail.webp` }}
                       style={styles.userAvatar}
                     />
                   )}
