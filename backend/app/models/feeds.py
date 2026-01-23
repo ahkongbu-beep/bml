@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, Enum, DateTime, func, Index, case
+from sqlalchemy import Column, Integer, String, Text, Enum, DateTime, func, Index, case, and_
 from sqlalchemy.orm import relationship
 from app.core.database import Base
 from app.core.config import settings
@@ -27,8 +27,8 @@ class Feeds(Base):
 
     images = relationship(
         "FeedsImages",
-        back_populates="feed",
-        cascade="all, delete-orphan"
+        primaryjoin="and_(Feeds.id==foreign(FeedsImages.img_model_id), FeedsImages.img_model=='Feeds')",
+        viewonly=True
     )
 
     # 인덱스 정의
@@ -113,6 +113,7 @@ class Feeds(Base):
                 sql_func.group_concat(FeedsImages.image_url).label('images'),
                 sql_func.group_concat(FeedsImages.id).label('image_ids')
             )
+            .filter(FeedsImages.img_model == 'Feeds')
             .group_by(FeedsImages.img_model_id)
             .subquery()
         )
@@ -218,7 +219,7 @@ class QueryResult:
                 created_at=v.created_at,
                 updated_at=v.updated_at,
                 is_liked=v.is_liked,
-                images=[settings.BACKEND_SHOP_URL + image + "?iid=" + image_id for image, image_id in zip(v.images.split(','), v.image_ids.split(','))] if hasattr(v, 'images') and v.images else [],
+                images=[img.replace('\\', '/') for img in v.images.split(',')] if v.images else [],
                 tags=v.tags.split(',') if v.tags else [],
                 user=FeedsUserResponse(
                     id=v.user_id,
@@ -251,7 +252,7 @@ class QueryResult:
                 "created_at": v.created_at,
                 "updated_at": v.updated_at,
                 "is_liked": v.is_liked,
-                "images": [settings.BACKEND_SHOP_URL + image for image in v.images.split(',')] if hasattr(v, 'images') and v.images else [],
+                "images": [img.replace('\\', '/') for img in v.images.split(',')] if v.images else [],
                 "tags": v.tags.split(',') if v.tags else [],
                 "user": {
                     "nickname": v.nickname,

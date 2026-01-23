@@ -5,8 +5,8 @@ from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.core.database import Base
 from app.models.users import Users
-from app.models.feeds import Feeds
 from app.libs.hash_utils import generate_sha256_hash
+from app.core.config import settings
 
 class CommunitiesComments(Base):
     __tablename__ = "communities_comments"
@@ -147,7 +147,7 @@ class QueryResult:
                 user=FeedsUserResponse(
                     id=v.user_id if hasattr(v, 'user_id') else None,
                     nickname=v.nickname,
-                    profile_image=v.profile_image,
+                    profile_image=settings.BACKEND_SHOP_URL + v.profile_image if v.profile_image else None,
                     user_hash=v.user_hash
                 )
             )
@@ -169,7 +169,7 @@ class QueryResult:
                 "parent_hash": v.parent_hash,
                 "user": {
                     "nickname": v.nickname,
-                    "profile_image": v.profile_image,
+                    "profile_image": settings.BACKEND_SHOP_URL + v.profile_image if v.profile_image else None,
                     "user_hash": v.user_hash
                 }
             }

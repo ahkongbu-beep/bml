@@ -1,6 +1,7 @@
 """
 식단 캘린더 service 가이드
 """
+import os
 from app.models.users import Users
 from app.models.meals_calendar import MealsCalendars
 from app.models.categories_codes import CategoriesCodes
@@ -83,6 +84,7 @@ async def create_meal(db, body: dict) -> CommonResponse:
         return CommonResponse(success=False, error="유효하지 않은 카테고리 정보입니다.", data=None)
 
     tags = body.get('tags', [])
+
     """ 태그 처리 """
     try:
         tags_ids = []
@@ -91,11 +93,19 @@ async def create_meal(db, body: dict) -> CommonResponse:
             tags_ids.append(tag.id)
 
     except Exception as e:
+        print("⭕⭕⭕⭕⭕" + str(e))
         return CommonResponse(success=False, error="식단 캘린더 생성 중 오류가 발생했습니다. " + str(e), data=None)
+
+    """ 중복 캘린더 체크 """
+    exist_meals_calendars = MealsCalendars.findByUserIdAndDate(db, user.id, body['input_date'])
+    if exist_meals_calendars:
+        for meals in exist_meals_calendars:
+            if meals.category_code == category_code.id:
+                return CommonResponse(success=False, error="해당 날짜에 동일한 카테고리의 식단이 등록되어 있습니다.", data=None)
 
     """ 식단 캘린더 생성 """
     try:
-        meal_calendar = MealsCalendars.create(db, {
+        meal_data = {
             "category_code": category_code.id,
             "user_id": user.id,
             "title": body['title'],
@@ -103,7 +113,23 @@ async def create_meal(db, body: dict) -> CommonResponse:
             "month": body['input_date'][:7],
             "input_date": body['input_date'],
             "view_hash": generate_sha256_hash(user.id, body['input_date'], category_code.code, settings.SECRET_KEY)
-        }, is_commit=True)
+        }
+
+        meal_calendar = MealsCalendars.create(db, meal_data, is_commit=True)
+
+        # 이미지 파일 처리 - FeedsImages에 저장
+        if body.get('attaches'):
+            try:
+                file = body['attaches']
+                # 파일 확장자 추출
+                filename = file.filename or "image.jpg"
+                ext = filename.split('.')[-1] if '.' in filename else 'jpg'
+
+                # FeedsImages.upload 사용하여 이미지 저장
+                await FeedsImages.upload(db, meal_calendar.id, file, ext, path="Meals", sort_order=0)
+            except Exception as e:
+                # 이미지 저장 실패해도 식단은 유지
+                print(f"이미지 업로드 실패: {str(e)}")
 
         """ 태그 매핑 생성 """
         for tag_id in tags_ids:
@@ -122,6 +148,7 @@ async def create_meal(db, body: dict) -> CommonResponse:
 
     except Exception as e:
         db.rollback()
+        print("⭕⭕⭕⭕⭕" + str(e))
         return CommonResponse(success=False, error="식단 캘린더 생성 중 오류가 발생했습니다. " + str(e), data=None)
 
 """ 식단 캘린더 수정 """
@@ -182,6 +209,23 @@ async def update_meal(db, body: dict) -> CommonResponse:
         success_bool = MealsCalendars.update(db, update_params, where_syntax, is_commit=True)
         if not success_bool:
             return CommonResponse(success=False, error="식단 캘린더 수정에 실패했습니다.", data=None)
+
+        # 이미지 파일 처리 - FeedsImages에 저장
+        if body.get('attaches'):
+            try:
+                file = body['attaches']
+                # 기존 이미지 삭제
+                FeedsImages.deleteByFeedId(db, "Meals", meal_calendar.id)
+
+                # 파일 확장자 추출
+                filename = file.filename or "image.jpg"
+                ext = filename.split('.')[-1] if '.' in filename else 'jpg'
+
+                # FeedsImages.upload 사용하여 이미지 저장
+                await FeedsImages.upload(db, meal_calendar.id, file, ext, path="Meals", sort_order=0)
+            except Exception as e:
+                # 이미지 저장 실패해도 식단 수정은 유지
+                print(f"이미지 업로드 실패: {str(e)}")
 
     except Exception as e:
         db.rollback()

@@ -4,6 +4,7 @@ from app.models.communities import Community
 from app.models.users_childs import UsersChilds
 from app.schemas.common_schemas import CommonResponse
 from app.models.communities_comments import CommunitiesComments
+from app.core.config import settings
 
 def get_community_list(db, user_hash, params) -> CommonResponse:
     """커뮤니티 리스트 조회 서비스 함수"""
@@ -27,7 +28,10 @@ def get_community_list(db, user_hash, params) -> CommonResponse:
         "limit": params.get("limit", 20),
     }
 
+
     community_list = [item._data for item in Community.get_list(db, user.id, db_params).serialize()]
+    for community in community_list:
+        community['profile_image'] = settings.BACKEND_SHOP_URL + community['profile_image'] if community.get('profile_image') else None
 
     total_count = Community.get_list_count(db, user.id, db_params)
 
@@ -67,7 +71,7 @@ def create_community(db, user_hash, client_ip, params) -> CommonResponse:
             "category_code": new_community.category_code,
             "is_secret": new_community.is_secret,
             "user_hash": user.view_hash,
-            "user_profile_image": user.profile_image,
+            "user_profile_image": settings.BACKEND_SHOP_URL + user.profile_image if user.profile_image else None,
             "user_nickname": new_community.user_nickname,
             "view_hash": new_community.view_hash,
             "user_child_name": user_child.child_name if user_child else None,
@@ -109,7 +113,7 @@ def get_community_detail(db, user_hash, community_hash) -> CommonResponse:
             "category_code": community.category_code,
             "is_secret": community.is_secret,
             "user_hash": user.view_hash,
-            "user_profile_image": user.profile_image,
+            "user_profile_image": settings.BACKEND_SHOP_URL + user.profile_image if user.profile_image else None,
             "user_nickname": community.user_nickname,
             "view_hash": community.view_hash,
             "user_child_name": user_child.child_name if user_child else None,
@@ -187,7 +191,7 @@ def update_community(db, user_hash, community_hash, params) -> CommonResponse:
             "category_code": community.category_code,
             "is_secret": community.is_secret,
             "user_hash": user.view_hash,
-            "user_profile_image": user.profile_image,
+            "user_profile_image": settings.BACKEND_SHOP_URL + user.profile_image if user.profile_image else None,
             "user_nickname": community.user_nickname,
             "view_hash": community.view_hash,
             "user_child_name": user_child.child_name if user_child else None,
@@ -283,7 +287,7 @@ def create_community_comment(db, user_hash, community_hash, params) -> CommonRes
             "parent_hash": new_comment.parent_hash,
             "user_hash": user.view_hash,
             "user_nickname": user.nickname,
-            "user_profile_image": user.profile_image,
+            "user_profile_image": settings.BACKEND_SHOP_URL + user.profile_image if user.profile_image else None,
             "created_at": new_comment.created_at.isoformat() if new_comment.created_at else None,
             "updated_at": new_comment.updated_at.isoformat() if new_comment.updated_at else None,
         }

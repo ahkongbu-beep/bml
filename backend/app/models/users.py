@@ -15,6 +15,7 @@ import pytz
 from app.libs.hash_utils import generate_sha256_hash
 from app.libs.password_utils import hash_password, verify_password
 from app.core.database import Base
+from app.core.config import settings
 
 # Enum 정의
 class SnsLoginTypeEnum(str, enum.Enum):
@@ -133,7 +134,7 @@ class Users(Base):
             password=hashed_password,
             nickname=params.get('nickname', params['name']),  # 기본값: name
             address=params.get('address', ''),
-            profile_image=params.get('profile_image', ''),
+            profile_image=settings.BACKEND_SHOP_URL + params.get('profile_image', '') if params.get('profile_image') else None,
             description=params.get('description', None),
             role=params.get('role', RoleEnum.USER),
             is_active=params.get('is_active', 1),

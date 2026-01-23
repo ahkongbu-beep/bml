@@ -1,10 +1,9 @@
-from sqlalchemy import Column, BigInteger, Integer, String, DateTime, Enum, ForeignKey
+from sqlalchemy import Column, BigInteger, Integer, String, DateTime, Enum, and_
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.core.database import Base
 from app.libs.hash_utils import generate_sha256_hash
 from app.core.config import settings
-from app.models.feeds import Feeds
 import os
 
 
@@ -12,8 +11,8 @@ class FeedsImages(Base):
     __tablename__ = "feeds_images"
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
-    img_model = Column(String(50), nullable=False, comment="이미지 모델명 (Feeds)")
-    img_model_id = Column(Integer, ForeignKey("feeds.id", ondelete="CASCADE"), nullable=False)
+    img_model = Column(String(50), nullable=False, comment="이미지 모델명 (Feeds, Meals 등)")
+    img_model_id = Column(Integer, nullable=False, comment="모델 ID (Feeds.id 또는 Meals.id 등)")
     image_url = Column(String(500), nullable=False, comment="이미지 경로(URL)")
     sort_order = Column(Integer, nullable=False, default=0, comment="정렬 순서 (0=첫번째)")
     width = Column(Integer, nullable=True, comment="원본 width")
@@ -21,15 +20,15 @@ class FeedsImages(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     is_active = Column(Enum("Y", "N"), default="Y", nullable=True, comment="사용여부")
 
-    # feeds 테이블과 연결 (역참조)
-    feed = relationship("Feeds", back_populates="images")
-
     # feed_id 로 이미지 삭제
     @staticmethod
     def deleteByFeedId(session, model: str, model_id: int):
         """
         feed_id 로 이미지 삭제 (파일 시스템 + DB)
+        리사이징된 모든 사이즈 파일 삭제 (_original, _large, _medium, _small, _thumbnail)
         """
+        import glob
+
         result = {
             "success": False,
             "deleted_files": 0,
@@ -43,21 +42,28 @@ class FeedsImages(Base):
             FeedsImages.img_model_id == model_id
         ).all()
 
-        # 파일 삭제
+        # 파일 삭제 (모든 사이즈)
         for feed_image in feed_images:
             if not feed_image.image_url:
                 continue
 
-            file_path = feed_image.image_url.lstrip('/')
+            file_base_path = feed_image.image_url.lstrip('/')
 
             try:
-                if os.path.exists(file_path):
-                    os.remove(file_path)
-                    result["deleted_files"] += 1
+                # DB에 저장된 경로는 확장자와 사이즈 접미사가 없음
+                # 패턴: {base_path}_*.webp (모든 사이즈 파일 찾기)
+                matching_files = glob.glob(f"{file_base_path}_*.webp")
+
+                if matching_files:
+                    for file_path in matching_files:
+                        if os.path.exists(file_path):
+                            os.remove(file_path)
+                            result["deleted_files"] += 1
                 else:
                     result["missing_files"] += 1
             except Exception as e:
                 result["error"] = str(e)
+                print(f"⚠️ 파일 삭제 중 오류: {str(e)}")
 
         # DB 삭제
         try:
@@ -83,9 +89,10 @@ class FeedsImages(Base):
     def findImagesByModelId(session, model: str, model_id: int):
         """
         model과 model_id로 이미지 목록 조회
+        프론트엔드에서 backend_url과 확장자를 조합할 수 있도록 경로만 반환
         """
         result = session.query(FeedsImages).filter(FeedsImages.img_model == model, FeedsImages.img_model_id == model_id).order_by(FeedsImages.sort_order.asc()).all()
-        return [settings.BACKEND_SHOP_URL + img.image_url for img in result]
+        return [img.image_url.replace('\\', '/') for img in result]
 
     # 이미지 레코드 생성
     @staticmethod
@@ -105,45 +112,63 @@ class FeedsImages(Base):
         session.refresh(image)
         return image
 
-    # 이미지 파일을 저장하는 메소드
+    # 이미지 파일을 저장하는 메소드 (리사이징 지원)
     @staticmethod
     async def upload(session, model_id: int, file, ext: str, path: str = "feeds", sort_order: int = 0):
         """
-        /attaches/{path}/{table.pk 뒤에 2자리}/{table.pk}/{filename}
-        ex) /attaches/feeds/45/12345/image.{ext}
-        filename 은 hash 처리
+        업로드된 이미지를 여러 사이즈로 리사이징하여 WebP로 저장
+        /attaches/{path}/{table.pk 뒤에 2자리}/{table.pk}/{base_filename}_{size}.webp
+        ex) /attaches/Feeds/45/12345/20260123120000_abc123_medium.webp
+
+        DB에는 확장자와 사이즈 접미사 없이 저장: /attaches/Feeds/45/12345/20260123120000_abc123
         """
+        from app.libs.file_utils import save_upload_file_with_resize, get_file_url
+
         path = path.capitalize()
 
         try:
-            filename_hash = generate_sha256_hash(str(model_id), str(datetime.utcnow().timestamp()))
-            filename = f"{filename_hash}.{ext}"
+            # 저장 디렉토리 경로
+            destination_path = os.path.join(
+                "attaches",
+                path,
+                str(model_id)[-2:] if len(str(model_id)) >= 2 else "0" + str(model_id),
+                str(model_id)
+            )
 
-            destination_path = os.path.join("attaches", path, str(model_id)[-2:] if len(str(model_id)) >= 2 else "0" + str(model_id), str(model_id))
-            os.makedirs(destination_path, exist_ok=True)
+            # 이미지 리사이징 및 저장
+            success, result, original_filename, created_files = await save_upload_file_with_resize(file, destination_path)
 
-            file_path = os.path.join(destination_path, filename)
+            if not success:
+                print(f"❌ 이미지 업로드 실패: {result}")
+                return None
 
-            # UploadFile 객체에서 파일 읽기
-            contents = await file.read()
-            with open(file_path, 'wb') as f:
-                f.write(contents)
+            # 확장자와 사이즈 접미사 제거 (프론트엔드에서 조합)
+            image_url = get_file_url(result, base_url="")
+            # /attaches/Feeds/45/12345/20260123120000_abc123_medium.webp -> /attaches/Feeds/45/12345/20260123120000_abc123
+            image_path = image_url.replace('\\', '/')
+            if '_medium.webp' in image_path:
+                image_path = image_path.replace('_medium.webp', '')
+            elif '.webp' in image_path:
+                # _사이즈.webp 패턴 제거
+                image_path = image_path.rsplit('_', 1)[0] if '_' in image_path.rsplit('/', 1)[-1] else image_path.rsplit('.', 1)[0]
 
-            # URL 경로 생성 (StaticFiles에서 접근 가능하도록)
-            file_url = f"/attaches/{path}/{str(model_id)[-2:] if len(str(model_id)) >= 2 else '0' + str(model_id)}/{str(model_id)}/{filename}"
+            # 이미지 크기 정보 (medium 사이즈 기준)
+            medium_file = next((f for f in created_files if f['size'] == 'medium'), created_files[0])
 
             # DB에 이미지 정보 저장
             image_params = {
                 "img_model": path,
                 "img_model_id": model_id,
-                "image_url": file_url,
+                "image_url": "/" + image_path,
                 "sort_order": sort_order,
+                "width": medium_file['width'],
+                "height": medium_file['height'],
                 "is_active": "Y"
             }
 
             return FeedsImages.create(session, image_params)
 
         except Exception as e:
-            print(f"Image upload error: {str(e)}")
+            print(f"❌ Image upload error: {str(e)}")
             return None
 

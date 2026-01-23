@@ -176,12 +176,12 @@ class QueryResult:
                 input_date=f"{v.input_date.year}-{v.input_date.month}-{v.input_date.day}",
                 month=v.month,
                 refer_feed_id=v.refer_feed_id,
-                image_url=settings.BACKEND_SHOP_URL + v.image_url if v.image_url else None,
+                image_url=v.image_url if v.image_url else None,
                 category_id=v.category_id,
                 category_name=v.category_name,
                 user=FeedsUserResponse(
                     nickname=v.nickname,
-                    profile_image=v.profile_image,
+                    profile_image=v.profile_image if v.profile_image else None,
                     user_hash=v.user_hash
                 ),
                 view_hash=v.view_hash
@@ -200,12 +200,12 @@ class QueryResult:
                 "input_date": f"{v.input_date.year}-{v.input_date.month}-{v.input_date.day}",
                 "month": v.month,
                 "refer_feed_id": v.refer_feed_id,
-                "image_url": v.image_url,
+                "image_url": v.image_url if v.image_url else None,
                 "category_id": v.category_id,
                 "category_name": v.category_name,
                 "user": {
                     "nickname": v.nickname,
-                    "profile_image": v.profile_image,
+                    "profile_image": v.profile_image if v.profile_image else None,
                     "user_hash": v.user_hash
                 },
                 "view_hash":v.view_hash

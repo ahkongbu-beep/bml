@@ -168,18 +168,18 @@ def copy_feed(db, user_hash: str, params):
         # 타인의 이미지를 복사 (첫 번째 이미지만)
         if target_image:
             try:
-                # 원본 파일 경로
-                original_file_path = target_image.image_url.lstrip('/')
+                # 원본 파일 경로 (DB에 확장자 없이 저장되어 있음)
+                import glob
+                original_file_base = target_image.image_url.lstrip('/')
 
-                if not os.path.exists(original_file_path):
-                    print(f"⚠️ 원본 이미지 파일이 존재하지 않습니다: {original_file_path}")
+                # 모든 리사이징 사이즈 파일 찾기 (_original, _large, _medium, _small, _thumbnail)
+                matching_files = glob.glob(f"{original_file_base}_*.webp")
+
+                if not matching_files:
+                    print(f"⚠️ 원본 이미지 파일이 존재하지 않습니다: {original_file_base}_*.webp")
                 else:
-                    # 확장자 추출
-                    ext = original_file_path.split('.')[-1]
-
-                    # 새로운 파일명 생성 (해시 + _copy_{calendar_id})
+                    # 새로운 파일명 해시 생성
                     filename_hash = generate_sha256_hash(str(new_calcendar.id), str(datetime.utcnow().timestamp()))
-                    filename = f"{filename_hash}_copy_{new_calcendar.id}.{ext}"
 
                     # 새로운 파일 경로 생성
                     destination_path = os.path.join(
@@ -190,13 +190,20 @@ def copy_feed(db, user_hash: str, params):
                     )
                     os.makedirs(destination_path, exist_ok=True)
 
-                    new_file_path = os.path.join(destination_path, filename)
+                    # 모든 사이즈 파일 복사
+                    for original_file_path in matching_files:
+                        # 사이즈 추출 (예: _medium, _large)
+                        size_suffix = original_file_path.split('_')[-1].replace('.webp', '')
 
-                    # 파일 복사
-                    shutil.copy2(original_file_path, new_file_path)
+                        # 새 파일명 생성
+                        new_filename = f"{filename_hash}_copy_{new_calcendar.id}_{size_suffix}.webp"
+                        new_file_path = os.path.join(destination_path, new_filename)
 
-                    # URL 경로 생성
-                    file_url = f"/attaches/Meals/{str(new_calcendar.id)[-2:] if len(str(new_calcendar.id)) >= 2 else '0' + str(new_calcendar.id)}/{str(new_calcendar.id)}/{filename}"
+                        # 파일 복사
+                        shutil.copy2(original_file_path, new_file_path)
+
+                    # URL 경로 생성 (확장자와 사이즈 접미사 제거)
+                    file_url = f"/attaches/Meals/{str(new_calcendar.id)[-2:] if len(str(new_calcendar.id)) >= 2 else '0' + str(new_calcendar.id)}/{str(new_calcendar.id)}/{filename_hash}_copy_{new_calcendar.id}"
 
                     # DB에 이미지 정보 저장
                     image_params = {
@@ -210,6 +217,7 @@ def copy_feed(db, user_hash: str, params):
                     }
 
                     FeedsImages.create(db, image_params)
+                    print(f"✅ 이미지 복사 완료: {len(matching_files)}개 사이즈")
 
             except Exception as e:
                 print(f"⚠️ 이미지 복사 중 오류: {str(e)}")
@@ -364,20 +372,24 @@ async def create_feed(db, user_hash: str, title: str, content: str, is_public: s
             for idx, file in enumerate(files):
                 if file and file.filename:
                     ext = file.filename.split('.')[-1]
-                    await FeedsImages.upload(db, new_feed.id, file, ext, path="feeds", sort_order=idx)
+                    await FeedsImages.upload(db, new_feed.id, file, ext, path="Feeds", sort_order=idx)
 
     except Exception as e:
         print(f"⚠️ 이미지 업로드 에러: {str(e)}")
 
     # 업로드된 이미지 목록 조회
     image_list = FeedsImages.findImagesByModelId(db, "Feeds", new_feed.id)
+
     # 태그 목록 조회
     tag_list = FeedsTagsMapper.findTagsByFeedAndTag(db, "Feed", new_feed.id)
+
     # 피드 내용을 식단 리스트에 공유
     if is_share_meal_plan == 'Y':
         # 현재 날짜 Y-M-D
         from datetime import datetime
         from app.services.meals_service import create_meal
+        import shutil
+        from app.libs.hash_utils import generate_sha256_hash
 
         input_date = datetime.now().strftime("%Y-%m-%d")
 
@@ -392,6 +404,77 @@ async def create_feed(db, user_hash: str, title: str, content: str, is_public: s
 
         if not meal_response.success:
             print(f"⚠️ 피드 식단 공유 실패: {meal_response.error}")
+        else:
+            # 식단 생성 성공 시 이미지 복사
+            try:
+                # 생성된 식단의 ID를 가져오기 위해 DB에서 조회
+                from app.models.meals_calendar import MealsCalendars
+                meal_calendar = MealsCalendars.findByUserIdAndDate(db, user.id, input_date)
+
+                if meal_calendar:
+                    # 가장 최근에 생성된 식단 (방금 생성한 식단)
+                    latest_meal = meal_calendar[-1] if isinstance(meal_calendar, list) else meal_calendar
+
+                    # 피드의 첫 번째 이미지 조회
+                    feed_image = db.query(FeedsImages).filter(
+                        FeedsImages.img_model == "Feeds",
+                        FeedsImages.img_model_id == new_feed.id,
+                        FeedsImages.sort_order == 0
+                    ).first()
+
+                    if feed_image:
+                        # 원본 파일 경로 (DB에 확장자 없이 저장되어 있음)
+                        import glob
+                        original_file_base = feed_image.image_url.lstrip('/')
+
+                        # 모든 리사이징 사이즈 파일 찾기 (_original, _large, _medium, _small, _thumbnail)
+                        matching_files = glob.glob(f"{original_file_base}_*.webp")
+
+                        if matching_files:
+                            # 새로운 파일명 해시 생성
+                            filename_hash = generate_sha256_hash(str(latest_meal.id), str(datetime.utcnow().timestamp()))
+
+                            # 새로운 파일 경로 생성
+                            destination_path = os.path.join(
+                                "attaches",
+                                "Meals",
+                                str(latest_meal.id)[-2:] if len(str(latest_meal.id)) >= 2 else "0" + str(latest_meal.id),
+                                str(latest_meal.id)
+                            )
+                            os.makedirs(destination_path, exist_ok=True)
+
+                            # 모든 사이즈 파일 복사
+                            for original_file_path in matching_files:
+                                # 사이즈 추출 (예: _medium, _large)
+                                size_suffix = original_file_path.split('_')[-1].replace('.webp', '')
+
+                                # 새 파일명 생성
+                                new_filename = f"{filename_hash}_shared_{size_suffix}.webp"
+                                new_file_path = os.path.join(destination_path, new_filename)
+
+                                # 파일 복사
+                                shutil.copy2(original_file_path, new_file_path)
+
+                            # URL 경로 생성 (확장자와 사이즈 접미사 제거)
+                            file_url = f"/attaches/Meals/{str(latest_meal.id)[-2:] if len(str(latest_meal.id)) >= 2 else '0' + str(latest_meal.id)}/{str(latest_meal.id)}/{filename_hash}_shared"
+
+                            # DB에 이미지 정보 저장
+                            image_params = {
+                                "img_model": "Meals",
+                                "img_model_id": latest_meal.id,
+                                "image_url": file_url,
+                                "sort_order": 0,
+                                "width": feed_image.width,
+                                "height": feed_image.height,
+                                "is_active": "Y"
+                            }
+
+                            FeedsImages.create(db, image_params)
+                            print(f"✅ 이미지 복사 완료: {len(matching_files)}개 사이즈")
+                        else:
+                            print(f"⚠️ 원본 이미지 파일이 존재하지 않습니다: {original_file_base}_*.webp")
+            except Exception as e:
+                print(f"⚠️ 피드 이미지 식단 복사 중 오류: {str(e)}")
 
     # SQLAlchemy 객체를 Pydantic 스키마로 변환
     feed_response = FeedsResponse(

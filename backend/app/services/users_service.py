@@ -136,21 +136,28 @@ async def create_user(db, user_data) -> CommonResponse:
         return CommonResponse(success=False, error="회원 생성에 실패했습니다.", data=None)
 
     if user_data.get("file"):
-        from app.libs.file_utils import save_upload_file, get_file_url
+        from app.libs.file_utils import save_upload_file_with_resize, get_file_url
         import os
 
         save_dir = os.path.join("attaches", "users", str(new_user.id))
-        success, result, original_filename = await save_upload_file(user_data["file"], save_dir)
+        success, result, original_filename, created_files = await save_upload_file_with_resize(user_data["file"], save_dir)
 
         if not success:
             db.rollback()
             return CommonResponse(success=False, error=result, data=None)
 
-        # URL로 변환하여 사용자 프로필 이미지로 설정
-        image_url = get_file_url(result, base_url=settings.BACKEND_SHOP_URL)
-        new_user.profile_image = image_url
-    else:
-        new_user.profile_image = None
+        # 확장자와 사이즈 접미사 제거 (프론트엔드에서 조합)
+        image_url = get_file_url(result, base_url="")
+        # /attaches/users/38/20260122155352_cf7e9e30_medium.webp -> /attaches/users/38/20260122155352_cf7e9e30
+        image_path = image_url.replace('\\', '/')
+
+        if '_medium.webp' in image_path:
+            image_path = image_path.replace('_medium.webp', '')
+        elif '.webp' in image_path:
+            # _사이즈.webp 패턴 제거
+            image_path = image_path.rsplit('_', 1)[0] if '_' in image_path.rsplit('/', 1)[-1] else image_path.rsplit('.', 1)[0]
+
+        new_user.profile_image = "/" + image_path
 
     # 3) 회원 식단 선호도 등록
     if user_data.get("meal_group"):
@@ -211,24 +218,41 @@ async def update_user(db, data):
 
         """ 프로필 이미지 처리 """
         if data.get("file"):
-            from app.libs.file_utils import save_upload_file, delete_file, get_file_url
+            from app.libs.file_utils import save_upload_file_with_resize, delete_file, get_file_url
             import os
-            # 기존 프로필 이미지 삭제
+            import glob
+
+            # 기존 프로필 이미지 삭제 (모든 사이즈)
             if user.profile_image:
+                # 기본 파일 경로에서 디렉토리와 패턴 추출
                 old_file_path = user.profile_image.replace(settings.FRONTEND_URL, '')
                 if os.path.exists(old_file_path):
-                    delete_file(old_file_path)
+                    # 동일 패턴의 모든 파일 삭제 (original, large, medium, small, thumbnail)
+                    base_dir = os.path.dirname(old_file_path)
+                    base_name = os.path.basename(old_file_path)
+                    # _medium.webp 부분을 제거하여 기본 패턴 추출
+                    pattern = base_name.rsplit('_', 1)[0] if '_' in base_name else base_name.rsplit('.', 1)[0]
+                    for old_file in glob.glob(os.path.join(base_dir, f"{pattern}_*.webp")):
+                        delete_file(old_file)
 
-            # 새 이미지 저장
+            # 새 이미지 저장 (리사이징)
             save_dir = os.path.join("attaches", "users", str(user.id))
-            success, result, original_filename = await save_upload_file(data["file"], save_dir)
+            success, result, original_filename, created_files = await save_upload_file_with_resize(data["file"], save_dir)
 
             if not success:
                 return CommonResponse(success=False, error=result, data=None)
 
-            # URL로 변환하여 데이터에 추가
+            # 확장자와 사이즈 접미사 제거 (프론트엔드에서 조합)
             image_url = get_file_url(result)
-            data["profile_image"] = image_url
+            # /attaches/users/38/20260122155352_cf7e9e30_medium.webp -> /attaches/users/38/20260122155352_cf7e9e30
+            image_path = image_url.replace('\\', '/')
+            if '_medium.webp' in image_path:
+                image_path = image_path.replace('_medium.webp', '')
+            elif '.webp' in image_path:
+                # _사이즈.webp 패턴 제거
+                image_path = image_path.rsplit('_', 1)[0] if '_' in image_path.rsplit('/', 1)[-1] else image_path.rsplit('.', 1)[0]
+
+            data["profile_image"] = "/" + image_path
 
         """ 회원 식단 선호도 업데이트 """
         if data.get("meal_group") is not None:
@@ -281,6 +305,9 @@ async def update_user(db, data):
     user_response = UserResponseSchema.model_validate(updated_user)
     user_response_dict = user_response.model_dump()
     user_response_dict["meal_group"] = meal_group_ids
+    # profile_image는 그대로 반환 (프론트엔드에서 backend_url과 사이즈 확장자 조합)
+    if user_response_dict.get('profile_image'):
+        user_response_dict['profile_image'] = user_response_dict['profile_image'].replace('\\', '/')
 
     return CommonResponse(success=True, message=f"회원 정보가 성공적으로 수정되었습니다.", data=user_response_dict)
 
@@ -344,6 +371,7 @@ async def deny_usre_profile(db, user_hash, deny_user_hash):
     except Exception as e:
         return CommonResponse(success=False, error=str(e), data=None)
 
+# 회원차단 list
 def get_deny_users_list(db, user_hash):
     user = Users.findByViewHash(db, user_hash)
 
@@ -375,6 +403,9 @@ def get_user_profile(db, user_hash, user_id):
 
     user_response = UserResponseSchema.model_validate(user)
     user_response_dict = user_response.model_dump()
+    # profile_image는 그대로 반환 (프론트엔드에서 backend_url과 사이즈 확장자 조합)
+    if user_response_dict.get('profile_image'):
+        user_response_dict['profile_image'] = user_response_dict['profile_image'].replace('\\', '/')
     user_response_dict["meal_group"] = meal_group_ids
     user_response_dict["feed_count"] = feed_count
     user_response_dict["like_count"] = like_count
@@ -521,7 +552,11 @@ def list_users(db, sns_id: str = None, name: str = None, nickname: str = None, p
         users = query.order_by(Users.created_at.desc()).offset(offset).limit(limit).all()
 
         # Pydantic 모델로 변환
+        # profile_image 처리
         users_response = [UserResponseSchema.model_validate(user) for user in users]
+        for user_response_dict in users_response:
+            if user_response_dict.get('profile_image'):
+                user_response_dict['profile_image'] = user_response_dict['profile_image'].replace('\\', '/')
 
         total_pages = (total + limit - 1) // limit
 
