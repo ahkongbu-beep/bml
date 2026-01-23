@@ -15,7 +15,7 @@ __pycache__/
 *.pyc
 
 # Backend
-backend/attaches/
+# backend/attaches/
 backend/ca-certificate.pem
 
 # Frontend
