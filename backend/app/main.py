@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from app.routes import notices_router, categories_codes_router, users_router, feeds_router, meals_router, summary_router, dashboard_router, communities_router
+from app.routes import auth_router, notices_router, categories_codes_router, users_router, feeds_router, meals_router, summary_router, dashboard_router, communities_router
 from app.middleware import JWTAuthMiddleware
 import os
 
@@ -25,6 +25,7 @@ attaches_dir = os.path.join(os.getcwd(), "attaches")
 os.makedirs(attaches_dir, exist_ok=True)
 app.mount("/attaches", StaticFiles(directory=attaches_dir), name="attaches")
 
+app.include_router(auth_router, prefix="/auth", tags=["auth"])
 app.include_router(notices_router, prefix="/notices", tags=["notices"])
 app.include_router(categories_codes_router, prefix="/categories_codes", tags=["categories_codes"])
 app.include_router(users_router, prefix="/users", tags=["users"])

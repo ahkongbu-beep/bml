@@ -190,7 +190,7 @@ async def create_user(db, user_data) -> CommonResponse:
     db.refresh(new_user)
 
     # 자식 정보 등록 여부
-    user_childs = UsersChilds.findByUserId(db, new_user.id)
+    user_childs = UsersChilds.findByUserIds(db, new_user.id)
 
     is_child_registered = False
     if user_childs:
@@ -323,21 +323,57 @@ async def create_user_child(db, user_hash, children):
             return CommonResponse(success=False, error="등록할 자녀 정보가 없습니다.", data=None)
 
         for child in children:
-            UsersChilds.create(
-                db,
-                user_id=user.id,
-                child_name=child.child_name,
-                child_birth=child.child_birth,
-                child_gender=child.child_gender,
-                is_agent=child.is_agent if child.is_agent else "N",
-                is_commit=False
-            )
+            if child.child_id:
+                exist_child = UsersChilds.findByChildId(db, child.child_id)
+
+                if exist_child:
+                    UsersChilds.update(
+                        db,
+                        exist_child,
+                        {
+                            "child_name": child.child_name,
+                            "child_birth": child.child_birth,
+                            "child_gender": child.child_gender,
+                            "is_agent": child.is_agent if child.is_agent else "N"
+                        },
+                        is_commit=False
+                    )
+            else:
+                UsersChilds.create(
+                    db,
+                    user_id=user.id,
+                    child_name=child.child_name,
+                    child_birth=child.child_birth,
+                    child_gender=child.child_gender,
+                    is_agent=child.is_agent if child.is_agent else "N",
+                    is_commit=False
+                )
         db.commit()
     except Exception as e:
         db.rollback()
         return CommonResponse(success=False, error=f"자녀 정보 등록 중 오류가 발생했습니다: {str(e)}", data=None)
 
     return CommonResponse(success=True, message="자녀 정보가 성공적으로 등록되었습니다.", data=None)
+
+""" 자녀 정보 삭제 """
+async def delete_user_child(db, user_hash: str, child_id: int) -> CommonResponse:
+    user = Users.findByViewHash(db, user_hash)
+    if not user:
+        return CommonResponse(success=False, error="회원 정보를 찾을 수 없습니다.", data=None)
+
+    user_child = UsersChilds.findByChildId(db, child_id)
+    if not user_child or user_child.user_id != user.id:
+        return CommonResponse(success=False, error="삭제할 자녀 정보를 찾을 수 없습니다.", data=None)
+
+    try:
+        db.delete(user_child)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        return CommonResponse(success=False, error=f"자녀 정보 삭제 중 오류가 발생했습니다: {str(e)}", data=None)
+
+    return CommonResponse(success=True, message="자녀 정보를 성공적으로 삭제하였습니다.", data=None)
+
 
 # 회원차단
 async def deny_usre_profile(db, user_hash, deny_user_hash):
@@ -401,8 +437,26 @@ def get_user_profile(db, user_hash, user_id):
     meals_mapper = MealsMappers.getList(db, user.id).serialize()
     meal_group_ids = [mapper.category_id for mapper in meals_mapper]
 
+    # 자녀 정보 조회 s
+    user_childs = UsersChilds.findByUserIds(db, user.id)
+
+    user_childs_response = []
+
+    if user_childs:
+        for child in user_childs:
+            child_data = {
+                "id": child.id,
+                "child_name": child.child_name,
+                "child_birth": child.child_birth,
+                "child_gender": child.child_gender,
+                "is_agent": child.is_agent
+            }
+            user_childs_response.append(child_data)
+    # 자녀 정보 조회 e
+
     user_response = UserResponseSchema.model_validate(user)
     user_response_dict = user_response.model_dump()
+
     # profile_image는 그대로 반환 (프론트엔드에서 backend_url과 사이즈 확장자 조합)
     if user_response_dict.get('profile_image'):
         user_response_dict['profile_image'] = user_response_dict['profile_image'].replace('\\', '/')
@@ -410,6 +464,8 @@ def get_user_profile(db, user_hash, user_id):
     user_response_dict["feed_count"] = feed_count
     user_response_dict["like_count"] = like_count
     user_response_dict["meal_count"] = meal_count
+    user_response_dict["user_childs"] = user_childs_response
+
     return CommonResponse(success=True, message="", data=user_response_dict)
 
 

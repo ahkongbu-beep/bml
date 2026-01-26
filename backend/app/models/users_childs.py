@@ -47,7 +47,11 @@ class UsersChilds(Base):
         ).first()
 
     @staticmethod
-    def findByUserId(session, user_id: int):
+    def findByChildId(session, child_id: int):
+        return session.query(UsersChilds).filter(UsersChilds.id == child_id).first()
+
+    @staticmethod
+    def findByUserIds(session, user_id: int):
         return session.query(UsersChilds).filter(UsersChilds.user_id == user_id).all()
 
     @staticmethod
@@ -64,3 +68,11 @@ class UsersChilds(Base):
             session.commit()
 
         return new_child
+
+    @staticmethod
+    def update(session, child_instance, params, is_commit: bool = True):
+        for key, value in params.items():
+            setattr(child_instance, key, value)
+        if is_commit:
+            session.commit()
+        return child_instance

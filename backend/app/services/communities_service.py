@@ -191,7 +191,7 @@ def update_community(db, user_hash, community_hash, params) -> CommonResponse:
             "category_code": community.category_code,
             "is_secret": community.is_secret,
             "user_hash": user.view_hash,
-            "user_profile_image": settings.BACKEND_SHOP_URL + user.profile_image if user.profile_image else None,
+            "user_profile_image": user.profile_image if user.profile_image else None,
             "user_nickname": community.user_nickname,
             "view_hash": community.view_hash,
             "user_child_name": user_child.child_name if user_child else None,

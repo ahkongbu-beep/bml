@@ -48,7 +48,11 @@ class SearchUserAccountConfirmRequest(BaseModel):
     user_name: str
     user_phone: str
 
+class UserChildDeleteRequest(BaseModel):
+    child_id: int
+
 class UserChildItemSchema(BaseModel):
+    child_id: Optional[int] = None
     child_name: str
     child_birth: date
     child_gender: GenderEnum

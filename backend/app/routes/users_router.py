@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, File, Form, Form, Request, Query, UploadFile
 from app.services import users_service
-from app.schemas.users_schemas import UserCreateSchema, UserLoginRequest, UserMyInfoRequest, UserFindPasswordRequest, UserPasswordConfirmRequest, SearchUserPasswordConfirmRequest, SearchUserAccountConfirmRequest, UserChildRegistRequest, UserChildItemSchema
+from app.schemas.users_schemas import UserCreateSchema, UserLoginRequest, UserMyInfoRequest, UserFindPasswordRequest, UserPasswordConfirmRequest, SearchUserPasswordConfirmRequest, SearchUserAccountConfirmRequest, UserChildRegistRequest, UserChildItemSchema, UserChildDeleteRequest
 from app.schemas.common_schemas import CommonResponse
 from app.core.database import get_db
 from sqlalchemy.orm import Session
@@ -89,7 +89,7 @@ async def update_user(
 
     return await users_service.update_user(db, data)
 
-""" 회원 등록 - 자녀 등록 """
+""" 자녀 정보 등록 """
 @router.post("/children/create")
 async def create_user_child(request: Request, body: List[UserChildItemSchema], db: Session = Depends(get_db)):
     user_hash = getattr(request.state, "user_hash", None)
@@ -99,6 +99,17 @@ async def create_user_child(request: Request, body: List[UserChildItemSchema], d
         return CommonResponse(success=False, message="사용자 인증이 필요합니다.", data=None)
 
     return await users_service.create_user_child(db, user_hash, body)
+
+""" 자녀 정보 삭제 """
+@router.delete("/children/delete")
+async def delete_user_child(request: Request, body: UserChildDeleteRequest, db: Session = Depends(get_db)):
+    user_hash = getattr(request.state, "user_hash", None)
+
+    if not user_hash:
+        return CommonResponse(success=False, message="사용자 인증이 필요합니다.", data=None)
+
+    return await users_service.delete_user_child(db, user_hash, body.child_id)
+
 
 """ 회원 프로필 조회 """
 @router.get("/profile")
@@ -150,22 +161,6 @@ async def reset_password(request: Request, db: Session = Depends(get_db)):
         return CommonResponse(success=False, message="비밀번호 초기화를 위한 이메일과 이름이 필요합니다.", data=None)
 
     return users_service.reset_password(db, data)
-
-""" 회원로그인 """
-@router.post("/login")
-async def user_login(request: UserLoginRequest, db: Session = Depends(get_db)):
-    data = request.dict()
-
-    if not data.get("email") or not data.get("password"):
-        return CommonResponse(success=False, message="이메일과 비밀번호를 모두 입력해주세요.", data=None)
-
-    return users_service.user_login(db, data)
-
-""" 회원 로그아웃 """
-@router.post("/logout")
-async def user_logout(request: Request, db: Session = Depends(get_db)):
-    data = await request.json()
-    return await users_service.user_logout(db, data.get("user_hash"))
 
 """ 회원 차단 """
 @router.post("/denies")
