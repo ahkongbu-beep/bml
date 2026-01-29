@@ -1,7 +1,8 @@
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { register } from '../api/usersApi';
 import { RegisterRequest } from '../types/ApiTypes';
-import { getMyInfo, getUserProfile, getConfirmUser, getUserEmail, setResetUserPassword, setRegisterChildren } from '../api/authApi';
+import { getMyInfo, getUserProfile, getConfirmUser, getUserEmail, setResetUserPassword } from '../api/authApi';
+import { setRegisterChildren, setDeleteChildren } from '../api/usersApi';
 
 /**
  * 회원가입 Mutation
@@ -80,6 +81,7 @@ export const useRequestPasswordReset = (type: 'email' | 'phone', user_hash: stri
  * 자녀 정보 등록
  */
 interface ChildInfo {
+  child_id?: number;
   child_name: string;
   child_birth: string;
   child_gender: 'M' | 'F';
@@ -96,5 +98,12 @@ export const useRegisterChildren = (children: ChildInfo[]) => {
  * 자녀 정보 등록 (직접 호출용)
  */
 export const registerChildren = async (children: ChildInfo[]) => {
-    return setRegisterChildren(children);
+  return setRegisterChildren(children);
 };
+
+/**
+ * 자녀 정보 삭제 (직접 호출용)
+ */
+export const deleteChildren = async (child_id: number) => {
+  return setDeleteChildren(child_id);
+}

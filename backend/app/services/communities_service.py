@@ -31,7 +31,7 @@ def get_community_list(db, user_hash, params) -> CommonResponse:
 
     community_list = [item._data for item in Community.get_list(db, user.id, db_params).serialize()]
     for community in community_list:
-        community['profile_image'] = settings.BACKEND_SHOP_URL + community['profile_image'] if community.get('profile_image') else None
+        community['profile_image'] = community['profile_image'] if community.get('profile_image') else None
 
     total_count = Community.get_list_count(db, user.id, db_params)
 
@@ -71,7 +71,7 @@ def create_community(db, user_hash, client_ip, params) -> CommonResponse:
             "category_code": new_community.category_code,
             "is_secret": new_community.is_secret,
             "user_hash": user.view_hash,
-            "user_profile_image": settings.BACKEND_SHOP_URL + user.profile_image if user.profile_image else None,
+            "user_profile_image": user.profile_image if user.profile_image else None,
             "user_nickname": new_community.user_nickname,
             "view_hash": new_community.view_hash,
             "user_child_name": user_child.child_name if user_child else None,
@@ -99,6 +99,10 @@ def get_community_detail(db, user_hash, community_hash) -> CommonResponse:
     if community.is_active != 'Y':
         return CommonResponse(success=False, error="삭제된 커뮤니티 글입니다.")
 
+    commnity_user = Users.findById(db, community.user_id)
+    if not commnity_user:
+        return CommonResponse(success=False, error="커뮤니티 글 작성자가 존재하지 않습니다.")
+
     try:
         # 조회수 증가
         community.view_count += 1
@@ -112,8 +116,8 @@ def get_community_detail(db, user_hash, community_hash) -> CommonResponse:
             "contents": community.contents,
             "category_code": community.category_code,
             "is_secret": community.is_secret,
-            "user_hash": user.view_hash,
-            "user_profile_image": settings.BACKEND_SHOP_URL + user.profile_image if user.profile_image else None,
+            "user_hash": commnity_user.view_hash,
+            "user_profile_image": commnity_user.profile_image if commnity_user.profile_image else None,
             "user_nickname": community.user_nickname,
             "view_hash": community.view_hash,
             "user_child_name": user_child.child_name if user_child else None,
@@ -296,6 +300,53 @@ def create_community_comment(db, user_hash, community_hash, params) -> CommonRes
         return CommonResponse(success=False, message="커뮤니티 댓글 작성 중 오류가 발생했습니다." + str(e))
 
     return CommonResponse(success=True, message="커뮤니티 댓글이 성공적으로 작성되었습니다.", data=return_data)
+
+""" 커뮤니티 댓글 삭제 서비스 함수 """
+def delete_community_comment(db, user_hash, comment_hash) -> CommonResponse:
+    user = Users.findByViewHash(db, user_hash)
+    if not user:
+        return CommonResponse(success=False, message="유효하지 않은 사용자입니다.")
+
+    exist_comment = CommunitiesComments.findByViewHash(db, comment_hash)
+    if not exist_comment:
+        return CommonResponse(success=False, message="존재하지 않는 커뮤니티 댓글입니다.")
+
+    if exist_comment.user_id != user.id:
+        return CommonResponse(success=False, message="본인이 작성한 댓글만 삭제할 수 있습니다.")
+
+    try:
+        # 댓글 삭제처리 (soft delete)
+        success_bool = CommunitiesComments.soft_delete(db, exist_comment)
+        if not success_bool:
+            return CommonResponse(success=False, message="커뮤니티 댓글 삭제에 실패했습니다.")
+
+        return CommonResponse(success=True, message="커뮤니티 댓글이 성공적으로 삭제되었습니다.")
+
+    except Exception as e:
+        return CommonResponse(success=False, message="커뮤니티 댓글 삭제 중 오류가 발생했습니다." + str(e))
+
+""" 커뮤니티 댓글 수정 서비스 함수 """
+def update_community_comment(db, user_hash, comment_hash, params) -> CommonResponse:
+    user = Users.findByViewHash(db, user_hash)
+    if not user:
+        return CommonResponse(success=False, message="유효하지 않은 사용자입니다.")
+
+    exist_comment = CommunitiesComments.findByViewHash(db, comment_hash)
+    if not exist_comment:
+        return CommonResponse(success=False, message="존재하지 않는 커뮤니티 댓글입니다.")
+
+    if exist_comment.user_id != user.id:
+        return CommonResponse(success=False, message="본인이 작성한 댓글만 수정할 수 있습니다.")
+
+    try:
+        # 댓글 수정처리
+        CommunitiesComments.update(db, exist_comment, {
+            "comment": params.comment
+        })
+    except Exception as e:
+        return CommonResponse(success=False, message="커뮤니티 댓글 수정 중 오류가 발생했습니다." + str(e))
+
+    return CommonResponse(success=True, message="커뮤니티 댓글이 성공적으로 수정되었습니다.")
 
 """커뮤니티 댓글 리스트 조회 서비스 함수"""
 def get_community_comments(db, user_hash, params) -> CommonResponse:

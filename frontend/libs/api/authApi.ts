@@ -6,7 +6,19 @@ import { ApiResponse } from '../types/ApiTypes';
  * 로그인
  */
 export const login = async (data: LoginRequest): Promise<LoginResponse> => {
-  return fetchPost<LoginResponse>('/users/login', data);
+  return fetchPost<LoginResponse>('/auth/login', data);
+};
+
+/**
+ * 구글 로그인
+ */
+export interface GoogleLoginRequest {
+  idToken: string;
+  accessToken?: string;
+}
+
+export const googleLogin = async (data: GoogleLoginRequest): Promise<LoginResponse> => {
+  return fetchPost<LoginResponse>('/auth/google', data);
 };
 
 /**
@@ -52,7 +64,7 @@ export const register = async (data: RegisterRequest): Promise<ApiResponse<User>
  * 로그아웃
  */
 export const logout = async (user_hash: string): Promise<ApiResponse<null>> => {
-  return fetchPost<ApiResponse<null>>('/users/logout', { user_hash });
+  return fetchPost<ApiResponse<null>>('/auth/logout', { user_hash });
 };
 
 /**
@@ -75,7 +87,6 @@ export const getProfileBySnsId = async (sns_id: string): Promise<ApiResponse<Use
  * user_hash로 사용자 프로필 조회 (타인 프로필)
  */
 export const getUserProfile = async (userHash: string): Promise<User> => {
-  console.log("you");
   const response = await fetchGet<ApiResponse<User>>(`/users/profile`, { user_hash: userHash });
   return response.data;
 };
@@ -163,14 +174,3 @@ export const updateProfile = async (data: UpdateProfileRequest): Promise<ApiResp
 
   return fetchPutFormData<ApiResponse<User>>('/users/update', formData);
 };
-
-interface ChildRegistration {
-  child_name: string;
-  child_birth: string; // YYYY-MM-DD 형식
-  child_gender: 'M' | 'F';
-  is_agent: string; // 'Y' | 'N'
-}
-
-export const setRegisterChildren = async (children: ChildRegistration[]): Promise<ApiResponse<null>> => {
-  return fetchPost<ApiResponse<null>>('/users/children/create', children);
-}

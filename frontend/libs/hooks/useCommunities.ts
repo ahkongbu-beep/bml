@@ -9,6 +9,7 @@ import {
   likeToggleCommunity,
   getCommunityComments,
   createCommunityComment,
+  updateCommunityComment,
   deleteCommunityComment
 } from '../api/communitiesApi';
 import { CommunityListRequest } from '../types/CommunitiesType';
@@ -76,6 +77,16 @@ export const useCreateCommunityComment = () => {
     }) => createCommunityComment(community_hash, { comment, parent_hash }),
   });
 };
+
+/**
+ * 커뮤니티 댓글 수정
+ */
+export const useUpdateCommunityComment = () => {
+  return useMutation({
+    mutationFn: ({ comment_hash, comment }: { comment_hash: string; comment: string }) =>
+      updateCommunityComment(comment_hash, { comment }),
+  });
+}
 
 /**
  * 커뮤니티 댓글 삭제

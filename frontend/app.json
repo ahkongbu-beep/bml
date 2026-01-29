@@ -29,6 +29,7 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
+    "scheme": "bml",
     "extra": {
       "eas": {
         "projectId": "d199e4f7-e0ad-46db-b44a-ac3c5055ee2c"

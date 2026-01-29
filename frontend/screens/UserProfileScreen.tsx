@@ -24,6 +24,7 @@ import MyFeedGrid from '../components/MyFeedGrid';
 import Layout from '../components/Layout';
 import { LoadingPage } from '../components/Loading';
 import { ErrorPage } from '../components/ErrorPage';
+import { getStaticImage } from '../libs/utils/common';
 
 export default function UserProfileScreen({ route, navigation }: any) {
   const { userHash } = route.params; // 조회할 사용자 Hash
@@ -98,7 +99,7 @@ export default function UserProfileScreen({ route, navigation }: any) {
           <View style={styles.profileSection}>
             <Image
               source={{
-                uri: userProfile.profile_image || 'https://i.pravatar.cc/200?img=5'
+                uri: getStaticImage('small', userProfile.profile_image) || ''
               }}
               style={styles.profileImage}
             />

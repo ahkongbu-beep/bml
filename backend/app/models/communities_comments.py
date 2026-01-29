@@ -41,6 +41,17 @@ class CommunitiesComments(Base):
         return False
 
     @staticmethod
+    def soft_delete(session, comment: 'CommunitiesComments'):
+        comment.deleted_at = datetime.datetime.now(pytz.timezone("Asia/Seoul"))
+        try:
+            session.commit()
+            return True
+        except Exception as e:
+            session.rollback()
+
+        return False
+
+    @staticmethod
     def create(session, params: dict):
         kst = pytz.timezone("Asia/Seoul")
         now = datetime.datetime.now(kst)
@@ -62,6 +73,19 @@ class CommunitiesComments(Base):
             )
 
             session.add(comment)
+            session.commit()
+            session.refresh(comment)
+            return comment
+        except Exception as e:
+            session.rollback()
+            raise e
+
+    @staticmethod
+    def update(session, comment: 'CommunitiesComments', params: dict):
+        try:
+            comment.comment = params.get("comment", comment.comment)
+            comment.updated_at = datetime.datetime.now(pytz.timezone("Asia/Seoul"))
+
             session.commit()
             session.refresh(comment)
             return comment
@@ -95,6 +119,7 @@ class CommunitiesComments(Base):
         )
 
         query = query.filter(CommunitiesComments.community_id == params["community_id"])
+        query = query.filter(CommunitiesComments.deleted_at.is_(None))
         query = query.order_by(CommunitiesComments.created_at.asc())
 
         if "limit" in extra:
@@ -145,9 +170,8 @@ class QueryResult:
                 view_hash=v.view_hash,
                 parent_hash=v.parent_hash,
                 user=FeedsUserResponse(
-                    id=v.user_id if hasattr(v, 'user_id') else None,
                     nickname=v.nickname,
-                    profile_image=settings.BACKEND_SHOP_URL + v.profile_image if v.profile_image else None,
+                    profile_image=v.profile_image if v.profile_image else None,
                     user_hash=v.user_hash
                 )
             )
@@ -169,7 +193,7 @@ class QueryResult:
                 "parent_hash": v.parent_hash,
                 "user": {
                     "nickname": v.nickname,
-                    "profile_image": settings.BACKEND_SHOP_URL + v.profile_image if v.profile_image else None,
+                    "profile_image": v.profile_image if v.profile_image else None,
                     "user_hash": v.user_hash
                 }
             }

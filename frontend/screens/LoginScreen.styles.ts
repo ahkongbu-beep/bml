@@ -117,23 +117,27 @@ const styles = StyleSheet.create({
   googleButton: {
     marginTop: 12,
     backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderWidth: 1.5,
+    borderColor: '#DADCE0',
+    ...shadows.medium,
+  },
+  googleButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  googleIcon: {
+    marginRight: 12,
+  },
+  googleButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#3C4043',
   },
   snsButtonText: {
     fontSize: 14,
     fontWeight: '600',
     color: '#4A4A4A',
-  },
-  googleButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#4A4A4A',
-    textAlign: 'center',
-  },
-  googleIcon: {
-    position: 'absolute',
-    left: 16,
   },
 });
 

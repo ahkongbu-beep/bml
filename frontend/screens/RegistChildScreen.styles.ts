@@ -241,6 +241,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFFFFF',
   },
+  editButton: {
+    padding: 8,
+  },
   deleteButton: {
     padding: 8,
   },

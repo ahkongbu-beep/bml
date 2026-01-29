@@ -39,7 +39,7 @@ export function formatRelativeTime(dateString: string): string {
   } else if (diffMonths < 12) {
     return `${diffMonths}개월 전`;
   } else {
-    return `${diffYears}년 전`;
+    return formatDate(dateString, 'YYYY-MM-DD');
   }
 }
 
@@ -48,6 +48,11 @@ export const normalizeDate = (dateString: string): string => {
   const [year, month, day] = dateString.split('-');
   return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
 };
+
+export const getStaticImage = (type: string, imagePath: string): string => {
+  const STATIC_BASE_URL = process.env.EXPO_PUBLIC_STATIC_BASE_URL || '';
+  return STATIC_BASE_URL + imagePath + `_${type}.webp`;
+}
 
 export const getToday = (format: 'YYYY-MM-DD' | 'YYYY-MM-DD HH:mm:ss' = 'YYYY-MM-DD'): string => {
   const date = new Date();

@@ -1,3 +1,11 @@
+export interface UserChilItem {
+  id: number;
+  child_name: string;
+  child_birth: string;
+  child_gender: 'M' | 'W';
+  is_agent: string;
+}
+
 export interface User {
   id: number;
   email: string;
@@ -12,6 +20,7 @@ export interface User {
   feed_count?: number;
   like_count?: number;
   meal_count?: number;
+  user_childs?: UserChildItem[];
 }
 
 export interface UserProfile{

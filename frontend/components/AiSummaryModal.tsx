@@ -188,9 +188,9 @@ const AiSummaryModal: React.FC<AiSummaryModalProps> = ({
                     placeholder="버튼을 눌러 질문을 선택하세요."
                     placeholderTextColor="#B0B0B0"
                     value={prompt}
+                    onChangeText={setPrompt}
                     multiline
                     maxLength={200}
-                    readOnly={true}
                     editable={!isLoading}
                   />
                   <Text style={styles.charCount}>{prompt.length}/200</Text>

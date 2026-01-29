@@ -14,12 +14,12 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Feed } from '../libs/types/FeedType';
-import { formatDate, diffMonthsFrom } from '@/libs/utils/common';
+import { formatDate, diffMonthsFrom, getStaticImage } from '@/libs/utils/common';
 import { FeedItemProps } from '../libs/types/FeedType';
 import { USER_CHILD_GENDER } from '../libs/utils/codes/UserChildCode';
 
 const { width } = Dimensions.get('window');
-const API_BASE_URL = process.env.EXPO_PUBLIC_STATIC_BASE_URL;
+
 const FeedItem = React.memo(({
   item,
   menuVisible,
@@ -97,7 +97,7 @@ const FeedItem = React.memo(({
           onPress={() => onViewProfile(item.user.user_hash || '', item.user.nickname)}
         >
           <Image
-            source={{ uri: `${API_BASE_URL}${item.user.profile_image}_thumbnail.webp` }}
+            source={{ uri: getStaticImage('thumbnail', item.user.profile_image) }}
             style={styles.profileImage}
           />
           <View>
@@ -191,7 +191,7 @@ const FeedItem = React.memo(({
             {item.images.map((imageUri, index) => (
               <Image
                 key={`${item.id}-image-${extractImageId(imageUri) || index}`}
-                source={{ uri: `${API_BASE_URL}${imageUri}_medium.webp` }}
+                source={{ uri: getStaticImage('medium', imageUri) }}
                 style={styles.feedImage}
               />
             ))}
@@ -209,11 +209,7 @@ const FeedItem = React.memo(({
               onPress={() => {
                 const currentIndex = currentImageIndex[item.id] || 0;
                 const currentImageUrl = item.images[currentIndex];
-                console.log('AI Summary clicked:', {
-                  feedId: item.id,
-                  imageUrl: currentImageUrl,
-                  index: currentIndex
-                });
+
                 // 이미지 URL 또는 인덱스를 전달
                 onAiSummary(userHash, item.id, currentIndex.toString());
               }}

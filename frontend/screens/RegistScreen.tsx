@@ -27,12 +27,12 @@ import { saveToken, saveUserInfo, setNeedChildRegistration } from '../libs/utils
 export default function RegistScreen({ navigation }: any) {
   // Form State
   const [snsLoginType, setSnsLoginType] = useState<'EMAIL'>('EMAIL');
-  const [name, setName] = useState('test101');
-  const [nickname, setNickname] = useState('test101');
-  const [email, setEmail] = useState('test101@naver.com');
-  const [password, setPassword] = useState('test101');
-  const [passwordConfirm, setPasswordConfirm] = useState('test101');
-  const [phone, setPhone] = useState('0101231231312');
+  const [name, setName] = useState('');
+  const [nickname, setNickname] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [passwordConfirm, setPasswordConfirm] = useState('');
+  const [phone, setPhone] = useState('');
 
   const [address, setAddress] = useState('');
   const [profileImage, setProfileImage] = useState<string | undefined>();

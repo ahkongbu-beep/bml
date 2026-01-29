@@ -19,8 +19,9 @@ export interface CommunityPost {
   is_liked: string;
   like_count: number;
   comment_count: number;
-  profile_image: string;
+  user_profile_image: string;
   view_hash: string;
+  comments?: any[];
 }
 
 export interface CommunityListResponse {
@@ -42,4 +43,22 @@ export interface CommunityListRequest {
   cursor?: number;
   myOnly?: string;
   limit?: number;
+}
+
+interface CommunityDetail {
+  title: string;
+  contents: string;
+  category_code: number;
+  is_secret: string;
+  user_hash: string;
+  user_profile_image: string;
+  user_nickname: string;
+  view_hash: string;
+  user_child_name: string;
+  user_child_birth: string;
+  user_child_gender: string;
+  view_count: number;
+  created_at: string;
+  updated_at: string;
+  comments?: any[];
 }

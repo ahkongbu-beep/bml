@@ -1,6 +1,6 @@
     import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import { login as loginApi, logout as logoutApi, updateProfile as updateProfileApi, UpdateProfileRequest, getUserProfile } from '../api/authApi';
+import { login as loginApi, logout as logoutApi, updateProfile as updateProfileApi, UpdateProfileRequest, getUserProfile, googleLogin as googleLoginApi, GoogleLoginRequest } from '../api/authApi';
 import { LoginRequest, User } from '../types/UserType';
 import {
   isLoggedIn as checkIsLoggedIn,
@@ -16,11 +16,15 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (credentials: LoginRequest) => void;
+  googleLogin: (data: GoogleLoginRequest) => void;
   logout: () => void;
   logoutLocal: () => Promise<void>;
   updateProfile: (data: UpdateProfileRequest) => void;
+  refreshUser: () => Promise<void>;
   loginLoading: boolean;
   loginError: any;
+  googleLoginLoading: boolean;
+  googleLoginError: any;
   updateProfileLoading: boolean;
   updateProfileError: any;
 }
@@ -39,7 +43,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const loggedIn = await checkIsLoggedIn();
         if (loggedIn) {
           const savedUser = await getUserInfo();
-          console.log("savedUser", savedUser);
           if (savedUser) {
             // 1. 먼저 저장된 정보로 빠르게 로드
             setUser(savedUser);
@@ -48,7 +51,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             // 2. 백그라운드에서 최신 프로필 정보 가져오기
             try {
               const responseData = await getUserProfile(savedUser.view_hash);
-              console.log("responseData", responseData);
               if (responseData) {
                 await saveUserInfo(responseData);
                 setUser(responseData);
@@ -88,6 +90,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
   });
 
+  // 구글 로그인 Mutation
+  const googleLoginMutation = useMutation({
+    mutationFn: (data: GoogleLoginRequest) => googleLoginApi(data),
+    onSuccess: async (data) => {
+      if (data.success && data.data) {
+        const { user, token } = data.data;
+
+        if (token && user) {
+          await saveToken(token);
+          await saveUserInfo(user);
+          setUser(user);
+          setIsAuthenticated(true);
+        }
+      } else {
+        throw new Error(data.message || '구글 로그인에 실패했습니다.');
+      }
+    },
+  });
+
   // 로그아웃 Mutation
   const logoutMutation = useMutation({
     mutationFn: () => logoutApi(user?.view_hash || ''),
@@ -122,17 +143,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsAuthenticated(false);
   };
 
+  // 사용자 정보 갱신
+  const refreshUser = async () => {
+    try {
+      if (user?.view_hash) {
+        const responseData = await getUserProfile(user.view_hash);
+        if (responseData) {
+          await saveUserInfo(responseData);
+          setUser(responseData);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to refresh user profile:', error);
+    }
+  };
+
   const value = {
     user,
     view_hash: user?.view_hash || null,
     isAuthenticated,
     isLoading,
     login: loginMutation.mutate,
+    googleLogin: googleLoginMutation.mutate,
     logout: logoutMutation.mutate,
     logoutLocal,
     updateProfile: updateProfileMutation.mutate,
+    refreshUser,
     loginLoading: loginMutation.isPending,
     loginError: loginMutation.error,
+    googleLoginLoading: googleLoginMutation.isPending,
+    googleLoginError: googleLoginMutation.error,
     updateProfileLoading: updateProfileMutation.isPending,
     updateProfileError: updateProfileMutation.error,
   };

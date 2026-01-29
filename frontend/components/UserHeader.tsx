@@ -1,19 +1,19 @@
 import React from 'react';
 import { View, Text, StyleSheet, Image } from 'react-native';
 import { User } from '../libs/types/UserType';
+import { getStaticImage } from '../libs/utils/common';
 
 interface UserHeaderProps {
   user: User | null;
 }
 
 export default function UserHeader({ user }: UserHeaderProps) {
-  const API_BASE_URL = process.env.EXPO_PUBLIC_STATIC_BASE_URL;
 
   return (
     <View style={styles.userHeaderSection}>
       <View style={styles.userGreeting}>
         <Image
-          source={{ uri: user?.profile_image ? `${API_BASE_URL}${user.profile_image}_small.webp` : 'https://via.placeholder.com/50' }}
+          source={{ uri: user?.profile_image ? getStaticImage('small', user.profile_image) : 'https://via.placeholder.com/50' }}
           style={styles.userProfileImage}
         />
         <View style={styles.greetingText}>

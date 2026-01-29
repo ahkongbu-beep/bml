@@ -2,11 +2,6 @@ import { fetchGet, fetchPost, fetchPut } from './config';
 import { ApiResponse, PaginationResponse } from '../types/ApiTypes';
 import { CommunityListRequest, CommunityListResponse, CommunityPost } from '../types/CommunitiesType';
 
-
-
-
-
-
 /**
  * 커뮤니티 목록 조회
  */
@@ -30,7 +25,6 @@ export const getCommunityList = async (params: CommunityListRequest): Promise<Ap
 };
 
 export const getCommunityDetail = async (view_hash: string): Promise<ApiResponse<CommunityPost>> => {
-  console.log("Fetching community detail for view_hash:", view_hash);
   const response = await fetchGet<ApiResponse<CommunityPost>>(`/communities/detail/${view_hash}`);
   return response;
 };
@@ -49,6 +43,13 @@ export const createCommunity = async (data: {
   is_secret: string;
 }): Promise<ApiResponse<CommunityPost>> => {
   const response = await fetchPost<ApiResponse<CommunityPost>>(`/communities/create`, data, 'POST');
+  return response;
+};
+
+export const updateCommunityComment = async (comment_hash: string, data: {
+  comment: string;
+}): Promise<ApiResponse<any>> => {
+  const response = await fetchPut<ApiResponse<any>>(`/communities/comments/update/${comment_hash}`, data, 'PUT');
   return response;
 };
 

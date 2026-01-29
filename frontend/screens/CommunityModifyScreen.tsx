@@ -4,7 +4,6 @@
  * 주제 그룹(categoryCode) 은 수정 불가
  * 비밀글은 나밖에 못보는 글 여부라는걸 가이드해줘
  */
-
 import React, { useEffect, useState } from 'react';
 import {
   View,

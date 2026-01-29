@@ -9,6 +9,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { MEAL_CATEGORIES } from '../libs/utils/codes/MealCalendarCode';
 import { MealItemProps } from '../libs/types/MealType';
+import { getStaticImage } from '../libs/utils/common';
 
 const MealPlanItem = React.memo(({
   meal,
@@ -16,7 +17,6 @@ const MealPlanItem = React.memo(({
   handleDetailFeed,
   onPress,
 }: MealItemProps) => {
-  const API_BASE_URL = process.env.EXPO_PUBLIC_STATIC_BASE_URL;
   const category = MEAL_CATEGORIES.find((c) => c.name === meal.category_name);
   const hasImage = !!meal.image_url;
 
@@ -31,7 +31,7 @@ const MealPlanItem = React.memo(({
         {hasImage && (
           <View style={styles.imageContainer}>
             <Image
-              source={{ uri: API_BASE_URL + meal.image_url + '_medium.webp' }}
+              source={{ uri: getStaticImage('medium', meal.image_url || '') }}
               style={styles.mealImage}
               resizeMode="cover"
             />

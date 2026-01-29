@@ -112,6 +112,33 @@ def create_community_comment(
     return communities_service.create_community_comment(db, user_hash, community_hash, params)
 
 
+""" 커뮤니티 댓글 수정 API """
+@router.put("/comments/update/{comment_hash}")
+def update_community_comment(
+    request: Request,
+    comment_hash: str,
+    params: CommunityCreateCommentRequest,
+    db: Session = Depends(get_db)
+) -> CommonResponse:
+    user_hash = getattr(request.state, "user_hash", None)
+    if not user_hash:
+        return CommonResponse(success=False, message="로그인이 필요합니다.")
+
+    return communities_service.update_community_comment(db, user_hash, comment_hash, params)
+
+@router.put("/comments/delete/{comment_hash}")
+def delete_community_comment(
+    request: Request,
+    comment_hash: str,
+    db: Session = Depends(get_db)
+) -> CommonResponse:
+    user_hash = getattr(request.state, "user_hash", None)
+    if not user_hash:
+        return CommonResponse(success=False, message="로그인이 필요합니다.")
+
+    return communities_service.delete_community_comment(db, user_hash, comment_hash)
+
+
 """ 커뮤니티 댓글 조회 API """
 @router.get("/comments/{community_hash}")
 def get_community_comments(

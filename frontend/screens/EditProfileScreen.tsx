@@ -19,9 +19,9 @@ import Header from '../components/Header';
 import Layout from '../components/Layout';
 import { useAuth } from '../libs/contexts/AuthContext';
 import { useAgeGroups, useCategoryCodes } from '../libs/hooks/useCategories';
+import { getStaticImage } from '../libs/utils/common';
 
 export default function EditProfileScreen({ navigation }: any) {
-  const API_BASE_URL = process.env.EXPO_PUBLIC_STATIC_BASE_URL;
   const { user, isLoading, updateProfile, updateProfileLoading } = useAuth();
   const [nickname, setNickname] = useState('');
   const [email, setEmail] = useState('');
@@ -46,10 +46,7 @@ export default function EditProfileScreen({ navigation }: any) {
       setNickname(user.nickname || '');
       setEmail(user.email || '');
       setDescription(user.description || '');
-      setProfileImage(API_BASE_URL + (user.profile_image + "_small.webp" || '/default_profile_image'));
-      setChildBirth(user.child_birth || '');
-      setChildGender(user.child_gender || '');
-      setChildAgeGroup(user.child_age_group || 0);
+      setProfileImage(user.profile_image || '');
       setDietGroup(user.meal_group || []);
       setMarketingAgree(!!user.marketing_agree);
       setPushAgree(!!user.push_agree);
@@ -159,7 +156,7 @@ export default function EditProfileScreen({ navigation }: any) {
           {/* 프로필 이미지 */}
           <View style={styles.imageSection}>
             <Image
-              source={{ uri: profileImage }}
+              source={{ uri: getStaticImage('small', profileImage) || '' }}
               style={styles.profileImage}
             />
             <TouchableOpacity
@@ -188,7 +185,6 @@ export default function EditProfileScreen({ navigation }: any) {
               />
             </View>
 
-
             <View style={styles.inputGroup}>
               <Text style={styles.label}>소개</Text>
               <TextInput
@@ -204,126 +200,9 @@ export default function EditProfileScreen({ navigation }: any) {
             </View>
           </View>
 
-          {/* 자녀 정보 */}
-          <View style={styles.childSection}>
-            <Text style={styles.sectionTitle}>자녀 정보</Text>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>자녀 생년월일</Text>
-              <TouchableOpacity style={styles.dateInput} onPress={handleDatePress}>
-                <Text style={[styles.dateText, !childBirth && styles.placeholderText]}>
-                  {childBirth || '생년월일을 선택하세요'}
-                </Text>
-                <Ionicons name="calendar-outline" size={20} color="#999" />
-              </TouchableOpacity>
-              {showDatePicker && (
-                <>
-                  <DateTimePicker
-                    value={selectedDate}
-                    mode="date"
-                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                    onChange={onDateChange}
-                    maximumDate={new Date()}
-                    locale="ko-KR"
-                  />
-                  {Platform.OS === 'ios' && (
-                    <TouchableOpacity
-                      style={styles.datePickerCloseButton}
-                      onPress={closeDatePicker}
-                    >
-                      <Text style={styles.datePickerCloseText}>완료</Text>
-                    </TouchableOpacity>
-                  )}
-                </>
-              )}
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>자녀 성별</Text>
-              <View style={styles.genderContainer}>
-                <TouchableOpacity
-                  style={[styles.genderButton, childGender === 'M' && styles.genderButtonActive]}
-                  onPress={() => setChildGender('M')}
-                >
-                  <Text style={[styles.genderText, childGender === 'M' && styles.genderTextActive]}>
-                    남아
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.genderButton, childGender === 'W' && styles.genderButtonActive]}
-                  onPress={() => setChildGender('W')}
-                >
-                  <Text style={[styles.genderText, childGender === 'W' && styles.genderTextActive]}>여아</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>자녀 연령대</Text>
-              {ageGroupsLoading ? (
-                <ActivityIndicator color="#FF6B6B" />
-              ) : (
-                <View style={styles.ageGroupContainer}>
-                  {ageGroups?.map((group) => (
-                    <TouchableOpacity
-                      key={group.id}
-                      style={[
-                        styles.ageGroupButton,
-                        childAgeGroup === group.id && styles.ageGroupButtonActive,
-                      ]}
-                      onPress={() => setChildAgeGroup(group.id)}
-                    >
-                      <Text
-                        style={[
-                          styles.ageGroupButtonText,
-                          childAgeGroup === group.id && styles.ageGroupButtonTextActive,
-                        ]}
-                      >
-                        {group.value}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>선호 식습관</Text>
-              {mealGroupsLoading ? (
-                <ActivityIndicator color="#FF6B6B" />
-              ) : (
-                <View style={styles.ageGroupContainer}>
-                  {mealGroups?.map((group) => {
-                    const isChecked = dietGroup.includes(group.id);
-                    return (
-                      <TouchableOpacity
-                        key={group.id}
-                        style={[
-                          styles.ageGroupButton,
-                          isChecked && styles.ageGroupButtonActive,
-                        ]}
-                        onPress={() => toggleDietGroup(group.id)}
-                      >
-                        <Text
-                          style={[
-                            styles.ageGroupButtonText,
-                            isChecked && styles.ageGroupButtonTextActive,
-                          ]}
-                        >
-                          {group.value}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              )}
-            </View>
-          </View>
-
           {/* 알림 설정 */}
           <View style={styles.settingsSection}>
             <Text style={styles.sectionTitle}>알림 설정</Text>
-
             <View style={styles.settingItem}>
               <Text style={styles.settingText}>마케팅 수신 동의</Text>
               <TouchableOpacity

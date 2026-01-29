@@ -17,12 +17,11 @@ import { useGetMyInfo } from '../libs/hooks/useUsers';
 import MyFeedGrid from '../components/MyFeedGrid';
 import { LoadingPage } from '../components/Loading';
 import Layout from '../components/Layout';
+import { getStaticImage } from '../libs/utils/common';
 
 export default function MyPageScreen({ navigation }: any) {
   const { user, isLoading } = useAuth();
   const [viewType, setViewType] = useState<'grid' | 'list'>('grid');
-
-  const API_BASE_URL = process.env.EXPO_PUBLIC_STATIC_BASE_URL;
 
   if (isLoading) {
     return (
@@ -42,6 +41,7 @@ export default function MyPageScreen({ navigation }: any) {
       </Layout>
     );
   }
+
   const { data: myFeedsData, isLoading: feedsLoading } = useMyFeeds();
   const { data: myInfoData, isLoading: myInfoLoading } = useGetMyInfo(user?.view_hash || '');
 
@@ -56,7 +56,7 @@ export default function MyPageScreen({ navigation }: any) {
           <View style={styles.profileSection}>
             <Image
               source={{
-                uri: API_BASE_URL + user.profile_image + "_small.webp" || 'https://i.pravatar.cc/200?img=5'
+                uri: getStaticImage('small', user.profile_image) || ''
               }}
               style={styles.profileImage}
             />

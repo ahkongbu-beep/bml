@@ -17,6 +17,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { getStaticImage } from '../libs/utils/common';
 import { formatDate } from '../libs/utils/common';
 
 interface CommentUser {
@@ -83,7 +84,7 @@ export default function CommentModal({
       <View style={styles.commentHeader}>
         {item.user.profile_image ? (
           <Image
-            source={{ uri: item.user.profile_image }}
+            source={{ uri: getStaticImage('small', item.user.profile_image) }}
             style={styles.commentAvatar}
           />
         ) : (

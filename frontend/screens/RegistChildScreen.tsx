@@ -23,13 +23,15 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { useAuth } from '../libs/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import Layout from '../components/Layout';
 import Header from '../components/Header';
-import { registerChildren } from '../libs/hooks/useUsers';
+import { registerChildren, deleteChildren } from '../libs/hooks/useUsers';
 import { calculateAge } from '../libs/utils/common';
 
 interface ChildInfo {
+  id?: number;
   childName: string;
   childBirth: string; // YYYYMMDD
   childGender: 'M' | 'F';
@@ -37,13 +39,29 @@ interface ChildInfo {
 }
 
 export default function RegistChildScreen({ navigation, route }: any) {
-  const [children, setChildren] = useState<ChildInfo[]>([]);
+  const { user, isLoading: authLoading, refreshUser } = useAuth();
+  // user_childs가 있을 경우 초기값으로 세팅
+  const initialChildren = user?.user_childs
+    ? user.user_childs.map((child: any) => ({
+        id: child.id,
+        childName: child.child_name,
+        childBirth: child.child_birth.replace(/-/g, ''), // YYYY-MM-DD -> YYYYMMDD
+        childGender: child.child_gender as 'M' | 'F',
+        isAgent: child.is_agent as 'Y' | 'N',
+      }))
+    : [];
+
+  const [children, setChildren] = useState<ChildInfo[]>(initialChildren);
   const [childName, setChildName] = useState('');
   const [childBirth, setChildBirth] = useState('');
   const [childGender, setChildGender] = useState<'M' | 'F'>('M');
   const [isAgent, setIsAgent] = useState<'Y' | 'N'>('Y');
   const [isLoading, setIsLoading] = useState(false);
-  const [isEditing, setIsEditing] = useState(true);
+  const [isEditing, setIsEditing] = useState(initialChildren.length === 0);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  /*
+    {"address": "서울시시 강남구", "created_at": "2025-12-02T17:41:35", "deleted_at": null, "description": "안녕하세요, 우리 아이와 함께 하는 BML입니다.1", "email": "ahkongbu@naver.com", "feed_count": 13, "is_active": 1, "last_login_at": "2026-01-26T10:14:36", "like_count": 7, "marketing_agree": 1, "meal_count": 5, "meal_group": [], "name": "임영민", "nickname": "이웃집로또로", "phone": "01011112222", "profile_image": "/attaches/users/4/20260126101510_986d9002", "push_agree": 1, "role": "USER", "sns_id": "ahkongbu", "sns_login_type": "EMAIL", "updated_at": "2026-01-26T14:45:47", "user_childs": [{"child_birth": "1992-08-20", "child_gender": "M", "child_name": "홍길동4", "id": 7, "is_agent": "Y"}], "view_hash": "804c604f8d4f12f1fe51a43e65450ed40813c533ff6c06483d6e838c1c9bce76"}
+   */
 
   // 생년월일 입력 포맷팅 (YYYYMMDD)
   const handleBirthChange = (text: string) => {
@@ -108,6 +126,125 @@ export default function RegistChildScreen({ navigation, route }: any) {
     Alert.alert('완료', '자녀 정보가 추가되었습니다.');
   };
 
+  // 자녀 수정 시작
+  const handleEditChild = (index: number) => {
+    const child = children[index];
+    setChildName(child.childName);
+    setChildBirth(child.childBirth);
+    setChildGender(child.childGender);
+    setIsAgent(child.isAgent);
+    setEditingIndex(index);
+    setIsEditing(true);
+  };
+
+  // 자녀 수정 완료
+  const handleUpdateChild = () => {
+    if (editingIndex === null) return;
+
+    if (!childName.trim()) {
+      Alert.alert('알림', '자녀 이름을 입력해주세요.');
+      return;
+    }
+
+    if (childBirth.length !== 8) {
+      Alert.alert('알림', '생년월일을 8자리로 입력해주세요. (예: 20200101)');
+      return;
+    }
+
+    // 생년월일 유효성 검사
+    const year = parseInt(childBirth.substring(0, 4));
+    const month = parseInt(childBirth.substring(4, 6));
+    const day = parseInt(childBirth.substring(6, 8));
+
+    if (year < 1900 || year > new Date().getFullYear()) {
+      Alert.alert('알림', '올바른 연도를 입력해주세요.');
+      return;
+    }
+
+    if (month < 1 || month > 12) {
+      Alert.alert('알림', '올바른 월을 입력해주세요.');
+      return;
+    }
+
+    if (day < 1 || day > 31) {
+      Alert.alert('알림', '올바른 일을 입력해주세요.');
+      return;
+    }
+
+    // 대표자녀 변경 확인
+    const currentChild = children[editingIndex];
+    const wasAgent = currentChild.isAgent === 'Y';
+    const willBeAgent = isAgent === 'Y';
+
+    if (!wasAgent && willBeAgent) {
+      // 다른 대표자녀가 있는지 확인
+      const hasOtherAgent = children.some((child, idx) => idx !== editingIndex && child.isAgent === 'Y');
+      if (hasOtherAgent) {
+        // 기존 대표자녀를 일반으로 변경
+        const updatedChildren = children.map((child, idx) => {
+          if (idx === editingIndex) {
+            return {
+              id: child.id,
+              childName: childName.trim(),
+              childBirth: childBirth,
+              childGender: childGender,
+              isAgent: 'Y' as 'Y' | 'N',
+            };
+          } else if (child.isAgent === 'Y') {
+            return { ...child, isAgent: 'N' as 'Y' | 'N' };
+          }
+          return child;
+        });
+        setChildren(updatedChildren);
+      } else {
+        // 대표자녀가 없으면 그냥 업데이트
+        const updatedChildren = [...children];
+        updatedChildren[editingIndex] = {
+          id: children[editingIndex].id,
+          childName: childName.trim(),
+          childBirth: childBirth,
+          childGender: childGender,
+          isAgent: isAgent,
+        };
+        setChildren(updatedChildren);
+      }
+    } else if (wasAgent && !willBeAgent && children.length > 1) {
+      Alert.alert('알림', '대표자녀는 최소 1명이 필요합니다.');
+      return;
+    } else {
+      // 일반적인 수정
+      const updatedChildren = [...children];
+      updatedChildren[editingIndex] = {
+        id: children[editingIndex].id,
+        childName: childName.trim(),
+        childBirth: childBirth,
+        childGender: childGender,
+        isAgent: isAgent,
+      };
+      setChildren(updatedChildren);
+    }
+
+    // 입력 필드 초기화
+    setChildName('');
+    setChildBirth('');
+    setChildGender('M');
+    setIsAgent('N');
+    setEditingIndex(null);
+    setIsEditing(false);
+
+    Alert.alert('완료', '자녀 정보가 수정되었습니다.');
+  };
+
+  // 수정 취소
+  const handleCancelEdit = () => {
+    setChildName('');
+    setChildBirth('');
+    setChildGender('M');
+    setIsAgent('N');
+    setEditingIndex(null);
+    setIsEditing(false);
+  };
+
   // 자녀 삭제
   const handleDeleteChild = (index: number) => {
     Alert.alert(
@@ -118,15 +255,36 @@ export default function RegistChildScreen({ navigation, route }: any) {
         {
           text: '삭제',
           style: 'destructive',
-          onPress: () => {
-            const newChildren = children.filter((_, i) => i !== index);
+          onPress: async () => {
+            const childToDelete = children[index];
 
-            // 대표자녀를 삭제한 경우, 첫 번째 자녀를 대표로 설정
-            if (children[index].isAgent === 'Y' && newChildren.length > 0) {
-              newChildren[0].isAgent = 'Y';
+            // DB에 저장된 자녀인 경우 삭제 API 호출
+            if (childToDelete.id) {
+              try {
+                const result = await deleteChildren(childToDelete.id);
+                // 사용자 정보 갱신
+                await refreshUser();
+                if (!result.success) {
+                    Alert.alert('오류', result.error || '자녀 정보 삭제에 실패했습니다.');
+                    return
+                }
+
+                Alert.alert('완료', result.message || '자녀 정보가 삭제되었습니다.');
+                const newChildren = children.filter((_, i) => i !== index);
+
+                // 대표자녀를 삭제한 경우, 첫 번째 자녀를 대표로 설정
+                if (childToDelete.isAgent === 'Y' && newChildren.length > 0) {
+                newChildren[0].isAgent = 'Y';
+                }
+
+                setChildren(newChildren);
+
+              } catch (error) {
+                console.error('Failed to delete child:', error);
+                Alert.alert('오류', '자녀 정보 삭제에 실패했습니다.');
+                return;
+              }
             }
-
-            setChildren(newChildren);
           },
         },
       ]
@@ -137,7 +295,7 @@ export default function RegistChildScreen({ navigation, route }: any) {
   const handleSkip = () => {
     Alert.alert(
       '확인',
-      '자녀 정보는 나중에 마이페이지에서 등록할 수 있습니다.',
+      '자녀 정보는 마이페이지에서 등록할 수 있습니다.',
       [
         { text: '취소', style: 'cancel' },
         {
@@ -167,6 +325,7 @@ export default function RegistChildScreen({ navigation, route }: any) {
         const formattedBirth = `${year}-${month}-${day}`;
 
         return {
+          child_id: child.id,
           child_name: child.childName,
           child_birth: formattedBirth,
           child_gender: child.childGender,
@@ -175,11 +334,14 @@ export default function RegistChildScreen({ navigation, route }: any) {
       });
 
       console.log("childrenData", childrenData);
-      const result = await registerChildren(childrenData);
 
+      const result = await registerChildren(childrenData);
       if (!result.success) {
         throw new Error(result.message || '자녀 정보 등록에 실패했습니다.');
       }
+
+      // 사용자 정보 갱신하여 user_childs 업데이트
+      await refreshUser();
 
       setIsLoading(false);
 
@@ -250,6 +412,7 @@ export default function RegistChildScreen({ navigation, route }: any) {
 
             {/* 등록된 자녀 목록 */}
             {children.length > 0 && (
+
               <View style={styles.childListContainer}>
                 <Text style={styles.sectionTitle}>등록된 자녀 ({children.length}명)</Text>
                 {children.map((child, index) => (
@@ -268,12 +431,20 @@ export default function RegistChildScreen({ navigation, route }: any) {
                         </View>
                       )}
                     </View>
-                    <TouchableOpacity
-                      style={styles.deleteButton}
-                      onPress={() => handleDeleteChild(index)}
-                    >
-                      <Ionicons name="trash-outline" size={24} color="#FF6B6B" />
-                    </TouchableOpacity>
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                      <TouchableOpacity
+                        style={styles.editButton}
+                        onPress={() => handleEditChild(index)}
+                      >
+                        <Ionicons name="pencil-outline" size={24} color="#4A90E2" />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.deleteButton}
+                        onPress={() => handleDeleteChild(index)}
+                      >
+                        <Ionicons name="trash-outline" size={24} color="#FF6B6B" />
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 ))}
               </View>
@@ -283,7 +454,7 @@ export default function RegistChildScreen({ navigation, route }: any) {
             {(children.length === 0 || isEditing) && (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>
-                  {children.length === 0 ? '자녀 정보 입력' : '추가 자녀 정보 입력'}
+                  {editingIndex !== null ? '자녀 정보 수정' : children.length === 0 ? '자녀 정보 입력' : '추가 자녀 정보 입력'}
                 </Text>
 
                 {/* 자녀 이름 */}
@@ -381,7 +552,7 @@ export default function RegistChildScreen({ navigation, route }: any) {
                 </View>
 
                 {/* 대표자녀 여부 */}
-                {children.length === 0 && (
+                {(children.length === 0 || editingIndex !== null) && (
                   <View style={styles.inputGroup}>
                     <Text style={styles.label}>대표자녀</Text>
                     <TouchableOpacity
@@ -408,15 +579,36 @@ export default function RegistChildScreen({ navigation, route }: any) {
                   </View>
                 )}
 
-                {/* 추가 버튼 */}
-                <TouchableOpacity
-                  style={[styles.button, styles.submitButton]}
-                  onPress={handleAddChild}
-                >
-                  <Text style={[styles.buttonText, styles.submitButtonText]}>
-                    자녀 추가
-                  </Text>
-                </TouchableOpacity>
+                {/* 추가/수정 버튼 */}
+                {editingIndex !== null ? (
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <TouchableOpacity
+                      style={[styles.button, styles.skipButton, { flex: 1 }]}
+                      onPress={handleCancelEdit}
+                    >
+                      <Text style={[styles.buttonText, styles.skipButtonText]}>
+                        취소
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.button, styles.submitButton, { flex: 1 }]}
+                      onPress={handleUpdateChild}
+                    >
+                      <Text style={[styles.buttonText, styles.submitButtonText]}>
+                        수정 완료
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    style={[styles.button, styles.submitButton]}
+                    onPress={handleAddChild}
+                  >
+                    <Text style={[styles.buttonText, styles.submitButtonText]}>
+                      자녀 추가
+                    </Text>
+                  </TouchableOpacity>
+                )}
               </View>
             )}
 

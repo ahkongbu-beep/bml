@@ -1,8 +1,7 @@
-import React, { useState, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
+import React from 'react';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import { useAuth } from '../libs/contexts/AuthContext';
 
 interface HeaderProps {
   title: string;
@@ -33,34 +32,12 @@ export default function Header({
 }: HeaderProps) {
 
   const navigation = useNavigation();
-  const [menuVisible, setMenuVisible] = useState(false);
-  const [menuPosition, setMenuPosition] = useState({ top: 60, right: 16 });
-  const menuButtonRef = useRef<TouchableOpacity>(null);
-  const { user, logoutLocal } = useAuth();
 
   const handleMenuPress = () => {
-    if (menuButtonRef.current) {
-      menuButtonRef.current.measure((x, y, width, height, pageX, pageY) => {
-        setMenuPosition({
-          top: pageY + height - 2,
-          right: Dimensions.get('window').width - pageX - width,
-        });
-        setMenuVisible(!menuVisible);
-        if (onMenuPress) {
-          onMenuPress();
-        }
-      });
-    } else {
-      setMenuVisible(!menuVisible);
-      if (onMenuPress) {
-        onMenuPress();
-      }
+    navigation.navigate('MenuList' as never);
+    if (onMenuPress) {
+      onMenuPress();
     }
-  };
-
-  const handleLogout = async () => {
-    setMenuVisible(false);
-    await logoutLocal();
   };
 
   return (
@@ -82,7 +59,7 @@ export default function Header({
         <Text style={styles.title}>{title}</Text>
         <View style={styles.rightContainer}>
           {showMenu && (
-            <TouchableOpacity ref={menuButtonRef} onPress={handleMenuPress} style={styles.iconButton}>
+            <TouchableOpacity onPress={handleMenuPress} style={styles.iconButton}>
               <Ionicons name="menu" size={24} color="#FF9AA2" />
             </TouchableOpacity>
           )}
@@ -94,60 +71,6 @@ export default function Header({
           )}
         </View>
       </View>
-
-      {showMenu && menuVisible && (
-        <View style={[
-          styles.menuBox,
-          { top: menuPosition.top, right: menuPosition.right }
-        ]}>
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => {
-              setMenuVisible(false);
-              navigation.navigate('MyPage' as never);
-            }}
-          >
-            <Text style={styles.menuItemText}>프로필</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => {
-              setMenuVisible(false);
-              navigation.navigate('FeedLikeList' as never);
-            }}
-          >
-            <Text style={styles.menuItemText}>좋아요 목록</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => {
-              setMenuVisible(false);
-              navigation.navigate('SummaryList' as never);
-            }}
-          >
-            <Text style={styles.menuItemText}>AI 요약</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => {
-              setMenuVisible(false);
-              navigation.navigate('DenyUser' as never);
-            }}
-          >
-            <Text style={styles.menuItemText}>차단목록</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.menuItem, styles.lastMenuItem]}
-            onPress={handleLogout}
-          >
-            <Text style={styles.menuItemText}>로그아웃</Text>
-          </TouchableOpacity>
-        </View>
-      )}
     </>
   );
 }
@@ -188,35 +111,5 @@ const styles = StyleSheet.create({
   },
   iconButton: {
     padding: 4,
-  },
-  menuBox: {
-    position: 'absolute',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#FFE5E5',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 5,
-    minWidth: 150,
-    zIndex: 9999,
-  },
-  menuItem: {
-    paddingRight: 14,
-    paddingLeft: 14,
-    paddingTop: 10,
-    paddingBottom: 10,
-    paddingHorizontal: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#FFE5E5',
-  },
-  lastMenuItem: {
-    borderBottomWidth: 0,
-  },
-  menuItemText: {
-    fontSize: 16,
-    color: '#4A4A4A',
   },
 });

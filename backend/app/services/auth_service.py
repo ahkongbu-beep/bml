@@ -196,8 +196,7 @@ def _generate_login_response(db: Session, user: Users) -> CommonResponse:
     # 자녀 정보 조회
     from app.models.users_childs import UsersChilds
     user_childs = db.query(UsersChilds).filter(
-        UsersChilds.user_id == user.id,
-        UsersChilds.deleted_at.is_(None)
+        UsersChilds.user_id == user.id
     ).all()
 
     childs_data = [{

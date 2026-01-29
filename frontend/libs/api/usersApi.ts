@@ -1,4 +1,4 @@
-import { fetchPostFormData } from './config';
+import { fetchPostFormData, fetchPost, fetchDelete } from './config';
 import { RegisterRequest, ApiResponse } from '../types/ApiTypes';
 import { User } from '../types/UserType';
 
@@ -35,4 +35,23 @@ export const register = async (data: RegisterRequest): Promise<ApiResponse<User>
   }
 
   return fetchPostFormData<ApiResponse<User>>('/users/create', formData);
+};
+
+interface ChildRegistration {
+  child_name: string;
+  child_birth: string; // YYYY-MM-DD 형식
+  child_gender: 'M' | 'F';
+  is_agent: string; // 'Y' | 'N'
+}
+
+export const setRegisterChildren = async (children: ChildRegistration[]): Promise<ApiResponse<null>> => {
+  console.log("setRegisterChildren called with:", children);
+  return fetchPost<ApiResponse<null>>('/users/children/create', children);
+}
+
+/*
+ * 자녀 정보 삭제
+ */
+export const setDeleteChildren = async (child_id: number): Promise<ApiResponse<null>> => {
+  return fetchDelete<ApiResponse<null>>('/users/children/delete', { child_id });
 };

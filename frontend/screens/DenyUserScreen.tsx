@@ -20,7 +20,7 @@ import Layout from '../components/Layout';
 import Header from '../components/Header';
 import { useAuth } from '../libs/contexts/AuthContext';
 import { useDenyUsers, useUnblockUser } from '../libs/hooks/useDenyUsers';
-import { formatDate } from '../libs/utils/common';
+import { formatDate, getStaticImage } from '../libs/utils/common';
 import { DenyUser } from '../libs/types/DenyUserType';
 
 export default function DenyUserScreen({ navigation }: any) {
@@ -57,7 +57,7 @@ export default function DenyUserScreen({ navigation }: any) {
       <View style={styles.userInfo}>
         {item.profile_image ? (
           <Image
-            source={{ uri: item.profile_image }}
+            source={{ uri: getStaticImage('small', item.profile_image) || '' }}
             style={styles.profileImage}
           />
         ) : (

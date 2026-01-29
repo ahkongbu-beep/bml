@@ -14,11 +14,10 @@ import { Ionicons } from '@expo/vector-icons';
 import Header from '../components/Header';
 import { useFeed, useDeleteFeed } from '../libs/hooks/useFeeds';
 import { useAuth } from '../libs/contexts/AuthContext';
+import { getStaticImage } from '../libs/utils/common';
 import Layout from '../components/Layout';
 
 export default function FeedDetailScreen({ route, navigation }: any) {
-  const API_BASE_URL = process.env.EXPO_PUBLIC_STATIC_BASE_URL;
-
   const { feedId } = route.params;
   const { user } = useAuth();
   const { data: feed, isLoading } = useFeed(feedId);
@@ -83,7 +82,7 @@ export default function FeedDetailScreen({ route, navigation }: any) {
   }
 
   const isMyFeed = user?.view_hash === feed.user_hash;
-  const images = (feed.images || []).map((image: string) => `${API_BASE_URL}${image}_medium.webp`);
+  const images = (feed.images || []).map((image: string) => getStaticImage('medium', image));
 
   return (
     <Layout>
@@ -98,7 +97,7 @@ export default function FeedDetailScreen({ route, navigation }: any) {
           <View style={styles.userSection}>
             <Image
               source={{
-                uri: feed.user?.profile_image ? `${API_BASE_URL}${feed.user.profile_image}_small.webp` : 'https://i.pravatar.cc/150',
+                uri: feed.user?.profile_image ? getStaticImage('small', feed.user.profile_image) : 'https://i.pravatar.cc/150',
               }}
               style={styles.userImage}
             />

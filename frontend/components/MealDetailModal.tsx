@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { getStaticImage } from '../libs/utils/common';
 import { MEAL_CATEGORIES } from '../libs/utils/codes/MealCalendarCode';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -32,7 +33,6 @@ const MealDetailModal: React.FC<MealDetailModalProps> = ({
   onDelete,
   onViewSource,
 }) => {
-  const API_BASE_URL = process.env.EXPO_PUBLIC_STATIC_BASE_URL;
   const category = MEAL_CATEGORIES.find((c) => c.name === meal?.category_name);
 
   if (!meal) return null;
@@ -76,7 +76,7 @@ const MealDetailModal: React.FC<MealDetailModalProps> = ({
             {meal.image_url && (
               <View style={styles.imageSection}>
                 <Image
-                  source={{ uri: `${API_BASE_URL}${meal.image_url}_large.webp` }}
+                  source={{ uri: getStaticImage('large', meal.image_url) }}
                   style={styles.detailImage}
                   resizeMode="cover"
                 />
@@ -94,7 +94,7 @@ const MealDetailModal: React.FC<MealDetailModalProps> = ({
                 <View style={styles.userInfo}>
                   {meal.user.profile_image && (
                     <Image
-                      source={{ uri: `${API_BASE_URL}${meal.user.profile_image}_thumbnail.webp` }}
+                      source={{ uri: getStaticImage('thumbnail', meal.user.profile_image) }}
                       style={styles.userAvatar}
                     />
                   )}

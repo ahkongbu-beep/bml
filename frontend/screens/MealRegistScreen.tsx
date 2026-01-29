@@ -22,6 +22,7 @@ import Layout from '@/components/Layout';
 import { useAuth } from '../libs/contexts/AuthContext';
 import { MEAL_CATEGORIES } from '../libs/utils/codes/MealCalendarCode';
 import { useCategoryCodes } from '../libs/hooks/useCategories';
+import { getStaticImage } from '../libs/utils/common';
 import { useCreateMeal, useUpdateMeal, useCreateMealWithImage, useUpdateMealWithImage } from '../libs/hooks/useMeals';
 
 export default function MealRegistScreen({ route, navigation }: any) {
@@ -41,7 +42,6 @@ export default function MealRegistScreen({ route, navigation }: any) {
   const [tagInput, setTagInput] = useState('');
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [existingImageUrl, setExistingImageUrl] = useState<string | null>(null);
-  const API_BASE_URL = process.env.EXPO_PUBLIC_STATIC_BASE_URL;
 
   // 애니메이션 값
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -75,7 +75,7 @@ export default function MealRegistScreen({ route, navigation }: any) {
 
       // 기존 이미지 URL 설정
       if (meal.image_url) {
-        setExistingImageUrl(`${API_BASE_URL}${meal.image_url}_medium.webp`);
+        setExistingImageUrl(getStaticImage('medium', meal.image_url));
       }
     }
   }, [meal]);

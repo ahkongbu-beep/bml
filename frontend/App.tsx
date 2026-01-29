@@ -1,4 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import * as WebBrowser from "expo-web-browser";
+WebBrowser.maybeCompleteAuthSession();
+
 import Navbar from './components/Navbar';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
@@ -32,8 +35,10 @@ import CommunityScreen from './screens/CommunityScreen';
 import CommunityWriteScreen from './screens/CommunityWriteScreen';
 import CommunityModifyScreen from './screens/CommunityModifyScreen';
 import CommunityDetailScreen from './screens/CommunityDetailScreen';
+import MenuListScreen from './screens/MenuListScreen';
 import { AuthProvider, useAuth } from './libs/contexts/AuthContext';
 import { getNeedChildRegistration, clearNeedChildRegistration } from './libs/utils/storage';
+
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -133,6 +138,7 @@ function MainNavigator() {
       <Stack.Screen name="CommunityWrite" component={CommunityWriteScreen} />
       <Stack.Screen name="CommunityModify" component={CommunityModifyScreen} />
       <Stack.Screen name="CommunityDetail" component={CommunityDetailScreen} />
+      <Stack.Screen name="MenuList" component={MenuListScreen} />
     </Stack.Navigator>
   );
 }

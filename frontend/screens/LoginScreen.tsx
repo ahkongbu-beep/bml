@@ -14,9 +14,15 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../libs/contexts/AuthContext';
+import { useGoogleAuth } from '../libs/hooks/useGoogleAuth';
 import Layout from '@/components/Layout';
 
 export default function LoginScreen({ navigation }: any) {
+
+// 1. 변수를 안전하게 가져오기 (기본값 설정)
+  const androidId = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID;
+  const webId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+
   const appName = process.env.EXPO_PUBLIC_APP_NAME || "BML";
   const appSubtitle = process.env.EXPO_PUBLIC_APP_SUBTITLE || "건강한 식단 관리";
 
@@ -24,7 +30,53 @@ export default function LoginScreen({ navigation }: any) {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
-  const { login, loginLoading, loginError } = useAuth();
+  const { login, loginLoading, loginError, googleLogin, googleLoginLoading } = useAuth();
+
+  // Google Client ID 존재 여부 확인
+  const hasGoogleClientId =
+    !!process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID &&
+    !!process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+
+  // ID 가 둘다 있을때만 설정을 넘김
+  const googleConfig = {
+    androidClientId: androidId || '',
+    webClientId: webId || '',
+  };
+
+  // 구글 로그인 훅 - Client ID가 없어도 안전하게 동작
+  const { promptAsync: googlePromptAsync, isLoading: googleAuthLoading, error: googleError } = useGoogleAuth(
+    googleConfig,
+    async (idToken, userInfo) => {
+      // 구글 로그인 성공 시 백엔드로 idToken 전달
+      console.log('Sending real idToken to backend:', {
+        idTokenLength: idToken.length,
+        userEmail: userInfo.email
+      });
+
+      await googleLogin({
+        idToken: idToken,
+        accessToken: undefined
+      });
+
+      return { success: true };
+    }
+  );
+
+  // 구글 로그인 핸들러
+  const handleGoogleLogin = async () => {
+    // Client ID 확인
+    if (!androidId || !webId) {
+      Alert.alert('설정 오류', '구글 로그인 설정이 누락되었습니다.');
+      return;
+    }
+    try {
+      console.log('Starting Google OAuth...');
+      await googlePromptAsync();
+    } catch (error) {
+      console.error('Google OAuth failed:', error);
+      Alert.alert('오류', '구글 로그인에 실패했습니다.');
+    }
+  };
 
   const handleLogin = () => {
     if (!email.trim()) {
@@ -115,12 +167,31 @@ export default function LoginScreen({ navigation }: any) {
                 <Text style={styles.loginButtonText}>로그인</Text>
               )}
             </TouchableOpacity>
-            {/* 구글 로그인 */}
-            {/*
-            <TouchableOpacity style={[styles.loginButton, styles.googleButton]} onPress={() => {}}>
-              <Ionicons name="logo-google" size={20} color="#FFFFFF" style={styles.googleIcon} />
-              <Text style={styles.googleButtonText}>구글 로그인</Text>
-            </TouchableOpacity> */}
+
+            {/* 구글 로그인 - Google Client ID가 설정되어 있을 때만 표시 */}
+            {hasGoogleClientId && (
+              <>
+                <TouchableOpacity
+                  style={[styles.loginButton, styles.googleButton, (googleLoginLoading || googleAuthLoading) && styles.loginButtonDisabled]}
+                  onPress={handleGoogleLogin}
+                  disabled={googleLoginLoading || googleAuthLoading || loginLoading}
+                >
+                  {(googleLoginLoading || googleAuthLoading) ? (
+                    <ActivityIndicator color="#3C4043" />
+                  ) : (
+                    <View style={styles.googleButtonContent}>
+                      <Ionicons name="logo-google" size={24} color="#4285F4" style={styles.googleIcon} />
+                      <Text style={styles.googleButtonText}>Google로 계속하기</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+
+                {/* 구글 로그인 에러 메시지 */}
+                {googleError && (
+                  <Text style={styles.errorText}>{googleError}</Text>
+                )}
+              </>
+            )}
 
             {/* 추가 링크 */}
             <View style={styles.linksContainer}>

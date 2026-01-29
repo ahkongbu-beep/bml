@@ -26,7 +26,7 @@ import Header from '../components/Header';
 import { useLikedFeeds, useToggleLike } from '../libs/hooks/useFeeds';
 import { getLikedFeeds } from '../libs/api/feedsApi';
 import { useAuth } from '../libs/contexts/AuthContext';
-import { formatDate } from '@/libs/utils/common';
+import { formatDate, getStaticImage } from '@/libs/utils/common';
 import { LikedFeed } from '../libs/types/FeedType';
 
 const { width } = Dimensions.get('window');
@@ -124,7 +124,7 @@ export default function FeedLikeListScreen() {
   // 렌더링: 각 피드 아이템
   const renderFeedItem = ({ item }: { item: LikedFeedItem }) => {
     const imageUrl = item.feed_image_url
-      ? `${API_BASE_URL}${item.feed_image_url}`
+      ? getStaticImage('medium', item.feed_image_url)
       : null;
 
     return (
@@ -135,7 +135,7 @@ export default function FeedLikeListScreen() {
       >
         {imageUrl && (
           <Image
-            source={{ uri: imageUrl }}
+            source={{ uri: getStaticImage("medium", item.feed_image_url) || '' }}
             style={styles.feedImage}
             resizeMode="cover"
           />

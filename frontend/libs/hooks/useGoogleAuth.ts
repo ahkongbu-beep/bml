@@ -1,18 +1,16 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
-import { makeRedirectUri } from 'expo-auth-session';
+
 import { saveToken, saveUserInfo } from '../utils/storage';
 import { User } from '../types/UserType';
 
-// WebBrowser 설정 (OAuth 리다이렉트 후 브라우저 자동 닫기)
+// 웹 브라우저를 통한 인증 세션 종료를 위해 필요합니다.
 WebBrowser.maybeCompleteAuthSession();
 
 interface GoogleAuthConfig {
-  iosClientId?: string;
-  androidClientId?: string;
-  webClientId?: string;
-  expoClientId?: string;
+  androidClientId: string; // 안드로이드 네이티브 앱용 ID
+  webClientId?: string;    // ID 토큰 발급 및 백엔드 검증용 ID
 }
 
 interface UseGoogleAuthReturn {
@@ -23,108 +21,79 @@ interface UseGoogleAuthReturn {
 }
 
 /**
- * 구글 OAuth 로그인을 위한 커스텀 훅
- *
- * @param config - 플랫폼별 Google OAuth Client ID 설정
- * @param onSuccess - 로그인 성공 시 백엔드 API를 호출하는 콜백 함수
- * @returns promptAsync, isLoading, error, response
- *
- * @example
- * ```tsx
- * const { promptAsync, isLoading } = useGoogleAuth({
- *   iosClientId: 'YOUR_IOS_CLIENT_ID',
- *   androidClientId: 'YOUR_ANDROID_CLIENT_ID',
- *   webClientId: 'YOUR_WEB_CLIENT_ID',
- * }, async (token, userInfo) => {
- *   // 백엔드 API 호출
- *   const response = await googleLoginApi({ id_token: token, user_info: userInfo });
- *   return response;
- * });
- *
- * <TouchableOpacity onPress={() => promptAsync()}>
- *   <Text>구글 로그인</Text>
- * </TouchableOpacity>
- * ```
+ * 안드로이드 전용 구글 OAuth 로그인 커스텀 훅
  */
 export const useGoogleAuth = (
   config: GoogleAuthConfig,
-  onSuccess?: (accessToken: string, userInfo: any) => Promise<{ success: boolean; data?: { user: User; token: string }; message?: string }>
+  onSuccess?: (idToken: string, userInfo: any) => Promise<{ success: boolean; data?: { user: User; token: string }; message?: string }>
 ): UseGoogleAuthReturn => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [authResponse, setAuthResponse] = useState<Google.GoogleAuthSessionResult | null>(null);
 
-  // Google OAuth 요청 설정
+  // Google OAuth 요청 설정 (SDK 50+ 표준 방식)
   const [request, response, promptAsync] = Google.useAuthRequest({
-    iosClientId: config.iosClientId,
     androidClientId: config.androidClientId,
     webClientId: config.webClientId,
-    expoClientId: config.expoClientId,
-    redirectUri: makeRedirectUri({
-      scheme: 'your-app-scheme', // app.json의 scheme과 일치시켜야 함
-      path: 'redirect',
-    }),
+    // 스코프 설정 (필요시 추가)
     scopes: ['profile', 'email'],
   });
 
-  // 구글 로그인 프롬프트 실행
-  const handlePromptAsync = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-
-      // OAuth 프롬프트 실행
-      const result = await promptAsync();
-      setAuthResponse(result);
-
-      // 로그인 성공 시
-      if (result.type === 'success' && result.authentication) {
-        const { accessToken } = result.authentication;
-
-        // Google UserInfo API로 사용자 정보 가져오기
-        const userInfoResponse = await fetch(
-          'https://www.googleapis.com/oauth2/v3/userinfo',
-          {
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-            },
-          }
-        );
-
-        if (!userInfoResponse.ok) {
-          throw new Error('사용자 정보를 가져오는데 실패했습니다.');
-        }
-
-        const userInfo = await userInfoResponse.json();
-        console.log('Google User Info:', userInfo);
-
-        // 백엔드 API 호출 (onSuccess 콜백)
-        if (onSuccess) {
-          const backendResponse = await onSuccess(accessToken, userInfo);
-
-          if (backendResponse.success && backendResponse.data) {
-            const { user, token } = backendResponse.data;
-
-            // 로컬 저장소에 저장
-            await saveToken(token);
-            await saveUserInfo(user);
-
-            console.log('구글 로그인 성공:', user);
-          } else {
-            throw new Error(backendResponse.message || '로그인에 실패했습니다.');
-          }
-        }
-      } else if (result.type === 'error') {
-        throw new Error(result.error?.message || '구글 로그인 중 오류가 발생했습니다.');
-      } else if (result.type === 'dismiss') {
-        setError('로그인이 취소되었습니다.');
-      }
-    } catch (err) {
-      console.error('Google login error:', err);
-      setError(err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다.');
-    } finally {
-      setIsLoading(false);
+  // response 상태 변경 감지
+  useEffect(() => {
+    if (response) {
+      setAuthResponse(response);
+      handleAuthResult(response);
     }
+  }, [response]);
+
+  // 인증 결과 처리 로직 분리
+  const handleAuthResult = async (result: Google.GoogleAuthSessionResult) => {
+    if (result.type === 'success' && result.authentication) {
+      try {
+        setIsLoading(true);
+        const { accessToken, idToken } = result.authentication;
+
+        if (!idToken) {
+          throw new Error('ID 토큰을 받지 못했습니다. Google 콘솔의 Web Client ID 설정을 확인하세요.');
+        }
+
+        // 1. Google UserInfo API로 사용자 정보 가져오기
+        const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+
+        if (!userInfoResponse.ok) throw new Error('사용자 정보를 가져오는데 실패했습니다.');
+        const userInfo = await userInfoResponse.json();
+
+        // 2. 백엔드 성공 콜백 실행
+        if (onSuccess) {
+          const backendResponse = await onSuccess(idToken, userInfo);
+          if (backendResponse.success && backendResponse.data) {
+            await saveToken(backendResponse.data.token);
+            await saveUserInfo(backendResponse.data.user);
+          } else {
+            throw new Error(backendResponse.message || '로그인 처리에 실패했습니다.');
+          }
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : '로그인 중 오류가 발생했습니다.');
+      } finally {
+        setIsLoading(false);
+      }
+    } else if (result.type === 'error') {
+      setError(result.error?.message || '구글 로그인 중 오류가 발생했습니다.');
+    }
+  };
+
+  const handlePromptAsync = async () => {
+    if (!config.androidClientId) {
+      setError('Android Client ID가 설정되지 않았습니다.');
+      return;
+    }
+    setError(null);
+    // 개발 빌드(dev-client) 환경에서는 자동으로 네이티브 흐름을 탑니다.
+    await promptAsync();
   };
 
   return {

@@ -59,7 +59,7 @@ export default function NoticeScreen({ navigation }: any) {
                     {notice.title}
                   </Text>
                   <View style={styles.noticeFooter}>
-                    <Text style={styles.noticeDate}>{formatDate(notice.created_at)}</Text>
+                    <Text style={styles.noticeDate}>{formatDate(notice.created_at, "YYYY-MM-DD")}</Text>
                     <Ionicons name="chevron-forward" size={18} color="#CCC" />
                   </View>
                 </TouchableOpacity>

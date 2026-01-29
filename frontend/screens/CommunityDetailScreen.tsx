@@ -1,57 +1,62 @@
 /*
  * 커뮤니티 상세화면
  */
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, use } from 'react';
 import {
   View,
   Text,
+  TextInput,
   TouchableOpacity,
   ScrollView,
   Alert,
   Image,
   StyleSheet,
   BackHandler,
+  KeyboardAvoidingView,
+  Platform
 } from 'react-native';
 //import { useFocusEffect } from '@react-navigation/native';
+import styles from './CommunityDetailScreen.styles';
 import { Ionicons } from '@expo/vector-icons';
 import Layout from '../components/Layout';
 import Header from '../components/Header';
 import CommentModal from '../components/CommentModal';
 import { useAuth } from '../libs/contexts/AuthContext';
-import { useGetDetailCommunity, useSoftDeleteCommunity } from '../libs/hooks/useCommunities';
+import { useGetDetailCommunity, useCommunityComments, useSoftDeleteCommunity, useCreateCommunityComment, useDeleteCommunityComment } from '../libs/hooks/useCommunities';
 import { useCategoryCodes } from '../libs/hooks/useCategories';
 import { LoadingPage } from '../components/Loading';
-import { formatDate, diffMonthsFrom } from '@/libs/utils/common';
-import { Portal, Dialog, Button } from 'react-native-paper';
-
-interface CommunityDetail {
-  title: string;
-  contents: string;
-  category_code: number;
-  is_secret: string;
-  user_hash: string;
-  user_profile_image: string;
-  user_nickname: string;
-  view_hash: string;
-  user_child_name: string;
-  user_child_birth: string;
-  user_child_gender: string;
-  view_count: number;
-  created_at: string;
-  updated_at: string;
-}
+import { formatDate, diffMonthsFrom, getStaticImage, formatRelativeTime } from '@/libs/utils/common';
+import { Portal, Dialog, Button, Icon } from 'react-native-paper';
+import { CommunityDetail } from '../libs/types/community';
 
 export default function CommunityDetailScreen({ route, navigation }: any) {
   const { viewHash } = route.params || {};
   const { user } = useAuth();
-  const { data: topicGroups, isLoading: topicGroupsLoading } = useCategoryCodes("TOPIC_GROUP");
+  const { data: topicGroups, isLoading: topicGropsLoading } = useCategoryCodes("TOPIC_GROUP");
   const getDetailCommunity = useGetDetailCommunity();
   const deleteCommunity = useSoftDeleteCommunity();
+  const [comments, setComments] = useState<any[]>([]);
+
+  const { data: commentsData, refetch: refetchComments } = useCommunityComments(
+    { communityHash: viewHash || '', limit: 100 },
+    { enabled: !!viewHash }
+  );
 
   const [communityData, setCommunityData] = useState<CommunityDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [commentModalVisible, setCommentModalVisible] = useState(false);
   const [deleteDialogVisible, setDeleteDialogVisible] = useState(false);
+  const [deleteCommentDialogVisible, setDeleteCommentDialogVisible] = useState(false);
+  const [commentInput, setCommentInput] = useState('');
+
+  const [replyToNickname, setReplyToNickname] = useState<string | null>(null);
+  const [parentCommentHash, setParentCommentHash] = useState<string | null>(null);
+  const [deleteTargetCommentHash, setDeleteTargetCommentHash] = useState<string | null>(null);
+
+  // 댓글등록
+  const createCommunityCommentMutation = useCreateCommunityComment();
+
+  // 댓글 삭제
+  const deleteCommunityCommentMutation = useDeleteCommunityComment();
 
   // 기존 데이터 불러오기
   useEffect(() => {
@@ -75,19 +80,12 @@ export default function CommunityDetailScreen({ route, navigation }: any) {
     }
   }, [viewHash]);
 
-//   // 안드로이드 뒤로가기 버튼 처리
-//   useFocusEffect(
-//     useCallback(() => {
-//       const onBackPress = () => {
-//         navigation.navigate('Community');
-//         return true;
-//       };
-
-//       BackHandler.addEventListener('hardwareBackPress', onBackPress);
-
-//       return () => BackHandler.removeEventListener('hardwareBackPress', onBackPress);
-//     }, [navigation])
-//   );
+  useEffect(() => {
+    if (commentsData && commentsData.success && commentsData.data) {
+      // 기존: setComments(commentsData.data);
+      setComments(commentsData.data.comments); // ← 배열만 추출
+    }
+  }, [commentsData]);
 
   // 카테고리 이름 가져오기
   const getCategoryName = () => {
@@ -95,9 +93,64 @@ export default function CommunityDetailScreen({ route, navigation }: any) {
     const category = topicGroups.find((cat) => cat.id === communityData.category_code);
     return category ? category.value : '';
   };
-
   // 본인 게시글인지 확인
   const isMine = communityData?.user_hash === user?.view_hash;
+
+  // 댓글 등록 핸들러
+  const handleCommentRegister = () => {
+    if (!commentInput.trim()) return;
+    createCommunityCommentMutation.mutate(
+      {
+        community_hash: viewHash,
+        comment: commentInput, // 실제로는 입력된 댓글 내용을 사용
+        parent_hash: parentCommentHash
+      },
+      {
+        onSuccess: () => {
+          setCommentInput("");
+          Alert.alert('성공', '댓글이 등록되었습니다.');
+          refetchComments();
+          // 대댓글 작성 후에는 대댓글 상태 초기화
+          setParentCommentHash(null);
+          setReplyToNickname(null);
+        }
+      }
+    );
+  }
+
+  // 댓글 삭제 모달 핸들러
+  const handleCommentDelete = (commentHash: string) => {
+    setDeleteTargetCommentHash(commentHash);
+    setDeleteCommentDialogVisible(true);
+  }
+
+  // 댓글 삭제 모달 취소
+  const cancelDeleteComment = () => {
+    setDeleteTargetCommentHash(null);
+    setDeleteCommentDialogVisible(false);
+  };
+
+  // 댓글 삭제처리
+  const confirmDeleteComment = () => {
+    console.log('삭제할 해시:', deleteTargetCommentHash);
+    deleteCommunityCommentMutation.mutate(deleteTargetCommentHash || '', {
+      onSuccess: (response) => {
+        console.log('삭제 응답:', response);
+        if (response.success) {
+          setDeleteCommentDialogVisible(false);
+          setDeleteTargetCommentHash(null);
+          Alert.alert('성공', '댓글이 삭제되었습니다.');
+          refetchComments();
+        } else {
+          Alert.alert('오류', response.error || '댓글 삭제에 실패했습니다.');
+        }
+      },
+      onError: (error) => {
+        console.error('Failed to delete comment:', error);
+        Alert.alert('오류', '댓글 삭제 중 오류가 발생했습니다.');
+      }
+    });
+  }
 
   // 수정하기
   const handleEdit = () => {
@@ -142,296 +195,232 @@ export default function CommunityDetailScreen({ route, navigation }: any) {
   };
 
   // 댓글 모달 열기
-  const handleCommentPress = () => {
-    setCommentModalVisible(true);
+  const handleCommentPress = (commentHash: string, nickname?: string) => {
+    setParentCommentHash(commentHash);
+    setReplyToNickname(nickname || null);
+
   };
 
-  if (topicGroupsLoading || isLoading || !communityData) {
+  if (isLoading || !communityData) {
     return <LoadingPage title="게시글을 불러오는 중입니다." />;
   }
 
   const categoryName = getCategoryName();
 
+  const renderComment = (comment: any, depth = 0) => (
+    <View
+      key={comment.view_hash}
+      style={[
+        styles.commentItem,
+        depth > 0 && { marginLeft: depth * 20 }
+      ]}
+    >
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Image
+            source={{ uri: getStaticImage('small', comment.user.profile_image) || '' }}
+            style={styles.commentProfileImage}
+          />
+          <View>
+            <Text style={styles.commentAuthor}>{comment.user.nickname}</Text>
+            <Text style={styles.commentText}>{comment.comment}</Text>
+            {depth < 3 && (
+              <TouchableOpacity
+                style={styles.replyButton}
+                onPress={() => handleCommentPress(comment.view_hash, comment.user.nickname)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.replyButtonText}>답글 달기</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+        {user?.view_hash === comment.user.user_hash && (
+          <TouchableOpacity
+            style={styles.replyButton}
+            onPress={() => handleCommentDelete(comment.view_hash)}
+          >
+            <Ionicons name="trash" size={18} color="#868E96" />
+          </TouchableOpacity>
+        )}
+      </View>
+      <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
+        <Text style={styles.commentDate}>{formatRelativeTime(comment.created_at)}</Text>
+      </View>
+      {comment.children && comment.children.length > 0 &&
+        comment.children.map((child: any) => renderComment(child, depth + 1))
+      }
+    </View>
+  );
+
   return (
     <Layout>
-      <Header
-        title="커뮤니티 상세"
-        showBackButton
-        onBackPress={() => navigation.navigate('Community')}
-        rightButton={isMine ? {
-          icon: 'ellipsis-vertical',
-          onPress: () => {
-            Alert.alert(
-              '게시글 관리',
-              '어떤 작업을 하시겠습니까?',
-              [
-                { text: '수정', onPress: handleEdit },
-                { text: '삭제', onPress: handleDelete, style: 'destructive' },
-                { text: '취소', style: 'cancel' },
-              ]
-            );
-          }
-        } : undefined}
-      />
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <Header
+          title="커뮤니티 상세"
+          showBackButton
+          onBackPress={() => navigation.navigate('Community')}
+          rightButton={isMine ? {
+            icon: 'ellipsis-vertical',
+            onPress: () => {
+              Alert.alert(
+                '게시글 관리',
+                '어떤 작업을 하시겠습니까?',
+                [
+                  { text: '수정', onPress: handleEdit },
+                  { text: '삭제', onPress: handleDelete, style: 'destructive' },
+                  { text: '취소', style: 'cancel' },
+                ]
+              );
+            }
+          } : undefined}
+        />
 
-      <ScrollView style={styles.container}>
-        {/* 작성자 정보 */}
-        <View style={styles.authorSection}>
-          <Image
-            source={{ uri: communityData.user_profile_image || 'https://via.placeholder.com/48' }}
-            style={styles.profileImage}
-          />
-          <View style={styles.authorInfo}>
-            <Text style={styles.authorName}>{communityData.user_nickname}</Text>
-            <Text style={styles.authorDetail}>
-              {communityData.user_child_name} · {diffMonthsFrom(communityData.user_child_birth)}개월 · {communityData.user_child_gender === 'M' ? '남아' : '여아'}
-            </Text>
+        <ScrollView style={styles.container}>
+          {/* 작성자 정보 */}
+          <View style={styles.authorSection}>
+            <Image
+              source={{ uri: getStaticImage('small', communityData.user_profile_image) || '' }}
+              style={styles.profileImage}
+            />
+            <View style={styles.authorInfo}>
+              <Text style={styles.authorName}>{communityData.user_nickname}</Text>
+              <Text style={styles.authorDetail}>
+                {communityData.user_child_name} · {diffMonthsFrom(communityData.user_child_birth)}개월 · {communityData.user_child_gender === 'M' ? '남아' : '여아'}
+              </Text>
+            </View>
+          </View>
+
+          {/* 주제 배지 */}
+          {categoryName && (
+            <View style={styles.categoryBadge}>
+              <Text style={styles.categoryBadgeText}>#{categoryName}</Text>
+            </View>
+          )}
+
+          {/* 제목 */}
+          <Text style={styles.title}>{communityData.title}</Text>
+
+          {/* 내용 */}
+          <Text style={styles.contents}>{communityData.contents}</Text>
+
+          {/* 조회수, 작성일 */}
+          <View style={styles.metaInfo}>
+            <View style={styles.metaItem}>
+              <Ionicons name="eye-outline" size={16} color="#868E96" />
+              <Text style={styles.metaText}>{communityData.view_count}</Text>
+            </View>
+            <Text style={styles.metaText}>{formatDate(communityData.created_at)}</Text>
+          </View>
+
+          {/* 구분선 */}
+          <View style={styles.divider} />
+
+          {/* 액션 버튼 */}
+          <View style={styles.actionSection}>
+            <TouchableOpacity style={styles.actionButton} onPress={handleLikeToggle}>
+              <Ionicons name="heart-outline" size={24} color="#FF9AA2" />
+              <Text style={styles.actionText}>좋아요</Text>
+              <Text style={styles.actionCount}>{communityData.likes ? communityData.likes.length : 0}</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* 댓글 목록 영역 */}
+          <View style={styles.commentSection}>
+            <Text style={styles.sectionTitle}>댓글</Text>
+              {comments && comments.length > 0 ? (
+                comments.map((comment: any) => renderComment(comment))
+              ) : (
+              <View style={styles.emptyComment}>
+                <Ionicons name="chatbubble-outline" size={48} color="#DEE2E6" />
+                <Text style={styles.emptyCommentText}>첫 댓글을 작성해보세요</Text>
+              </View>
+            )}
+          </View>
+        </ScrollView>
+
+        {/* 삭제 확인 다이얼로그 */}
+        <Portal>
+          <Dialog visible={deleteDialogVisible} onDismiss={cancelDelete}>
+            <Dialog.Title>게시글 삭제</Dialog.Title>
+            <Dialog.Content>
+              <Text>정말 삭제하시겠습니까?</Text>
+            </Dialog.Content>
+            <Dialog.Actions>
+              <Button onPress={cancelDelete}>취소</Button>
+              <Button onPress={confirmDelete} textColor="#FF6B6B">삭제</Button>
+            </Dialog.Actions>
+          </Dialog>
+        </Portal>
+
+        {/* 댓글 삭제 확인 다이얼로그 */}
+        <Portal>
+          <Dialog visible={deleteCommentDialogVisible} onDismiss={cancelDeleteComment}>
+            <Dialog.Title>댓글 삭제</Dialog.Title>
+            <Dialog.Content>
+              <Text>정말 삭제하시겠습니까?</Text>
+            </Dialog.Content>
+            <Dialog.Actions>
+              <Button onPress={cancelDeleteComment}>취소</Button>
+              <Button onPress={confirmDeleteComment} textColor="#FF6B6B">삭제</Button>
+            </Dialog.Actions>
+          </Dialog>
+        </Portal>
+
+        {/* 댓글 작성 버튼 */}
+        <View style={styles.commentInputContainer}>
+          <View style={styles.commentInputContainer}>
+            {/* 답글 안내 영역 */}
+            {replyToNickname && (
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  paddingVertical: 8,
+                  paddingHorizontal: 12,
+                  backgroundColor: '#FFF0F3',
+                  borderRadius: 8,
+                  marginBottom: 8,
+                  marginLeft: 0,
+                }}
+              >
+                <Text style={{ fontSize: 12, color: '#FF9AA2', fontWeight: '600' }}>
+                  {replyToNickname}님에게 답글 작성 중...
+                </Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    setReplyToNickname(null);
+                    setParentCommentHash(null);
+                  }}
+                >
+                  <Ionicons name="close-circle" size={20} color="#999" />
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* 입력창과 전송 버튼 */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff' }}>
+              <TextInput
+                placeholder="댓글을 작성하세요..."
+                style={[styles.commentInput, { flex: 1 }]}
+                value={commentInput}
+                onChangeText={setCommentInput}
+                returnKeyType="send"
+                onSubmitEditing={handleCommentRegister}
+              />
+              <View style={{ flex: 0 }}>
+                <TouchableOpacity style={styles.actionButton} onPress={handleCommentRegister}>
+                  <Ionicons name="send" size={20} color="#FF9AA2" style={{ marginLeft: 8 }} />
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
         </View>
-
-        {/* 주제 배지 */}
-        {categoryName && (
-          <View style={styles.categoryBadge}>
-            <Text style={styles.categoryBadgeText}>#{categoryName}</Text>
-          </View>
-        )}
-
-        {/* 제목 */}
-        <Text style={styles.title}>{communityData.title}</Text>
-
-        {/* 내용 */}
-        <Text style={styles.contents}>{communityData.contents}</Text>
-
-        {/* 조회수, 작성일 */}
-        <View style={styles.metaInfo}>
-          <View style={styles.metaItem}>
-            <Ionicons name="eye-outline" size={16} color="#868E96" />
-            <Text style={styles.metaText}>{communityData.view_count}</Text>
-          </View>
-          <Text style={styles.metaText}>{formatDate(communityData.created_at)}</Text>
-        </View>
-
-        {/* 구분선 */}
-        <View style={styles.divider} />
-
-        {/* 액션 버튼 */}
-        <View style={styles.actionSection}>
-          <TouchableOpacity style={styles.actionButton} onPress={handleLikeToggle}>
-            <Ionicons name="heart-outline" size={24} color="#FF9AA2" />
-            <Text style={styles.actionText}>좋아요</Text>
-            <Text style={styles.actionCount}>0</Text>
-          </TouchableOpacity>
-
-          <View style={styles.actionDivider} />
-
-          <TouchableOpacity style={styles.actionButton} onPress={handleCommentPress}>
-            <Ionicons name="chatbubble-outline" size={24} color="#868E96" />
-            <Text style={styles.actionText}>댓글</Text>
-            <Text style={styles.actionCount}>0</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* 댓글 목록 영역 */}
-        <View style={styles.commentSection}>
-          <Text style={styles.sectionTitle}>댓글</Text>
-          <View style={styles.emptyComment}>
-            <Ionicons name="chatbubble-outline" size={48} color="#DEE2E6" />
-            <Text style={styles.emptyCommentText}>첫 댓글을 작성해보세요</Text>
-          </View>
-        </View>
-      </ScrollView>
-
-      {/* 댓글 작성 버튼 */}
-      <View style={styles.commentInputContainer}>
-        <TouchableOpacity
-          style={styles.commentInputButton}
-          onPress={handleCommentPress}
-        >
-          <Text style={styles.commentInputPlaceholder}>댓글을 작성해주세요</Text>
-          <Ionicons name="send" size={20} color="#FF9AA2" />
-        </TouchableOpacity>
-      </View>
-
-      {/* 댓글 모달 */}
-      <CommentModal
-        visible={commentModalVisible}
-        onClose={() => setCommentModalVisible(false)}
-        feedId={0}
-        comments={[]}
-        onSubmitComment={(comment) => {
-          // TODO: 댓글 등록 API
-          console.log('Submit comment:', comment);
-        }}
-        onDeleteComment={(commentHash) => {
-          // TODO: 댓글 삭제 API
-          console.log('Delete comment:', commentHash);
-        }}
-      />
-
-      {/* 삭제 확인 다이얼로그 */}
-      <Portal>
-        <Dialog visible={deleteDialogVisible} onDismiss={cancelDelete}>
-          <Dialog.Title>게시글 삭제</Dialog.Title>
-          <Dialog.Content>
-            <Text>정말 삭제하시겠습니까?</Text>
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={cancelDelete}>취소</Button>
-            <Button onPress={confirmDelete} textColor="#FF6B6B">삭제</Button>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
+      </KeyboardAvoidingView>
     </Layout>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F5F7FA',
-  },
-  authorSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F3F5',
-  },
-  profileImage: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    marginRight: 12,
-  },
-  authorInfo: {
-    flex: 1,
-  },
-  authorName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#343A40',
-    marginBottom: 4,
-  },
-  authorDetail: {
-    fontSize: 13,
-    color: '#868E96',
-  },
-  categoryBadge: {
-    backgroundColor: '#FFF0F1',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    alignSelf: 'flex-start',
-    margin: 16,
-    marginBottom: 8,
-  },
-  categoryBadgeText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#FF8FA3',
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#343A40',
-    paddingHorizontal: 16,
-    marginBottom: 12,
-  },
-  contents: {
-    fontSize: 15,
-    lineHeight: 24,
-    color: '#495057',
-    paddingHorizontal: 16,
-    marginBottom: 16,
-  },
-  metaInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-  },
-  metaItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  metaText: {
-    fontSize: 13,
-    color: '#868E96',
-  },
-  divider: {
-    height: 8,
-    backgroundColor: '#F1F3F5',
-  },
-  actionSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-  },
-  actionButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-  },
-  actionDivider: {
-    width: 1,
-    height: 24,
-    backgroundColor: '#DEE2E6',
-  },
-  actionText: {
-    fontSize: 14,
-    color: '#495057',
-    fontWeight: '500',
-  },
-  actionCount: {
-    fontSize: 14,
-    color: '#868E96',
-  },
-  commentSection: {
-    backgroundColor: '#FFFFFF',
-    padding: 16,
-    marginTop: 8,
-    minHeight: 200,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#343A40',
-    marginBottom: 16,
-  },
-  emptyComment: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 48,
-  },
-  emptyCommentText: {
-    fontSize: 14,
-    color: '#ADB5BD',
-    marginTop: 12,
-  },
-  commentInputContainer: {
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: '#DEE2E6',
-    padding: 12,
-  },
-  commentInputButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#F8F9FA',
-    borderRadius: 24,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  commentInputPlaceholder: {
-    fontSize: 14,
-    color: '#ADB5BD',
-  },
-});

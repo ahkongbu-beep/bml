@@ -46,10 +46,11 @@ import {
 import { useCategoryCodes } from '../libs/hooks/useCategories';
 import { Portal, Dialog, Button } from 'react-native-paper';
 import { CommunityPost } from '../libs/types/CommunitiesType';
+import { getStaticImage } from '../libs/utils/common';
 import styles from './CommunityScreen.styles';
 
 export default function CommunityScreen({ navigation }: any) {
-  const API_BASE_URL = process.env.EXPO_PUBLIC_STATIC_BASE_URL;
+
   const { user } = useAuth();
   const [selectedCategory, setSelectedCategory] = useState('ALL');
   const [isLoading, setIsLoading] = useState(false);
@@ -72,7 +73,6 @@ export default function CommunityScreen({ navigation }: any) {
   // const [userIdSearch, setUserIdSearch] = useState('');
   const [titleSearch, setTitleSearch] = useState('');
   const [sortBy, setSortBy] = useState<'latest' | 'likes' | 'views'>('latest');
-
 
   const { data: topicGroups, isLoading: topicGroupsLoading } = useCategoryCodes("TOPIC_GROUP");
 
@@ -349,7 +349,7 @@ export default function CommunityScreen({ navigation }: any) {
         >
           <View style={styles.postHeader}>
             <Image
-              source={{ uri: API_BASE_URL + (item.profile_image + "_small.webp" || '/default-profile.png') }}
+              source={{ uri: getStaticImage('small', item.profile_image) || '' }}
               style={styles.profileImage}
             />
             <View style={styles.postUserInfo}>
