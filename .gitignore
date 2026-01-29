@@ -10,6 +10,7 @@ pnpm-debug.log*
 # Python
 venv/
 backend/venv/
+backend/attaches/
 __pycache__/
 *.py[cod]
 *.pyc
@@ -36,3 +37,4 @@ pytest_cache/
 Thumbs.db
 
 JWT_TEST_SCENARIO.md
+AUTH_IMPLEMENTATION.md
