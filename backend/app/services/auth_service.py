@@ -215,7 +215,7 @@ def _handle_social_login(db: Session, social_info: SocialUserInfo, refresh_token
             is_active=True,
             view_hash=view_hash,
             phone='',  # 소셜 로그인은 전화번호 없음
-            referer_token=refresh_token  # refresh_token 저장
+            referer_token=refresh_token,  # refresh_token 저장
             created_at=func.now(),
         )
         db.add(user)
