@@ -22,8 +22,10 @@ def toggle_feed_like(feed_id: int, request: Request, db: Session = Depends(get_d
     return feeds_service.toggle_feed_like(db, feed_id, user_hash)
 
 @router.get("/detail/{feed_id}")
-def get_feed_detail(feed_id: int, db: Session = Depends(get_db)):
-    return feeds_service.get_feed_detail(db, feed_id)
+def get_feed_detail(feed_id: int, request: Request, db: Session = Depends(get_db)):
+    user_hash = getattr(request.state, "user_hash", None)
+
+    return feeds_service.get_feed_detail(db, feed_id, user_hash)
 
 @router.post("/copy")
 def copy_feed(request: Request, params: FeedCopyRequest, db: Session = Depends(get_db)):
@@ -124,6 +126,8 @@ async def update_feed(
     content: str = Form(...),
     is_public: str = Form('Y'),
     tags: str = Form(''),
+    is_share_meal_plan: str = Form('N'),
+    category_id: int = Form(0),
     files: list[UploadFile] = File(None),   # 여러 파일 지원
     db: Session = Depends(get_db)
 ):
@@ -138,6 +142,8 @@ async def update_feed(
         content=content,
         is_public=is_public,
         tags=tags,
+        is_share_meal_plan=is_share_meal_plan,
+        category_id=category_id,
         files=files
     )
 

@@ -58,11 +58,13 @@ class FeedsResponse(BaseModel):
     user_id: int
     title: str
     content: Optional[str] = None
-    is_published: str
+    is_published: Optional[str] = None
     view_count: int
     like_count: int
     created_at: datetime
     updated_at: datetime
+    category_id: Optional[int] = 0
+    is_share_meal_plan: Optional[str] = None
     is_liked: Optional[bool] = False
     tags: List[str] = []
     images: List[str] = []

@@ -69,19 +69,22 @@ def toggle_feed_like(db, feed_id: int, user_hash: str):
     return CommonResponse(success=True, message="좋아요 상태가 성공적으로 변경되었습니다.", data=data)
 
 # 피드 상세보기
-def get_feed_detail(db, feed_id: int):
-    feed = Feeds.findById(db, feed_id)
+def get_feed_detail(db, feed_id: int, user_hash: str):
 
+    user = Users.findByViewHash(db, user_hash) if user_hash else None
+    if not user:
+        return CommonResponse(success=False, error="인증되지않은 사용자입니다.", data=None)
+
+    feed = Feeds.findById(db, feed_id)
     if not feed:
         return CommonResponse(success=False, error="존재하지 않는 피드입니다.", data=None)
+
+    if feed.user_id != user.id:
+        return CommonResponse(success=False, error="잘못된 접근입니다.")
 
     """ 조회수 1 증가 """
     feed.view_count += 1
     db.commit()
-
-    """ User 정보 찾기 """
-    user = Users.findById(db, feed.user_id)
-    user_hash = user.view_hash if user else None
 
     """ 태그 목록 조회 """
     tags = FeedsTagsMapper.findTagsByFeedAndTag(db, "Feed", feed.id)
@@ -102,10 +105,12 @@ def get_feed_detail(db, feed_id: int):
         title=feed.title,
         content=feed.content,
         is_published=feed.is_public,
+        is_share_meal_plan=feed.is_share_meal_plan,
         view_count=feed.view_count,
         like_count=feed.like_count,
         created_at=feed.created_at,
         updated_at=feed.updated_at,
+        category_id=feed.category_id,
         tags=tags,
         images=image_list,
         user_hash=user_hash,
@@ -333,12 +338,21 @@ async def create_feed(db, user_hash: str, title: str, content: str, is_public: s
                 feed_tag = FeedsTags.findOrCreateTag(db, tag)
                 feed_tag_ids.append(feed_tag.id)
 
+        if category_id:
+            category_code = CategoriesCodes.findById(db, category_id)
+            if not category_code:
+                return CommonResponse(success=False, error="존재하지 않는 카테고리 코드입니다.", data=None)
+
+            if category_code.type != "MEALS_GROUP":
+                return CommonResponse(success=False, error="유효하지 않은 카테고리 코드입니다.", data=None)
+
         """ feeds 생성 """
         params = {
             "user_id": user.id,
             "title": title,
             "content": content,
             "is_public": is_public,
+            "category_id": category_code.id if category_id else 0,
         }
 
         new_feed = Feeds.create(db, params)
@@ -483,6 +497,7 @@ async def create_feed(db, user_hash: str, title: str, content: str, is_public: s
         title=new_feed.title,
         content=new_feed.content,
         is_published=new_feed.is_public,
+        category_id=new_feed.category_id,
         view_count=new_feed.view_count,
         like_count=new_feed.like_count,
         created_at=new_feed.created_at,
@@ -500,20 +515,32 @@ async def create_feed(db, user_hash: str, title: str, content: str, is_public: s
     return CommonResponse(success=True, message="피드가 성공적으로 생성되었습니다.", data=feed_response)
 
 # 피드 수정
-async def update_feed(db, feed_id: int, title: str, content: str, is_public: str, tags: str, files):
+async def update_feed(db, feed_id: int, title: str, content: str, is_public: str, tags: str, is_share_meal_plan: str, category_id: int, files):
 
     feed = Feeds.findById(db, feed_id)
 
     if not feed:
         return CommonResponse(success=False, error="존재하지 않는 피드입니다.", data=None)
 
+    if category_id:
+        category_code = CategoriesCodes.findById(db, category_id)
+        if not category_code:
+            return CommonResponse(success=False, error="존재하지 않는 카테고리 코드입니다.", data=None)
+
+        if category_code.type != "MEALS_GROUP":
+            return CommonResponse(success=False, error="유효하지 않은 카테고리 코드입니다.", data=None)
+
     try:
         """ feed 정보 업데이트 """
         update_params = {
             "title": title,
             "content": content,
-            "is_public": is_public
+            "is_public": is_public,
+            "is_share_meal_plan": is_share_meal_plan,
+            "category_id": category_code.id if category_id else 0
         }
+
+        print("update_params", update_params)
 
         updated_feed = Feeds.update(db, feed.id, update_params)
 

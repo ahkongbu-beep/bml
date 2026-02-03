@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.schemas.auth_schemas import (
@@ -53,7 +53,7 @@ async def google_login(
     if not request.idToken:
         return CommonResponse(success=False, message="ID 토큰이 필요합니다.", data=None)
 
-    return await auth_service.google_login(db, request.idToken, request.accessToken)
+    return await auth_service.google_login(db, request.idToken, request.accessToken, request.refreshToken)
 
 
 @router.post("/kakao", response_model=CommonResponse)
@@ -101,3 +101,19 @@ async def logout(
     이 엔드포인트는 필요 시 로그 기록 등의 추가 처리를 위해 사용할 수 있습니다.
     """
     return await auth_service.logout(db, "")
+
+@router.delete("/deny", response_model=CommonResponse)
+async def remove_deny_user(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """
+    회원 탈퇴
+    """
+
+    user_hash = getattr(request.state, "user_hash", None)
+
+    if not user_hash:
+        return CommonResponse(success=False, message="사용자 인증이 필요합니다.", data=None)
+
+    return await auth_service.remove_deny_user(db, user_hash)

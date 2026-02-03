@@ -10,6 +10,7 @@ class GoogleLoginRequest(BaseModel):
     """구글 로그인 요청"""
     idToken: str
     accessToken: Optional[str] = None
+    refreshToken: Optional[str] = None
 
 class KakaoLoginRequest(BaseModel):
     """카카오 로그인 요청"""

@@ -45,6 +45,7 @@ class Feeds(Base):
             title=params.get("title", ""),
             content=params.get("content", ""),
             is_public=params.get("is_public", 'Y'),
+            category_id=params.get("category_id", 0),
             view_count=params.get("view_count", 0),
             like_count=params.get("like_count", 0),
             is_share_meal_plan=params.get("is_share_meal_plan", 'N'),
@@ -64,6 +65,8 @@ class Feeds(Base):
         feed.title = params.get("title", feed.title)
         feed.content = params.get("content", feed.content)
         feed.is_public = params.get("is_public", feed.is_public)
+        feed.is_share_meal_plan = params.get("is_share_meal_plan", feed.is_share_meal_plan)
+        feed.category_id = params.get("category_id", feed.category_id)
 
         session.commit()
         session.refresh(feed)

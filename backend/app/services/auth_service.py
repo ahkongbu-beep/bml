@@ -4,6 +4,7 @@
 - 소셜 로그인 (구글, 카카오, 네이버)
 - 로그아웃
 """
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from app.models.users import Users
 from app.models.meals_mappers import MealsMappers
@@ -14,6 +15,7 @@ from app.libs.password_utils import verify_password
 from app.libs.jwt_utils import create_access_token
 import httpx
 import os
+from app.core.config import settings
 from typing import Optional
 
 
@@ -30,7 +32,7 @@ def email_login(db: Session, email: str, password: str) -> CommonResponse:
     return _generate_login_response(db, user)
 
 
-async def google_login(db: Session, id_token: str, access_token: Optional[str] = None) -> CommonResponse:
+async def google_login(db: Session, id_token: str, access_token: Optional[str] = None, refresh_token: Optional[str] = None) -> CommonResponse:
     """구글 로그인"""
     try:
         print(f"[Google Login] Starting... ID Token length: {len(id_token) if id_token else 0}")
@@ -40,7 +42,10 @@ async def google_login(db: Session, id_token: str, access_token: Optional[str] =
         from google.auth.transport import requests
 
         # 환경 변수에서 구글 클라이언트 ID 가져오기
-        GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+        GOOGLE_CLIENT_ID = settings.GOOGLE_CLIENT_ID
+        GOOGLE_SECRET_KEY = settings.GOOGLE_SECRET_KEY
+        GOOGLE_REDIRECT_URI = settings.GOOGLE_REDIRECT_URI
+
         print(f"[Google Login] Client ID: {GOOGLE_CLIENT_ID[:20]}..." if GOOGLE_CLIENT_ID else "None")
 
         if not GOOGLE_CLIENT_ID:
@@ -56,6 +61,42 @@ async def google_login(db: Session, id_token: str, access_token: Optional[str] =
 
         print(f"[Google Login] Token verified. User: {idinfo.get('email')}")
 
+        # serverAuthCode를 refresh_token으로 교환
+        actual_refresh_token = None
+        if refresh_token:
+            print(f"[Google Login] Exchanging serverAuthCode for refresh_token...")
+            print(f"[Google Login] serverAuthCode : {refresh_token}")
+            try:
+                async with httpx.AsyncClient() as client:
+                    data = {
+                        'code': refresh_token,  # serverAuthCode
+                        'client_id': GOOGLE_CLIENT_ID,
+                        'client_secret': GOOGLE_SECRET_KEY,
+                        'redirect_uri': GOOGLE_REDIRECT_URI,
+                        'grant_type': 'authorization_code',
+                    }
+
+                    token_response = await client.post(
+                        'https://oauth2.googleapis.com/token',
+                        data=data
+                    )
+                    print(f"[Google Login] param : {data}")
+                    print(f"[Google Login] Token exchange response status: {token_response.status_code}")
+                    print(f"[Google Login] Token exchange response body: {token_response.text}")
+
+                    if token_response.status_code == 200:
+                        token_data = token_response.json()
+                        actual_refresh_token = token_data.get('refresh_token')
+                        if actual_refresh_token:
+                            print(f"[Google Login] ✅ Refresh token obtained successfully")
+                        else:
+                            print(f"[Google Login] ⚠️ No refresh_token in response (user already authorized app before)")
+                            print(f"[Google Login] 💡 To get refresh_token: Revoke app access at https://myaccount.google.com/permissions")
+                    else:
+                        print(f"[Google Login] Token exchange failed: {token_response.text}")
+            except Exception as e:
+                print(f"[Google Login] Token exchange error: {str(e)}")
+
         # 사용자 정보 추출
         social_user_info = SocialUserInfo(
             social_id=idinfo['sub'],
@@ -64,8 +105,8 @@ async def google_login(db: Session, id_token: str, access_token: Optional[str] =
             profile_image=idinfo.get('picture'),
             provider='GOOGLE'
         )
-
-        return _handle_social_login(db, social_user_info)
+        print(f"[Google Login] Social user info extracted: {actual_refresh_token}")
+        return _handle_social_login(db, social_user_info, actual_refresh_token)
 
     except ValueError as e:
         # 토큰이 유효하지 않음
@@ -143,8 +184,10 @@ async def naver_login(db: Session, access_token: str) -> CommonResponse:
         return CommonResponse(success=False, message=f"네이버 로그인 중 오류가 발생했습니다: {str(e)}", data=None)
 
 
-def _handle_social_login(db: Session, social_info: SocialUserInfo) -> CommonResponse:
+def _handle_social_login(db: Session, social_info: SocialUserInfo, refresh_token: Optional[str] = None) -> CommonResponse:
     """소셜 로그인 공통 처리"""
+    from app.libs.hash_utils import generate_sha256_hash
+
     # DB에서 사용자 검색
     user = db.query(Users).filter(
         Users.sns_id == social_info.social_id,
@@ -153,6 +196,15 @@ def _handle_social_login(db: Session, social_info: SocialUserInfo) -> CommonResp
 
     # 신규 사용자인 경우 자동 회원가입
     if not user:
+        # view_hash 생성
+        view_hash = generate_sha256_hash(
+            social_info.provider,
+            social_info.social_id,
+            social_info.name or '',
+            social_info.email or '',
+            ''  # phone (소셜 로그인은 전화번호 없음)
+        )
+
         user = Users(
             sns_id=social_info.social_id,
             sns_login_type=social_info.provider,
@@ -160,12 +212,48 @@ def _handle_social_login(db: Session, social_info: SocialUserInfo) -> CommonResp
             name=social_info.name,
             nickname=social_info.name or f"{social_info.provider}_user",
             profile_image=social_info.profile_image,
-            is_active=True
+            is_active=True,
+            view_hash=view_hash,
+            phone='',  # 소셜 로그인은 전화번호 없음
+            referer_token=refresh_token  # refresh_token 저장
+            created_at=func.now(),
         )
         db.add(user)
         db.commit()
         db.refresh(user)
+    else:
+        # 기존 사용자: view_hash가 없다면 생성
+        if not user.view_hash:
+            view_hash = generate_sha256_hash(
+                user.sns_login_type.value if hasattr(user.sns_login_type, 'value') else user.sns_login_type,
+                user.sns_id,
+                user.name or '',
+                user.email or '',
+                user.phone or ''
+            )
 
+            user.view_hash = view_hash
+            db.commit()
+
+    # refresh_token 업데이트 (있을 경우)
+    if refresh_token and user.referer_token != refresh_token:
+        print(f"[Social Login] 💾 Updating refresh_token for user {user.email}")
+        user.referer_token = refresh_token
+        db.commit()
+    elif refresh_token:
+
+        print(f"[Social Login] ℹ️ Refresh_token unchanged for user {user.email}")
+    else:
+        print(f"[Social Login] ⚠️ No refresh_token to save for user {user.email}")
+        if user.referer_token:
+            print(f"[Social Login] ✅ User already has refresh_token in DB")
+        else:
+            print(f"[Social Login] ❌ User has no refresh_token (revoke app access to get one)")
+
+    user.deleted_at = None
+    user.is_active = 1
+    user.updated_at = func.now()
+    db.commit()
     # 프로필 이미지 업데이트 (소셜 로그인 시 최신 이미지로)
     if social_info.profile_image and user.profile_image != social_info.profile_image:
         user.profile_image = social_info.profile_image
@@ -232,5 +320,41 @@ async def logout(db: Session, user_hash: str) -> CommonResponse:
     return CommonResponse(
         success=True,
         message="로그아웃 되었습니다.",
+        data=None
+    )
+
+async def remove_deny_user(db: Session, user_hash: str) -> CommonResponse:
+    """
+    회원 탈퇴
+    """
+    user = Users.findByViewHash(db, user_hash)
+    if not user:
+        return CommonResponse(success=False, message="회원 정보를 찾을 수 없습니다.", data=None)
+
+    print(f"Processing withdrawal for user ID: {user.id}, SNS Type: {user.sns_login_type}")
+
+    # 구글 revoke 처리
+    if user.sns_login_type == 'GOOGLE':
+        print(f"Revoking Google tokens for user ID: {user.id}, Token: {user.referer_token}")
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    'https://oauth2.googleapis.com/revoke',
+                    params={'token': user.referer_token},
+                    headers={'Content-Type': 'application/x-www-form-urlencoded'}
+                )
+                if response.status_code != 200:
+                    print(f"Google revoke failed: {response.text}")
+        except Exception as e:
+            print(f"Error during Google revoke: {str(e)}")
+
+    # 회원 탈퇴 처리 (예: is_active 플래그 변경)
+    user.is_active = 0
+    user.deleted_at = func.now()
+    db.commit()
+
+    return CommonResponse(
+        success=True,
+        message="회원 탈퇴가 완료되었습니다.",
         data=None
     )

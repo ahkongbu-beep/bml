@@ -25,4 +25,7 @@ class Settings():
     STATIC_BASE_URL:str = os.getenv("STATIC_BASE_URL", "")
     FREE_SUMMARY_AGENT_COUNT:int = int(os.getenv("FREE_SUMMARY_AGENT_COUNT", "10"))
     PROMPT_TEMPLATES_DIR: str = os.getenv("PROMPT_TEMPLATES_DIR", "prompts")
+    GOOGLE_SECRET_KEY: str = os.getenv("GOOGLE_SECRET_KEY", "")
+    GOOGLE_CLIENT_ID: str = os.getenv("GOOGLE_CLIENT_ID", "")
+    GOOGLE_REDIRECT_URI: str = os.getenv("GOOGLE_REDIRECT_URI", "http://localhost")
 settings = Settings()
