@@ -18,9 +18,11 @@ __pycache__/
 # Backend
 # backend/attaches/
 backend/ca-certificate.pem
+backend/get_user_header.py
 
 # Frontend
 frontend/android/
+frontend/.expo/devices.json
 
 # Expo
 .expo/
