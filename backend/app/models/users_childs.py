@@ -55,6 +55,13 @@ class UsersChilds(Base):
         return session.query(UsersChilds).filter(UsersChilds.user_id == user_id).all()
 
     @staticmethod
+    def findByUserName(session, user_id: int, child_name: str):
+        return session.query(UsersChilds).filter(
+            UsersChilds.user_id == user_id,
+            UsersChilds.child_name == child_name
+        ).first()
+
+    @staticmethod
     def create(session, user_id: int, child_name: str, child_birth: Date, child_gender: str, is_agent: str = "N", is_commit: bool = True):
         new_child = UsersChilds(
             user_id=user_id,
@@ -76,3 +83,34 @@ class UsersChilds(Base):
         if is_commit:
             session.commit()
         return child_instance
+
+    @staticmethod
+    def getListWithAllergies(session, user_id: int):
+        from app.models.users_childs_allergies import UserChildAllergy
+        from app.libs.serializers.query import SerializerQueryResult
+
+        # 메인 쿼리
+        query = (
+            session.query(
+                UsersChilds.id,
+                UsersChilds.user_id,
+                UsersChilds.child_name,
+                UsersChilds.child_birth,
+                UsersChilds.child_gender,
+                UsersChilds.is_agent,
+                func.GROUP_CONCAT(UserChildAllergy.allergy_name).label("allergy_names"),
+                func.GROUP_CONCAT(UserChildAllergy.allergy_code).label("allergy_codes")
+            )
+            .outerjoin(UserChildAllergy, UserChildAllergy.child_id == UsersChilds.id)
+            .filter(UsersChilds.user_id == user_id)
+            .group_by(
+                UsersChilds.id,
+                UsersChilds.user_id,
+                UsersChilds.child_name,
+                UsersChilds.child_birth,
+                UsersChilds.child_gender,
+                UsersChilds.is_agent
+            )
+        )
+
+        return SerializerQueryResult(query.all())

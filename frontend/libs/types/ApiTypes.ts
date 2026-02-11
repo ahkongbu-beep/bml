@@ -81,20 +81,23 @@ export interface ToggleResponse {
 }
 
 // 회원가입 요청
+export interface RegisterChildRequest {
+  child_name: string;
+  child_birth: string; // YYYY-MM-DD
+  child_gender: 'M' | 'W';
+  child_image?: string;
+  allergies: string[]; // allergy_code 배열
+}
+
 export interface RegisterRequest {
   sns_login_type: 'EMAIL' | 'KAKAO' | 'NAVER' | 'GOOGLE';
   sns_id?: string;
-  name: string;
   nickname: string;
   email?: string;
   password?: string;
-  phone?: string;
-  address?: string;
-  profile_image?: string;
-  description?: string;
-  meal_group: number[];
   marketing_agree?: number;
   push_agree?: number;
+  children: RegisterChildRequest[];
 }
 
 // 카테고리 코드

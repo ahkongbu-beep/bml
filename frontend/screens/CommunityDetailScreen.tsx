@@ -132,10 +132,8 @@ export default function CommunityDetailScreen({ route, navigation }: any) {
 
   // 댓글 삭제처리
   const confirmDeleteComment = () => {
-    console.log('삭제할 해시:', deleteTargetCommentHash);
     deleteCommunityCommentMutation.mutate(deleteTargetCommentHash || '', {
       onSuccess: (response) => {
-        console.log('삭제 응답:', response);
         if (response.success) {
           setDeleteCommentDialogVisible(false);
           setDeleteTargetCommentHash(null);

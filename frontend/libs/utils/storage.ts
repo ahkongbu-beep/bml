@@ -59,6 +59,15 @@ export const setNeedChildRegistration = async (need: boolean) => {
   }
 };
 
+// 자녀 등록 필요 플래그 저장
+export const saveNeedChildRegistration = async () => {
+  try {
+    await AsyncStorage.setItem(STORAGE_KEYS.NEED_CHILD_REGISTRATION, JSON.stringify(true));
+  } catch (error) {
+    console.error('Failed to save need child registration flag:', error);
+  }
+};
+
 // 자녀 등록 필요 플래그 가져오기
 export const getNeedChildRegistration = async (): Promise<boolean> => {
   try {

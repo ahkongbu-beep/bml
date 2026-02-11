@@ -240,7 +240,6 @@ class Community(Base):
 
         # 결과 조회
         result = query.limit(limit).all()
-
         return SerializerQueryResult(result)
 
     @staticmethod

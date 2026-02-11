@@ -10,24 +10,53 @@ const styles = StyleSheet.create({
   content: {
     padding: 20,
   },
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    overflow: 'visible',
+    ...shadows.small,
+  },
   sectionLabel: {
     fontSize: 16,
     fontWeight: '700',
     color: '#4A4A4A',
     marginBottom: 12,
   },
+  sectionHint: {
+    fontSize: 13,
+    color: '#999',
+    backgroundColor: '#FFF9E6',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    lineHeight: 18,
+  },
   required: {
     color: '#FF6B6B',
   },
   imageSection: {
-    marginBottom: 24,
+    marginBottom: 0,
+    overflow: 'visible',
+    paddingVertical: 8,
   },
   imageList: {
     flexDirection: 'row',
     gap: 12,
+    overflow: 'visible',
   },
   imageWrapper: {
     position: 'relative',
+    overflow: 'visible',
+  },
+  charCountContainer: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    alignItems: 'flex-end',
+    fontSize: 8,
+    color: '#FFF',
   },
   image: {
     width: 120,
@@ -41,6 +70,12 @@ const styles = StyleSheet.create({
     right: -8,
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
+    zIndex: 10,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
   },
   addImageButton: {
     width: 120,
@@ -60,7 +95,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   inputSection: {
-    marginBottom: 24,
+    marginBottom: 0,
   },
   titleInput: {
     fontSize: 16,
@@ -76,7 +111,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#4A4A4A',
     minHeight: 200,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFF9F9',
     borderWidth: 1,
     borderColor: '#FFE5E5',
     borderRadius: 12,
@@ -84,10 +119,10 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   categoryIcon: {
-    fontSize: 18,
+    fontSize: 12,
   },
   categoryText: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
     color: '#4A4A4A',
   },
@@ -115,12 +150,13 @@ const styles = StyleSheet.create({
     borderColor: '#FF9AA2',
   },
   tagsSection: {
-    marginBottom: 24,
+    marginTop: 20,
+    marginBottom: 0,
   },
   tagsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFF9F9',
     borderWidth: 1,
     borderColor: '#FFE5E5',
     borderRadius: 12,
@@ -169,6 +205,40 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#FF9AA2',
     fontWeight: '600',
+  },
+  buttonGroup: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  toggleButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 2,
+    borderColor: '#FFE5E5',
+    borderRadius: 12,
+    paddingVertical: 16,
+    gap: 8,
+  },
+  toggleButtonActive: {
+    backgroundColor: '#FF9AA2',
+    borderColor: '#FF9AA2',
+  },
+  toggleButtonText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#999',
+  },
+  toggleButtonTextActive: {
+    color: '#FFFFFF',
+  },
+  descriptionText: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 8,
+    lineHeight: 18,
   },
   publicSection: {
     marginBottom: 24,
@@ -232,6 +302,38 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFFFFF',
     letterSpacing: 0.5,
+  },
+  // Toggle switch styles
+  switch: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: 60,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#FFE5E5',
+    padding: 4,
+  },
+  switchActive: {
+    backgroundColor: '#FFE5E5',
+  },
+  switchInactive: {
+    backgroundColor: '#E0E0E0',
+  },
+  switchThumb: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#FF9AA2',
+    marginRight: 8,
+    transition: 'background-color 0.2s',
+  },
+  switchThumbActive: {
+    backgroundColor: '#FF6B6B',
+  },
+  switchLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#4A4A4A',
   },
 });
 

@@ -1,8 +1,11 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from app.routes import auth_router, notices_router, categories_codes_router, users_router, feeds_router, meals_router, summary_router, dashboard_router, communities_router
 from app.middleware import JWTAuthMiddleware
+from fastapi.exceptions import RequestValidationError
+from app.schemas.common_schemas import CommonResponse
 import os
 
 
@@ -19,6 +22,25 @@ app.add_middleware(
 
 # JWT 인증 미들웨어 추가
 app.add_middleware(JWTAuthMiddleware)
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+
+    errors = []
+
+    for err in exc.errors():
+        field = ".".join(str(x) for x in err["loc"][1:])
+        errors.append(f"{field}: {err['msg']}")
+
+    return JSONResponse(
+        status_code=422,
+        content={
+            "success": False,
+            "error": "; ".join(errors),
+            "data": None
+        }
+    )
+
 
 # 정적 파일 서빙 (업로드된 이미지 접근용)
 attaches_dir = os.path.join(os.getcwd(), "attaches")

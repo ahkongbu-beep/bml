@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import * as WebBrowser from "expo-web-browser";
 WebBrowser.maybeCompleteAuthSession();
-
+import Toast from 'react-native-toast-message'
 import Navbar from './components/Navbar';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
@@ -14,6 +14,7 @@ import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import FeedListScreen from './screens/FeedListScreen';
 import FeedDetailScreen from './screens/FeedDetailScreen';
 import FeedSaveScreen from './screens/FeedSaveScreen';
+import FeedCommentScreen from './screens/FeedCommentScreen';
 import NoticeScreen from './screens/NoticeScreen';
 import NoticeDetailScreen from './screens/NoticeDetailScreen';
 import MealPlanScreen from './screens/MealPlanScreen';
@@ -123,6 +124,7 @@ function MainNavigator() {
       <Stack.Screen name="Tabs" component={TabNavigator} />
       <Stack.Screen name="FeedDetail" component={FeedDetailScreen} />
       <Stack.Screen name="FeedSave" component={FeedSaveScreen} />
+      <Stack.Screen name="FeedComment" component={FeedCommentScreen} />
       <Stack.Screen name="NoticeDetail" component={NoticeDetailScreen} />
       <Stack.Screen name="EditProfile" component={EditProfileScreen} />
       <Stack.Screen name="DenyUser" component={DenyUserScreen} />
@@ -198,6 +200,7 @@ export default function App() {
         <SafeAreaProvider>
           <AuthProvider>
             <AppContent />
+            <Toast />
           </AuthProvider>
         </SafeAreaProvider>
       </PaperProvider>

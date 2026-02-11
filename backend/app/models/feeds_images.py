@@ -22,7 +22,7 @@ class FeedsImages(Base):
 
     # feed_id 로 이미지 삭제
     @staticmethod
-    def deleteByFeedId(session, model: str, model_id: int):
+    def deleteByFeedId(session, model: str, model_id: int, is_commit: bool = True):
         """
         feed_id 로 이미지 삭제 (파일 시스템 + DB)
         리사이징된 모든 사이즈 파일 삭제 (_original, _large, _medium, _small, _thumbnail)
@@ -63,7 +63,6 @@ class FeedsImages(Base):
                     result["missing_files"] += 1
             except Exception as e:
                 result["error"] = str(e)
-                print(f"⚠️ 파일 삭제 중 오류: {str(e)}")
 
         # DB 삭제
         try:
@@ -72,7 +71,8 @@ class FeedsImages(Base):
                 FeedsImages.img_model_id == model_id
             ).delete()
 
-            session.commit()
+            if is_commit:
+                session.commit()
 
             result["db_deleted"] = True
             result["success"] = True

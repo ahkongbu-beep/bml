@@ -95,6 +95,7 @@ async def create_feed(
     is_public: str = Form('Y'),
     tags: str = Form(''),
     category_id: int = Form(0),
+    meal_condition: str = Form('2'),
     is_share_meal_plan: str = Form('N'),
     files: list[UploadFile] = File(None),   # 여러 파일 지원
     db: Session = Depends(get_db)
@@ -116,6 +117,7 @@ async def create_feed(
         tags=tags,
         is_share_meal_plan=is_share_meal_plan,
         category_id=category_id,
+        meal_condition=meal_condition,
         files=files
     )
 
@@ -128,6 +130,7 @@ async def update_feed(
     tags: str = Form(''),
     is_share_meal_plan: str = Form('N'),
     category_id: int = Form(0),
+    meal_condition: str = Form('2'),
     files: list[UploadFile] = File(None),   # 여러 파일 지원
     db: Session = Depends(get_db)
 ):
@@ -144,6 +147,7 @@ async def update_feed(
         tags=tags,
         is_share_meal_plan=is_share_meal_plan,
         category_id=category_id,
+        meal_condition=meal_condition,
         files=files
     )
 

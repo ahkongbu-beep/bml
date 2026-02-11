@@ -12,11 +12,14 @@ class Feeds(Base):
     title = Column(String(255), nullable=False, default="", comment="feed 제목")
     content = Column(Text, nullable=False, comment="feed 내용")
     is_public = Column(Enum('Y', 'N'), default='Y', comment="공개여부")
+    is_share_meal_plan = Column(Enum('Y', 'N'), default='Y', comment="식단공유여부")
+    meal_condition = Column(String(2), nullable=False, default="2", comment="식사 섭취량")
     view_count = Column(Integer, nullable=False, default=0, comment="조회수")
     like_count = Column(Integer, nullable=False, default=0, comment="관심수")
+    is_deleted = Column(String(1), nullable=False, default='N', comment="삭제여부")
     created_at = Column(DateTime, server_default=func.current_timestamp())
     updated_at = Column(DateTime, server_default=func.current_timestamp(), onupdate=func.current_timestamp())
-    is_share_meal_plan = Column(Enum('Y', 'N'), default='Y', comment="식단공유여부")
+    deleted_at = Column(DateTime, nullable=True, default=None)
 
     # 관계 정의
     tags = relationship(
@@ -45,6 +48,7 @@ class Feeds(Base):
             title=params.get("title", ""),
             content=params.get("content", ""),
             is_public=params.get("is_public", 'Y'),
+            meal_condition=params.get("meal_condition", "2"),
             category_id=params.get("category_id", 0),
             view_count=params.get("view_count", 0),
             like_count=params.get("like_count", 0),
@@ -67,7 +71,7 @@ class Feeds(Base):
         feed.is_public = params.get("is_public", feed.is_public)
         feed.is_share_meal_plan = params.get("is_share_meal_plan", feed.is_share_meal_plan)
         feed.category_id = params.get("category_id", feed.category_id)
-
+        feed.meal_condition = params.get("meal_condition", feed.meal_condition)
         session.commit()
         session.refresh(feed)
         return feed
@@ -77,17 +81,43 @@ class Feeds(Base):
         """
         PK로 피드 조회
         """
-        return session.query(Feeds).filter(Feeds.id == feed_id).first()
+        return session.query(Feeds).filter(
+            Feeds.id == feed_id,
+            Feeds.is_deleted == 'N',
+            Feeds.deleted_at.is_(None)
+        ).first()
 
     @staticmethod
-    def getList(session, params: dict, extra: dict = {}):
+    def delete_by_feed(session, feed_id: int, is_commit=True):
+        """
+        피드 삭제(soft)
+        """
+        feed = session.query(Feeds).filter(Feeds.id == feed_id).first()
+        if not feed:
+            return False
+
+        try:
+            feed.is_deleted = 'Y'
+            feed.deleted_at = func.current_timestamp()
+            if is_commit:
+                session.commit()
+        except:
+            session.rollback()
+            return False
+
+        return True
+
+    @staticmethod
+    def get_list(session, params: dict, extra: dict = {}):
         from sqlalchemy import func as sql_func
         from app.models.feeds_tags_mappers import FeedsTagsMapper
         from app.models.feeds_tags import FeedsTags
         from app.models.feeds_images import FeedsImages
         from app.models.feeds_likes import FeedsLikes
         from app.models.users_childs import UsersChilds
+        from app.models.users_childs_allergies import UserChildAllergy
         from app.models.users import Users
+        from app.models.categories_codes import CategoriesCodes
 
         # 페이징 처리
         limit = extra.get("limit", 20)
@@ -110,6 +140,37 @@ class Feeds(Base):
             .subquery()
         )
 
+        category_subquery = (
+            session.query(
+                CategoriesCodes.id,
+                CategoriesCodes.value.label("category_name")
+            )
+            .subquery()
+        )
+
+        from sqlalchemy import distinct
+
+        # 대표 자녀 정보 + 알레르기 정보 서브쿼리 (통합)
+        user_childs_subquery = (
+            session.query(
+                UsersChilds.user_id,
+                sql_func.max(UsersChilds.child_name).label('child_name'),
+                sql_func.max(UsersChilds.child_birth).label('child_birth'),
+                sql_func.max(UsersChilds.child_gender).label('child_gender'),
+                sql_func.max(UsersChilds.is_agent).label('is_agent'),
+                sql_func.group_concat(
+                    distinct(UserChildAllergy.allergy_name)
+                ).label("allergy_names"),
+                sql_func.group_concat(
+                    distinct(UserChildAllergy.allergy_code)
+                ).label("allergy_codes")
+            )
+            .outerjoin(UserChildAllergy, UserChildAllergy.child_id == UsersChilds.id)
+            .filter(UsersChilds.is_agent == 'Y')
+            .group_by(UsersChilds.user_id)
+            .subquery()
+        )
+
         image_subquery = (
             session.query(
                 FeedsImages.img_model_id.label('feed_id'),
@@ -118,21 +179,6 @@ class Feeds(Base):
             )
             .filter(FeedsImages.img_model == 'Feeds')
             .group_by(FeedsImages.img_model_id)
-            .subquery()
-        )
-
-        # 대표 자녀 서브쿼리 (user_id별로 하나만 선택)
-        from sqlalchemy import func as sql_func, literal_column
-
-        user_childs_subquery = (
-            session.query(
-                UsersChilds.user_id,
-                sql_func.max(UsersChilds.child_name).label('child_name'),
-                sql_func.max(UsersChilds.child_birth).label('child_birth'),
-                sql_func.max(UsersChilds.child_gender).label('child_gender')
-            )
-            .filter(UsersChilds.is_agent == 'Y')
-            .group_by(UsersChilds.user_id)
             .subquery()
         )
 
@@ -146,17 +192,23 @@ class Feeds(Base):
                 Feeds.is_public,
                 Feeds.view_count,
                 Feeds.like_count,
+                Feeds.meal_condition,
+                Feeds.category_id,
                 Feeds.created_at,
                 Feeds.updated_at,
                 subquery.c.tags,
                 image_subquery.c.images,
                 image_subquery.c.image_ids,
+                category_subquery.c.category_name,
                 Users.nickname,
                 Users.profile_image,
                 Users.view_hash,
                 user_childs_subquery.c.child_name,
                 user_childs_subquery.c.child_birth,
                 user_childs_subquery.c.child_gender,
+                user_childs_subquery.c.allergy_names,
+                user_childs_subquery.c.allergy_codes,
+                user_childs_subquery.c.is_agent,
                 case(
                     (FeedsLikes.id.isnot(None), True),
                     else_=False
@@ -172,10 +224,17 @@ class Feeds(Base):
             )
             .outerjoin(subquery, Feeds.id == subquery.c.feed_id)
             .outerjoin(image_subquery, Feeds.id == image_subquery.c.feed_id)
+            .outerjoin(category_subquery, Feeds.category_id == category_subquery.c.id)
         )
 
         if params.get("is_public"):
             query = query.filter(Feeds.is_public == params["is_public"])
+
+        if params.get("category_id"):
+            query = query.filter(Feeds.category_id == params["category_id"])
+
+        if params.get("is_deleted"):
+            query = query.filter(Feeds.is_deleted == params["is_deleted"])
 
         # target_user_id가 있으면 해당 사용자의 피드만 조회
         if params.get("target_user_id"):
@@ -208,7 +267,7 @@ class QueryResult:
     def getData(self):
         """직렬화된 Pydantic 모델 리스트 반환"""
         from app.schemas.feeds_schemas import FeedsResponse, FeedsUserResponse
-        from app.schemas.users_schemas import UserChildItemSchema
+        from app.schemas.users_schemas import UserChildItemSchema, AllergyItemSchema
 
         return [
             FeedsResponse(
@@ -221,6 +280,9 @@ class QueryResult:
                 like_count=v.like_count,
                 created_at=v.created_at,
                 updated_at=v.updated_at,
+                meal_condition=v.meal_condition,
+                category_id=v.category_id,
+                category_name=v.category_name,
                 is_liked=v.is_liked,
                 images=[img.replace('\\', '/') for img in v.images.split(',')] if v.images else [],
                 tags=v.tags.split(',') if v.tags else [],
@@ -234,9 +296,18 @@ class QueryResult:
                     child_name=v.child_name,
                     child_birth=v.child_birth,
                     child_gender=v.child_gender,
-                    is_agent='Y'
+                    is_agent=v.is_agent,
+                    allergies=[
+                        AllergyItemSchema(
+                            allergy_code=code.strip() if code else None,
+                            allergy_name=name.strip()
+                        )
+                        for code, name in zip(
+                            v.allergy_codes.split(',') if v.allergy_codes else [],
+                            v.allergy_names.split(',') if v.allergy_names else []
+                        )
+                    ] if v.allergy_names else []
                 )
-
             )
             for v in self._results
         ]
@@ -250,6 +321,9 @@ class QueryResult:
                 "title": v.title,
                 "content": v.content,
                 "is_published": v.is_public,
+                "meal_condition": v.meal_condition,
+                "category_id": v.category_id,
+                "category_name": v.category_name,
                 "view_count": v.view_count,
                 "like_count": v.like_count,
                 "created_at": v.created_at,
@@ -265,7 +339,18 @@ class QueryResult:
                 "childs": {
                     "child_name": v.child_name,
                     "child_birth": v.child_birth,
-                    "child_gender": v.child_gender
+                    "child_gender": v.child_gender,
+                    "is_agent": v.is_agent,
+                    "allergies": [
+                        {
+                            "allergy_code": code.strip() if code else None,
+                            "allergy_name": name.strip()
+                        }
+                        for code, name in zip(
+                            v.allergy_codes.split(',') if v.allergy_codes else [],
+                            v.allergy_names.split(',') if v.allergy_names else []
+                        )
+                    ] if v.allergy_names else []
                 }
             }
             for v in self._results

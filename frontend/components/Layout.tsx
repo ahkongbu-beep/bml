@@ -10,7 +10,7 @@ interface LayoutProps {
 
 export default function Layout({ children, style }: LayoutProps) {
   return (
-    <SafeAreaView style={[styles.container, style]}>
+    <SafeAreaView style={[styles.container, style]} edges={['top']}>
       <StatusBar style="dark" translucent />
       {children}
     </SafeAreaView>

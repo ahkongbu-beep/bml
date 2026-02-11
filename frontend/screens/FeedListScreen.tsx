@@ -10,8 +10,7 @@ import {
   RefreshControl,
   TouchableOpacity,
 } from 'react-native';
-import { Portal, Dialog, Button } from 'react-native-paper';
-
+import ConfirmPortal from '@/components/ConfirmPortal';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 
@@ -20,7 +19,6 @@ import { useAuth } from '../libs/contexts/AuthContext';
 
 import Layout from '../components/Layout';
 import Header from '../components/Header';
-import CommentModal from '../components/CommentModal';
 import AiSummaryModal from '../components/AiSummaryModal';
 import AiSummaryAnswerModal from '../components/AiSummaryAnswerModal';
 import UserHeader from '../components/UserHeader';
@@ -33,11 +31,9 @@ import {
   useToggleLike,
   useToggleBookmark,
   useBlockUser,
-  useFeedComments,
-  useCreateFeedComment,
-  useDeleteFeedComment,
   useSummaryFeedImage
 } from '../libs/hooks/useFeeds';
+import { toastError, toastSuccess, toastInfo } from '@/libs/utils/toast';
 
 
 export default function FeedListScreen() {
@@ -46,8 +42,6 @@ export default function FeedListScreen() {
   const { user } = useAuth();
   const [menuVisible, setMenuVisible] = useState<number | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState<{ [key: number]: number }>({});
-  const [commentModalVisible, setCommentModalVisible] = useState(false);
-  const [selectedFeedId, setSelectedFeedId] = useState<number | null>(null);
   const [likingFeedId, setLikingFeedId] = useState<number | null>(null);
   const [aiSummaryModalVisible, setAiSummaryModalVisible] = useState(false);
   const [userPrompt, setUserPrompt] = useState<string>('');
@@ -75,22 +69,11 @@ export default function FeedListScreen() {
     [key: number]: { is_liked: boolean; like_count: number };
   }>({});
 
-  // 댓글 목록 조회 - selectedFeedId가 있을 때만 호출
-  const { data: commentsData, refetch: refetchComments } = useFeedComments({
-    feedId: selectedFeedId || 0,
-    limit: 50,
-    offset: 0
-  }, {
-    enabled: !!selectedFeedId && commentModalVisible, // 모달이 열리고 feedId가 있을 때만 실행
-  });
-
   // React Query로 피드 데이터 조회
   const { data, isLoading, isError, error, refetch } = useFeeds({ page: 1, limit: 20, type: 'list' });
 
   const feeds = data?.data;
 
-  const createFeedCommentMutation = useCreateFeedComment(); // 댓글등록
-  const deleteFeedCommentMutation = useDeleteFeedComment(); // 댓글삭제
   const summaryFeedImageMutation  = useSummaryFeedImage(); // 이미지 요약
 
   // Mutations
@@ -131,7 +114,7 @@ export default function FeedListScreen() {
           delete newState[id];
           return newState;
         });
-        Alert.alert('오류', '좋아요 처리 중 오류가 발생했습니다.');
+        toastError('좋아요 처리 중 오류가 발생했습니다.');
       },
     });
   }, [feeds, toggleLikeMutation, refetch]);
@@ -140,8 +123,7 @@ export default function FeedListScreen() {
     setMenuVisible(null);
     toggleBookmarkMutation.mutate(id, {
       onError: (error) => {
-        Alert.alert('오류', '찜하기 처리 중 오류가 발생했습니다.');
-        console.error('Bookmark error:', error);
+        toastError('찜하기 처리 중 오류가 발생했습니다.');
       },
     });
   };
@@ -151,7 +133,6 @@ export default function FeedListScreen() {
     setMenuVisible(null);
     navigation.navigate('MealCopyByFeed', { feedId, userHash });
   }
-
 
   // 프로필 이동 (내 프로필 or 타인 프로필)
   const handleViewProfile = useCallback((userHash: string, nickname: string) => {
@@ -176,8 +157,8 @@ export default function FeedListScreen() {
   const confirmBlock = () => {
     if (userToBlock) {
       blockUserMutation.mutate(userToBlock.userHash, {
-        onSuccess: () => { Alert.alert('차단 완료', `${userToBlock.nickname}님을 차단했습니다.`); },
-        onError: (error) => { Alert.alert('오류', '차단 처리 중 오류가 발생했습니다.'); },
+        onSuccess: () => { toastSuccess(`${userToBlock.nickname}님을 차단했습니다.`); },
+        onError: (error) => { toastError('차단 처리 중 오류가 발생했습니다.'); },
       });
     }
     setBlockDialogVisible(false);
@@ -198,9 +179,8 @@ export default function FeedListScreen() {
   }, []);
 
   const handleCommentPress = useCallback((feedId: number) => {
-    setSelectedFeedId(feedId);
-    setCommentModalVisible(true);
-  }, []);
+    navigation.navigate('FeedComment', { feedId });
+  }, [navigation]);
 
   const handleAiSummary = useCallback((userHash: string, feedId: number, imageId: string) => {
     setAiSummaryParams({ userHash, feedId, imageId });
@@ -218,8 +198,7 @@ export default function FeedListScreen() {
       setAiSummaryModalVisible(false);
       setAiSummaryParams(null);
       setUserPrompt('');
-      Alert.alert('오류', 'AI 요약 중 오류가 발생했습니다.');
-      console.error('[AI Summary]', error);
+      toastError('AI 요약 중 오류가 발생했습니다.');
     },
   });
 
@@ -251,54 +230,6 @@ export default function FeedListScreen() {
     setUserPrompt('');
   }
 
-  // 댓글 등록
-  const onHandleCommentSubmit = (content: string, parentHash: string | null) => {
-    if (!selectedFeedId) {
-      Alert.alert('오류', '피드 정보가 없습니다.');
-      return;
-    }
-    createFeedCommentMutation.mutate(
-      {
-        feed_id: selectedFeedId,
-        comment: content,
-        parent_hash: parentHash || '',
-      },
-      {
-        onSuccess: () => {
-          Alert.alert('성공', '댓글이 등록되었습니다.');
-          refetchComments(); // 댓글 목록 새로고침
-        },
-        onError: (error) => {
-          Alert.alert('오류', '댓글 등록 중 오류가 발생했습니다.');
-          console.error('Comment create error:', error);
-        },
-      }
-    );
-  }
-
-  // 댓글삭제
-  const onHandleCommentDelete = (commentHash: string) => {
-    deleteFeedCommentMutation.mutate(
-      commentHash,
-      {
-        onSuccess: () => {
-          Alert.alert('성공', '댓글이 삭제되었습니다.');
-          refetchComments(); // 댓글 목록 새로고침
-        },
-        onError: (error) => {
-          Alert.alert('오류', '댓글 삭제 중 오류가 발생했습니다.');
-          console.error('Comment delete error:', error);
-        },
-      }
-    );
-  }
-
-  // 댓글 모달 닫기
-  const onHandleCommentModalClose = () => {
-    setCommentModalVisible(false);
-    setSelectedFeedId(null);
-  }
-
   const keyExtractor = useCallback((item: Feed) => item.id.toString(), []);
 
   const renderFeed = useCallback(({ item }: { item: Feed }) => {
@@ -328,6 +259,7 @@ export default function FeedListScreen() {
       />
     );
   }, [menuVisible, currentImageIndex, likingFeedId, optimisticLikes, handleMenuToggle, handleImageScroll, handleViewProfile, handleBlock, handleLike, handleCommentPress, handleAiSummary, user?.view_hash]);
+
   const renderListHeader = () => (
     <View>
       <UserHeader user={user} />
@@ -372,16 +304,6 @@ export default function FeedListScreen() {
         }
       />
 
-      {/* 댓글 모달 */}
-      <CommentModal
-        visible={commentModalVisible}
-        onClose={onHandleCommentModalClose}
-        feedId={selectedFeedId || 0}
-        comments={commentsData || []}
-        onSubmit={(content, parentHash) => onHandleCommentSubmit(content, parentHash)}
-        onDelete={(commentHash) => onHandleCommentDelete(commentHash)}
-      />
-
       {/* AI 요약 질문 모달 */}
       <AiSummaryModal
         visible={aiSummaryModalVisible}
@@ -401,18 +323,17 @@ export default function FeedListScreen() {
       />
 
       {/* 사용자 차단 확인 Dialog */}
-      <Portal>
-        <Dialog visible={blockDialogVisible} onDismiss={cancelBlock}>
-          <Dialog.Title>사용자 차단</Dialog.Title>
-          <Dialog.Content>
-            <Text>{userToBlock?.nickname}님을 차단하시겠습니까?</Text>
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={cancelBlock}>취소</Button>
-            <Button onPress={confirmBlock} textColor="#FF6B6B">차단</Button>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
+      <ConfirmPortal
+        visible={blockDialogVisible}
+        title="사용자 차단"
+        message={userToBlock ? `${userToBlock.nickname}님을 차단하시겠습니까?` : ''}
+        onConfirm={confirmBlock}
+        onCancel={cancelBlock}
+        confirmText="차단"
+        cancelText="취소"
+        confirmColor="#FF6B6B"
+      />
+
     </Layout>
   );
 }

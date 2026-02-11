@@ -7,8 +7,53 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   container: {
-    padding: 20,
+    flex: 1,
+    backgroundColor: colors.background,
   },
+  // 단계 인디케이터
+  stepIndicator: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 24,
+    paddingHorizontal: 40,
+  },
+  stepItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  stepCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#E0E0E0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  stepCircleActive: {
+    backgroundColor: '#FF8C00',
+  },
+  stepCircleCompleted: {
+    backgroundColor: '#4CAF50',
+  },
+  stepNumber: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#999',
+  },
+  stepNumberActive: {
+    color: '#FFF',
+  },
+  stepLine: {
+    width: 80,
+    height: 2,
+    backgroundColor: '#E0E0E0',
+    marginHorizontal: 8,
+  },
+  stepLineActive: {
+    backgroundColor: '#4CAF50',
+  },
+  // 기존 스타일
   imageSection: {
     alignItems: 'center',
     marginBottom: 32,

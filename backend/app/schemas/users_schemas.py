@@ -12,6 +12,10 @@ class UserFindPasswordRequest(BaseModel):
     email: str
     name: str
 
+class UserPasswordChangeRequest(BaseModel):
+    current_password: str
+    new_password: str
+
 class SnsLoginTypeEnum(str, Enum):
     EMAIL = 'EMAIL'
     KAKAO = 'KAKAO'
@@ -51,12 +55,17 @@ class SearchUserAccountConfirmRequest(BaseModel):
 class UserChildDeleteRequest(BaseModel):
     child_id: int
 
+class AllergyItemSchema(BaseModel):
+    allergy_code: Optional[str] = None
+    allergy_name: str
+
 class UserChildItemSchema(BaseModel):
     child_id: Optional[int] = None
     child_name: str
     child_birth: date
     child_gender: GenderEnum
-    is_agent: Optional[str] = "N"
+    is_agent: Optional[str]
+    allergies: Optional[list[AllergyItemSchema]] = []
 
 class UserChildRegistRequest(BaseModel):
     children: list[UserChildItemSchema]
@@ -64,19 +73,16 @@ class UserChildRegistRequest(BaseModel):
 class UserCreateSchema(BaseModel):
     sns_login_type: SnsLoginTypeEnum
     sns_id: Optional[str] = ""
-    name: str = Field(..., min_length=2, max_length=50)
+    name: Optional[str] = None
+    profile_image: Optional[str] = None
     nickname: str = Field(..., min_length=2, max_length=50)
     email: Optional[EmailStr] = None
     password: Optional[str] = None
-    phone: Optional[str] = None
-    address: Optional[str] = ""
-    profile_image: Optional[str] = ""
-    description: Optional[str] = ""
-    meal_group: Optional[list[int]] = []
     marketing_agree: Optional[int] = 0
     push_agree: Optional[int] = 0
     view_hash: Optional[str] = None
     role: RoleEnum = RoleEnum.USER
+    children: Optional[list[dict]] = []
 
     @classmethod
     def as_form(
@@ -87,25 +93,12 @@ class UserCreateSchema(BaseModel):
         nickname: str = Form(..., min_length=2, max_length=50),
         email: Optional[EmailStr] = Form(None),
         password: Optional[str] = Form(None),
-        phone: Optional[str] = Form(None),
-        address: Optional[str] = Form(""),
-        profile_image: Optional[str] = Form(""),
-        description: Optional[str] = Form(""),
-        meal_group: Optional[str] = Form("[]"),
         marketing_agree: Optional[int] = Form(0),
         push_agree: Optional[int] = Form(0),
         view_hash: Optional[str] = Form(None),
         role: RoleEnum = Form(RoleEnum.USER),
+        profile_image: Optional[str] = Form(None)
     ):
-        # meal_group을 문자열에서 리스트로 변환
-        import json
-        meal_group_list = []
-        if meal_group:
-            try:
-                meal_group_list = json.loads(meal_group) if isinstance(meal_group, str) else meal_group
-            except:
-                meal_group_list = []
-
         return cls(
             sns_login_type=sns_login_type,
             sns_id=sns_id,
@@ -113,15 +106,11 @@ class UserCreateSchema(BaseModel):
             nickname=nickname,
             email=email,
             password=password,
-            phone=phone,
-            address=address,
-            profile_image=profile_image,
-            description=description,
-            meal_group=meal_group_list,
             marketing_agree=marketing_agree,
             push_agree=push_agree,
             view_hash=view_hash,
             role=role,
+            profile_image=profile_image
         )
 
     @validator('sns_id', always=True)
@@ -132,20 +121,14 @@ class UserCreateSchema(BaseModel):
 
     @validator('name', always=True)
     def name_must_not_be_empty(cls, v):
-        if not v or v.strip() == "":
-            raise ValueError('이름은 필수 항목입니다.')
+        if v and v.strip() == "":
+            raise ValueError('이름은 비어있을 수 없습니다.')
         return v
 
     @validator('password', always=True)
     def password_required_for_email(cls, v, values):
         if values.get('sns_login_type') == SnsLoginTypeEnum.EMAIL and not v:
             raise ValueError('EMAIL 로그인 시 비밀번호가 필요합니다.')
-        return v
-
-    @validator('phone', always=True)
-    def phone_required_for_email(cls, v, values):
-        if values.get('sns_login_type') == SnsLoginTypeEnum.EMAIL and not v:
-            raise ValueError('EMAIL 로그인 시 휴대폰 번호가 필요합니다.')
         return v
 
     @validator('email', always=True)

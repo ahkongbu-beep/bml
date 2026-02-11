@@ -26,6 +26,12 @@ const styles = StyleSheet.create({
     marginRight: 12,
     backgroundColor: '#F5F5F5',
   },
+  timestamp: {
+    fontSize: 10,
+    color: '#B0B0B0',
+    marginTop: 3,
+    opacity: 0.6,
+  },
   feedContent: {
     flex: 1,
     justifyContent: 'center',

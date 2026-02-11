@@ -67,7 +67,6 @@ export default function MealRegistScreen({ route, navigation }: any) {
   // 수정 모드일 때 초기값 설정
   useEffect(() => {
     if (meal) {
-      console.log(meal);
       setTitle(meal.title || '');
       setContents(meal.contents || '');
       setSelectedCategory(meal.category_id || null);

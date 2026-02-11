@@ -1,6 +1,15 @@
     import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import { login as loginApi, logout as logoutApi, updateProfile as updateProfileApi, UpdateProfileRequest, getUserProfile, googleLogin as googleLoginApi, GoogleLoginRequest } from '../api/authApi';
+import {
+  login as loginApi,
+  logout as logoutApi,
+  updateProfile as updateProfileApi,
+  UpdateProfileRequest,
+  getUserProfile,
+  googleLogin as googleLoginApi,
+  GoogleLoginRequest,
+  withdrawalApi
+} from '../api/authApi';
 import { LoginRequest, User } from '../types/UserType';
 import {
   isLoggedIn as checkIsLoggedIn,
@@ -8,6 +17,7 @@ import {
   saveUserInfo,
   saveToken,
   logout as clearStorage,
+  saveNeedChildRegistration,
 } from '../utils/storage';
 
 interface AuthContextType {
@@ -102,6 +112,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           await saveUserInfo(user);
           setUser(user);
           setIsAuthenticated(true);
+
+          // 구글 로그인 성공 후 user_childs가 비어있으면 자녀 등록 화면으로 이동
+          if (!user.user_childs || user.user_childs.length === 0) {
+            await saveNeedChildRegistration();
+          }
         }
       } else {
         throw new Error(data.message || '구글 로그인에 실패했습니다.');
@@ -123,6 +138,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null);
       setIsAuthenticated(false);
     },
+  });
+
+  // 회원탈퇴
+  const withdrawalMutation = useMutation({
+    mutationFn: () => withdrawalApi(),
+    onSuccess: async () => {
+      await clearStorage();
+      setUser(null);
+      setIsAuthenticated(false);
+    },
+    onError: async () => {
+      // 백엔드 에러가 발생해도 프론트엔드에서 로그아웃 처리
+      await clearStorage();
+      setUser(null);
+      setIsAuthenticated(false);
+    }
   });
 
   // 프로필 업데이트 Mutation
@@ -167,6 +198,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     googleLogin: googleLoginMutation.mutate,
     logout: logoutMutation.mutate,
     logoutLocal,
+    withdrawal: withdrawalMutation.mutate,
     updateProfile: updateProfileMutation.mutate,
     refreshUser,
     loginLoading: loginMutation.isPending,

@@ -41,16 +41,13 @@ export const useAuth = () => {
   const loginMutation = useMutation({
     mutationFn: (credentials: LoginRequest) => loginApi(credentials),
     onSuccess: async (data) => {
-      console.log('Login onSuccess called', data);
       if (data.success && data.data) {
         const { user, token } = data.data;
-        console.log('User and token found:', { user: !!user, token: !!token });
         if (token && user) {
           await saveToken(token);
           await saveUserInfo(user);
           setUser(user);
           setIsAuthenticated(true);
-          console.log('isAuthenticated set to true');
         }
       }
     },

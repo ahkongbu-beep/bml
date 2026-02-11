@@ -151,6 +151,7 @@ export const fetchDelete = async <T>(endpoint: string, data?:any): Promise<T> =>
   const url = `${API_BASE_URL}${endpoint}`;
 
   console.log("DELETE Request URL:", url);
+  console.log("Headers:", headers);
   console.log(JSON.stringify(data, null, 2));
 
   const response = await fetch(url, {
@@ -206,11 +207,20 @@ export const fetchPutFormData = async <T>(endpoint: string, formData: FormData):
       headers['Authorization'] = `Bearer ${token}`;
     }
 
+    console.log("PUT FormData Request URL:", url);
+    console.log("FormData contents:");
+    formData.forEach((value, key) => {
+      console.log(`${key}: ${value}`);
+    });
+
     const response = await fetch(url, {
       method: 'PUT',
       headers,
       body: formData,
     });
+
+    console.log("PUT FormData Response Status:", response.status);
+    console.log("PUT FormData Response Headers:", response.headers);
 
     return handleResponse(response);
   } catch (error) {

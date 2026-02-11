@@ -44,7 +44,6 @@ export default function MyPageScreen({ navigation }: any) {
 
   const { data: myFeedsData, isLoading: feedsLoading } = useMyFeeds();
   const { data: myInfoData, isLoading: myInfoLoading } = useGetMyInfo(user?.view_hash || '');
-
   const myFeeds = myFeedsData?.data || [];
 
   return (
@@ -69,7 +68,7 @@ export default function MyPageScreen({ navigation }: any) {
             {/* 통계 */}
             <View style={styles.statsContainer}>
               <View style={styles.statItem}>
-                <Text style={styles.statNumber}>{myInfoLoading ? 0 : myInfoData.feed_count || 0}</Text>
+                <Text style={styles.statNumber}>{myInfoLoading ? 0 : (myInfoData?.feed_count || 0)}</Text>
                 <Text style={styles.statLabel}>피드</Text>
               </View>
 
@@ -79,7 +78,7 @@ export default function MyPageScreen({ navigation }: any) {
                 <TouchableOpacity
                   onPress={() => navigation.navigate('FeedLikeList')}
                 >
-                    <Text style={styles.statNumber}>{myInfoLoading ? 0 : myInfoData.like_count || 0}</Text>
+                    <Text style={styles.statNumber}>{myInfoLoading ? 0 : (myInfoData?.like_count || 0)}</Text>
                     <Text style={styles.statLabel}>좋아요</Text>
                 </TouchableOpacity>
               </View>
@@ -90,19 +89,11 @@ export default function MyPageScreen({ navigation }: any) {
                 <TouchableOpacity
                   onPress={() => navigation.navigate('MealPlan')}
                 >
-                  <Text style={styles.statNumber}>{myInfoLoading ? 0 : myInfoData.meal_count || 0}</Text>
+                  <Text style={styles.statNumber}>{myInfoLoading ? 0 : (myInfoData?.meal_count || 0)}</Text>
                   <Text style={styles.statLabel}>식단</Text>
                 </TouchableOpacity>
               </View>
             </View>
-
-            {/* 프로필 수정 버튼 */}
-            <TouchableOpacity
-              style={styles.editButton}
-              onPress={() => navigation.navigate('EditProfile')}
-            >
-              <Text style={styles.editButtonText}>프로필 수정</Text>
-            </TouchableOpacity>
 
             {/* 피드 작성 버튼 */}
             <TouchableOpacity
@@ -133,15 +124,6 @@ export default function MyPageScreen({ navigation }: any) {
               viewType={viewType}
               onFeedPress={(feedId) => navigation.navigate('FeedDetail', { feedId })}
             />
-          </View>
-
-          {/* 메뉴 섹션 */}
-          <View style={styles.menuSection}>
-            <TouchableOpacity style={styles.menuItem}>
-              <Ionicons name="help-circle-outline" size={26} color="#FF9AA2" />
-              <Text style={styles.menuText}>고객센터</Text>
-              <Ionicons name="chevron-forward" size={22} color="#C0C0C0" />
-            </TouchableOpacity>
           </View>
         </ScrollView>
       </View>

@@ -80,6 +80,8 @@ export const useFeed = (id: number) => {
 export const useMyFeeds = (params?: FeedListParams) => {
   return useQuery<PaginationResponse<Feed>, Error>({
     queryKey: feedKeys.myFeeds(),
+    staleTime: 1000 * 60 * 5,
+    refetchOnWindowFocus: false,
     queryFn: () => getMyFeeds(params),
   });
 };
@@ -192,12 +194,11 @@ export const useUpdateFeed = () => {
 /**
  * 피드 삭제 Mutation
  */
-export const useDeleteFeed = (feedId) => {
+export const useDeleteFeed = () => {
   const queryClient = useQueryClient();
-  console.log("aaaa", feedId);
-
   return useMutation({
-    mutationFn: (id: number) => deleteFeed(feedId),
+    // ✅ mutate(id) 로 받음
+    mutationFn: (id: number) => deleteFeed(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: feedKeys.lists() });
       queryClient.invalidateQueries({ queryKey: feedKeys.myFeeds() });

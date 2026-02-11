@@ -3,6 +3,7 @@
 - sns_login_type 이 EMAIL 인 경우 password는 필수
 - 그 외 sns_login_type 인 경우 sns_id 는 필수
 """
+import os
 from sqlalchemy import func
 from app.models.users import Users
 from app.models.feeds import Feeds
@@ -12,12 +13,15 @@ from app.models.meals_mappers import MealsMappers
 from app.models.categories_codes import CategoriesCodes
 from app.models.denies_users import DeniesUsers
 from app.models.users_childs import UsersChilds
+from app.models.users_childs_allergies import UserChildAllergy
+from app.models.foods_items import FoodItem
 
 from app.schemas.users_schemas import UserResponseSchema
 from app.schemas.common_schemas import CommonResponse
 from app.libs.password_utils import hash_password
 from app.core.config import settings
 from app.models.feeds_comments import FeedsComments
+from app.libs.file_utils import get_file_url
 
 """ 비밀번호 찾기 """
 async def find_password(db, data) -> CommonResponse:
@@ -99,19 +103,13 @@ def get_my_info(db, data) -> CommonResponse:
 
 # 회원 가입
 async def create_user(db, user_data) -> CommonResponse:
+    from app.libs.file_utils import save_upload_file_with_resize
 
     if user_data.get("email"):
         # 이메일 중복 체크
         existing_user = db.query(Users).filter(Users.email == user_data.get("email")).first()
         if existing_user:
             return CommonResponse(success=False, error="이미 존재하는 이메일입니다.", data=None)
-
-    if user_data.get("phone"):
-        # 휴대폰 중복 체크
-        phone = user_data.get("phone").replace("-", "")
-        existing_user = db.query(Users).filter(Users.phone == phone).first()
-        if existing_user:
-            return CommonResponse(success=False, error="이미 존재하는 휴대폰 번호입니다.", data=None)
 
     if user_data.get("sns_login_type") == "EMAIL" and user_data.get("sns_id").strip() == "":
         user_data["sns_id"] = user_data.get("email").split("@")[0]
@@ -125,83 +123,77 @@ async def create_user(db, user_data) -> CommonResponse:
         if existing_sns:
             return CommonResponse(success=False, error="이미 존재하는 SNS 계정입니다.", data=None)
 
-    # meal_group은 relationship이므로 Users 생성 시 제외
-    user_create_data = {k: v for k, v in user_data.items() if k not in ['meal_group', 'file']}
+    # 이미지 등록
+    if user_data.get("profile_image"):
+        print(f"🖼️ profile_image 있음: {user_data.get('profile_image')}")
+        print(f"🖼️ profile_image 타입: {type(user_data.get('profile_image'))}")
 
+        upload_dir = f"attaches/users/temp"
+        os.makedirs(upload_dir, exist_ok=True)
+
+        success, result, original_filename, created_files = await save_upload_file_with_resize(user_data["profile_image"], upload_dir)
+
+        if success:
+            image_url = get_file_url(result, remove_size_suffix=True)
+            user_data["profile_image"] = "/" + image_url
+            print(f"✅ profile_image 저장 성공: {user_data['profile_image']}")
+        else:
+            return CommonResponse(success=False, error=f"프로필 이미지 업로드에 실패했습니다: {result}", data=None)
+    else:
+        print(f"❌ profile_image 없음")
+
+    print("⭕⭕⭕⭕⭕⭕⭕⭕user_data:", user_data)
     # 1) 계정등록
-    new_user = Users.create(db, user_create_data, is_commit=False)
+    user_param = {
+        "sns_login_type": user_data.get("sns_login_type"),
+        "sns_id": user_data.get("sns_id"),
+        "password": user_data.get("password"),
+        "email": user_data.get("email"),
+        "nickname": user_data.get("nickname"),
+        "marketing_agree": user_data.get("marketing_agree", 0),
+        "push_agree": user_data.get("push_agree", 0),
+        "profile_image": user_data.get("profile_image"),
+        "role": "USER",
+    }
+    new_user = Users.create(db, user_param, is_commit=False)
+    db.flush()
 
-    # 2) 이미지 등록
+    print("new_user:", new_user)
+
     if not new_user :
         return CommonResponse(success=False, error="회원 생성에 실패했습니다.", data=None)
 
-    if user_data.get("file"):
-        from app.libs.file_utils import save_upload_file_with_resize, get_file_url
-        import os
+    # 2) 자녀등록
+    if user_data.get("children"):
+        for child in user_data.get("children"):
+            user_child = UsersChilds.create(
+                db,
+                user_id=new_user.id,
+                child_name=child.get("child_name"),
+                child_birth=child.get("child_birth"),
+                child_gender=child.get("child_gender"),
+            )
 
-        save_dir = os.path.join("attaches", "users", str(new_user.id))
-        success, result, original_filename, created_files = await save_upload_file_with_resize(user_data["file"], save_dir)
+            db.flush()
 
-        if not success:
-            db.rollback()
-            return CommonResponse(success=False, error=result, data=None)
+            # 2-1) 알레르기 정보 등록
+            if child.get("allergies"):
+                allergy_data = []
+                for allergy in child.get("allergies"):
+                    alllergy_info = FoodItem.find_by_code(db, allergy)
+                    if alllergy_info:
+                        allergy_data.append({
+                            "allergy_code": alllergy_info.food_code,
+                            "allergy_name": alllergy_info.food_name
+                        })
 
-        # 확장자와 사이즈 접미사 제거 (프론트엔드에서 조합)
-        image_url = get_file_url(result, base_url="")
-        # /attaches/users/38/20260122155352_cf7e9e30_medium.webp -> /attaches/users/38/20260122155352_cf7e9e30
-        image_path = image_url.replace('\\', '/')
-
-        if '_medium.webp' in image_path:
-            image_path = image_path.replace('_medium.webp', '')
-        elif '.webp' in image_path:
-            # _사이즈.webp 패턴 제거
-            image_path = image_path.rsplit('_', 1)[0] if '_' in image_path.rsplit('/', 1)[-1] else image_path.rsplit('.', 1)[0]
-
-        new_user.profile_image = "/" + image_path
-
-    # 3) 회원 식단 선호도 등록
-    if user_data.get("meal_group"):
-        import json
-
-        # meal_group을 리스트로 변환
-        meal_groups = []
-        if isinstance(user_data["meal_group"], str):
-            try:
-                meal_groups = json.loads(user_data["meal_group"])
-            except json.JSONDecodeError:
-                meal_groups = []
-        elif isinstance(user_data["meal_group"], list):
-            meal_groups = user_data["meal_group"]
-
-        # 식단 선호도 저장
-        for category_id in meal_groups:
-            category = CategoriesCodes.findById(db, category_id)
-
-            if not category or category.type != "MEALS_GROUP":
-                db.rollback()
-                return CommonResponse(success=False, error=f"유효하지 않은 선호 식습관 정보가 포함되어 있습니다. (ID: {category_id})", data=None)
-
-            MealsMappers.create(db, {
-                "user_id": new_user.id,
-                "category_id": category.id
-            }, is_commit=False)
+                if allergy_data:
+                    UserChildAllergy.bulk_create(db, new_user.id, user_child.id, allergy_data, is_commit=False)
 
     db.commit()
     db.refresh(new_user)
 
-    # 자식 정보 등록 여부
-    user_childs = UsersChilds.findByUserIds(db, new_user.id)
-
-    is_child_registered = False
-    if user_childs:
-        is_child_registered = True
-
-    # SQLAlchemy 모델을 Pydantic 모델로 변환하고 dict로 변환
-    user_response = UserResponseSchema.model_validate(new_user)
-    user_response_dict = user_response.model_dump()
-    user_response_dict["is_child_registered"] = is_child_registered
-
-    return CommonResponse(success=True, message="회원이 성공적으로 생성되었습니다.", data=user_response_dict)
+    return CommonResponse(success=True, message="가입이 완료되었습니다.", data=None)
 
 # 회원 정보 수정
 async def update_user(db, data):
@@ -219,7 +211,6 @@ async def update_user(db, data):
         """ 프로필 이미지 처리 """
         if data.get("file"):
             from app.libs.file_utils import save_upload_file_with_resize, delete_file, get_file_url
-            import os
             import glob
 
             # 기존 프로필 이미지 삭제 (모든 사이즈)
@@ -243,16 +234,7 @@ async def update_user(db, data):
                 return CommonResponse(success=False, error=result, data=None)
 
             # 확장자와 사이즈 접미사 제거 (프론트엔드에서 조합)
-            image_url = get_file_url(result)
-            # /attaches/users/38/20260122155352_cf7e9e30_medium.webp -> /attaches/users/38/20260122155352_cf7e9e30
-            image_path = image_url.replace('\\', '/')
-            if '_medium.webp' in image_path:
-                image_path = image_path.replace('_medium.webp', '')
-            elif '.webp' in image_path:
-                # _사이즈.webp 패턴 제거
-                image_path = image_path.rsplit('_', 1)[0] if '_' in image_path.rsplit('/', 1)[-1] else image_path.rsplit('.', 1)[0]
-
-            data["profile_image"] = "/" + image_path
+            data["profile_image"] = "/" + get_file_url(result, remove_size_suffix=True)
 
         """ 회원 식단 선호도 업데이트 """
         if data.get("meal_group") is not None:
@@ -313,6 +295,10 @@ async def update_user(db, data):
 
 # 자녀등록
 async def create_user_child(db, user_hash, children):
+    from app.models.users_childs_allergies import UserChildAllergy
+    from app.models.foods_items import FoodItem
+    from app.libs.file_utils import save_upload_file_with_resize
+
     user = Users.findByViewHash(db, user_hash)
 
     if not user:
@@ -323,31 +309,82 @@ async def create_user_child(db, user_hash, children):
             return CommonResponse(success=False, error="등록할 자녀 정보가 없습니다.", data=None)
 
         for child in children:
-            if child.child_id:
-                exist_child = UsersChilds.findByChildId(db, child.child_id)
+            # 딕셔너리와 객체 모두 지원
+            child_id = child.get("child_id") if isinstance(child, dict) else getattr(child, "child_id", None)
+            child_name = child.get("child_name") if isinstance(child, dict) else child.child_name
+            child_birth = child.get("child_birth") if isinstance(child, dict) else child.child_birth
+            child_gender = child.get("child_gender") if isinstance(child, dict) else child.child_gender
+            is_agent = child.get("is_agent", "N") if isinstance(child, dict) else getattr(child, "is_agent", "N")
+            allergies = child.get("allergies", []) if isinstance(child, dict) else getattr(child, "allergies", [])
+
+            if child_id:
+                exist_child = UsersChilds.findByChildId(db, child_id)
 
                 if exist_child:
+                    params = {
+                        "child_name": child_name,
+                        "child_birth": child_birth,
+                        "child_gender": child_gender,
+                        "is_agent": is_agent if is_agent else "N"
+                    }
+
                     UsersChilds.update(
                         db,
                         exist_child,
-                        {
-                            "child_name": child.child_name,
-                            "child_birth": child.child_birth,
-                            "child_gender": child.child_gender,
-                            "is_agent": child.is_agent if child.is_agent else "N"
-                        },
+                        params,
                         is_commit=False
                     )
+
+                    # 알레르기 정보 업데이트
+                    if allergies:
+                        UserChildAllergy.bulk_delete(db, user.id, exist_child.id)
+
+                        # 알레르기 코드를 name과 함께 변환
+                        allergy_data = []
+                        for allergy_code in allergies:
+                            allergy_info = FoodItem.find_by_code(db, allergy_code)
+                            if allergy_info:
+                                allergy_data.append({
+                                    "allergy_code": allergy_info.food_code,
+                                    "allergy_name": allergy_info.food_name
+                                })
+
+                        if allergy_data:
+                            UserChildAllergy.bulk_create(db, user.id, exist_child.id, allergy_data, is_commit=False)
             else:
-                UsersChilds.create(
+                exist_child = UsersChilds.findByUserName(db, user.id, child_name)
+                if exist_child:
+                    db.rollback()
+                    return CommonResponse(success=False, error=f"이미 등록된 자녀명입니다: {child_name}", data=None)
+
+                user_child = UsersChilds.create(
                     db,
                     user_id=user.id,
-                    child_name=child.child_name,
-                    child_birth=child.child_birth,
-                    child_gender=child.child_gender,
-                    is_agent=child.is_agent if child.is_agent else "N",
+                    child_name=child_name,
+                    child_birth=child_birth,
+                    child_gender=child_gender,
+                    is_agent=is_agent if is_agent else "N",
                     is_commit=False
                 )
+
+                # flush를 호출하여 id를 생성하되 commit은 하지 않음
+                db.flush()
+
+                # 알레르기 정보 등록
+                if allergies:
+                    # 알레르기 코드를 name과 함께 변환
+                    allergy_data = []
+                    for allergy_code in allergies:
+                        allergy_info = FoodItem.find_by_code(db, allergy_code)
+                        if allergy_info:
+                            allergy_data.append({
+                                "allergy_code": allergy_info.food_code,
+                                "allergy_name": allergy_info.food_name
+                            })
+
+                    if allergy_data:
+                        UserChildAllergy.bulk_create(db, user.id, user_child.id, allergy_data, is_commit=False)
+
         db.commit()
     except Exception as e:
         db.rollback()
@@ -438,20 +475,18 @@ def get_user_profile(db, user_hash, user_id):
     meal_group_ids = [mapper.category_id for mapper in meals_mapper]
 
     # 자녀 정보 조회 s
-    user_childs = UsersChilds.findByUserIds(db, user.id)
+    user_childs = UsersChilds.getListWithAllergies(db, user.id).to_list()
 
-    user_childs_response = []
-
-    if user_childs:
-        for child in user_childs:
-            child_data = {
-                "id": child.id,
-                "child_name": child.child_name,
-                "child_birth": child.child_birth,
-                "child_gender": child.child_gender,
-                "is_agent": child.is_agent
-            }
-            user_childs_response.append(child_data)
+    # user_childs.allergy_names, allergy_codes 는 문자열로 반환되므로 리스트로 변환
+    for child in user_childs:
+        if child.get("allergy_names"):
+            child["allergy_names"] = child["allergy_names"].split(',')
+        else:
+            child["allergy_names"] = []
+        if child.get("allergy_codes"):
+            child["allergy_codes"] = child["allergy_codes"].split(',')
+        else:
+            child["allergy_codes"] = []
     # 자녀 정보 조회 e
 
     user_response = UserResponseSchema.model_validate(user)
@@ -464,8 +499,7 @@ def get_user_profile(db, user_hash, user_id):
     user_response_dict["feed_count"] = feed_count
     user_response_dict["like_count"] = like_count
     user_response_dict["meal_count"] = meal_count
-    user_response_dict["user_childs"] = user_childs_response
-
+    user_response_dict["user_childs"] = user_childs
     return CommonResponse(success=True, message="", data=user_response_dict)
 
 
@@ -568,6 +602,30 @@ def user_login(db, data):
             "token": access_token
         }
     )
+
+async def change_password(db, user_hash, data) -> CommonResponse:
+    user = Users.findByViewHash(db, user_hash)
+
+    if not user:
+        return CommonResponse(success=False, error="회원 정보를 찾을 수 없습니다.", data=None)
+
+    from app.libs.password_utils import verify_password
+
+    if not verify_password(user.password, data.get("current_password")):
+        return CommonResponse(success=False, error="현재 비밀번호가 일치하지 않습니다.", data=None)
+
+    try:
+        # 비밀번호 해싱 및 업데이트
+        hashed_password = hash_password(data.get("new_password"))
+        user.password = hashed_password
+        db.commit()
+        db.refresh(user)
+
+        return CommonResponse(success=True, message="비밀번호가 성공적으로 변경되었습니다.", data=None)
+
+    except Exception as e:
+        db.rollback()
+        return CommonResponse(success=False, error=f"비밀번호 변경 중 오류가 발생했습니다: {str(e)}", data=None)
 
 """ 회원 로그아웃 """
 async def user_logout(db, user_hash):

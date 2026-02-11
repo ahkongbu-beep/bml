@@ -17,6 +17,15 @@ class SerializerQueryResult:
             for row in self._results
         ]
 
+    def to_list(self):
+        """
+        순수 딕셔너리 리스트 반환 (Pydantic 직렬화용)
+        """
+        return [
+            self._row_to_dict(row)
+            for row in self._results
+        ]
+
     def toJSON(self):
         import json
         return json.dumps(self.serialize(), ensure_ascii=False, default=str)

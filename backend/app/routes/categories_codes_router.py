@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, Request, Query
 from app.services import categories_codes_service
 from app.core.database import get_db
 from sqlalchemy.orm import Session
+from app.schemas.categories_codes_schemas import FoodItemSaveRequest
 router = APIRouter()
 
 @router.get("/list")
@@ -30,3 +31,26 @@ async def delete_categories_code(request: Request, db: Session = Depends(get_db)
         return {"success": False, "message": "삭제할 카테고리 ID가 필요합니다.", "data": None}
 
     return categories_codes_service.delete_categories_code(db, category_id)
+
+""" 음식 추가 API """
+@router.post("/food/add")
+async def add_food_item(request: Request, body: FoodItemSaveRequest, db: Session = Depends(get_db)):
+    data = body.dict()
+    return categories_codes_service.add_food_item(db, data)
+
+""" 음식 수정 API """
+@router.put("/food/modify/{food_id}")
+async def modify_food_item(food_id: int, request: Request,  body: FoodItemSaveRequest, db: Session = Depends(get_db)):
+    data = body.dict()
+    return categories_codes_service.modify_food_item(db, food_id, data)
+
+""" 음식 리스트 조회 API """
+@router.get("/food/list")
+def list_food_items(food_type: str, food_name: str = Query(None), db: Session = Depends(get_db)):
+    return categories_codes_service.list_food_items(db, food_type, food_name)
+
+
+""" 음식 검색 API (이름으로) """
+@router.get("/food/search")
+def search_food_items(food_name: str, db: Session = Depends(get_db)):
+    return categories_codes_service.search_food_items(db, food_name)

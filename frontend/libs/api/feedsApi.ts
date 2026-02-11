@@ -14,7 +14,6 @@ import {
  * 피드 목록 조회
  */
 export const getFeeds = async (params?: FeedListParams): Promise<PaginationResponse<Feed>> => {
-  console.log("params in getFeeds:", params);
   return fetchGet<PaginationResponse<Feed>>('/feeds/list', params);
 };
 
@@ -22,7 +21,6 @@ export const getFeeds = async (params?: FeedListParams): Promise<PaginationRespo
  * 특정 피드 상세 조회
  */
 export const getFeedById = async (id: number): Promise<Feed> => {
-    console.log("id", id);
   const response = await fetchGet<ApiResponse<Feed>>(`/feeds/detail/${id}`);
   return response.data;
 };
@@ -82,11 +80,14 @@ export const updateFeed = async (id: number, data: UpdateFeedRequest): Promise<F
   formData.append('title', data.title);
   formData.append('content', data.content);
   formData.append('is_public', data.is_public || 'Y');
+  formData.append('category_id', data.category_id ? data.category_id.toString() : '0');
+  formData.append('is_share_meal_plan', data.is_share_meal_plan || 'N');
 
   // 태그는 #으로 구분하여 전송
   if (data.tags && data.tags.length > 0) {
     formData.append('tags', '#' + data.tags.join('#'));
   }
+
 
   // 이미지 파일 추가 (여러 개)
   if (data.images && data.images.length > 0) {

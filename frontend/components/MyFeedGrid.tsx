@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { getStaticImage } from '../libs/utils/common';
+import { MEAL_CONDITION } from '../libs/utils/codes/FeedMealCondition';
 
 interface Feed {
   id: number;
@@ -41,6 +42,8 @@ export default function MyFeedGrid({
       </View>
     );
   }
+
+
 
   if (feeds.length === 0) {
     return (
@@ -90,7 +93,7 @@ export default function MyFeedGrid({
           />
           <View style={styles.feedListContent}>
             <Text style={styles.feedListTitle} numberOfLines={2}>
-              {feed.title || feed.content || '제목 없음'}
+              {feed.content || ''}
             </Text>
             <View style={styles.feedListStats}>
               <View style={styles.feedListStatItem}>
@@ -100,6 +103,12 @@ export default function MyFeedGrid({
               <View style={styles.feedListStatItem}>
                 <Ionicons name="chatbubble" size={14} color="#C0C0C0" />
                 <Text style={styles.feedListStatText}>{feed.comment_count || 0}</Text>
+              </View>
+              <View style={styles.feedListStatItem}>
+                <Text style={styles.feedListStatText}>
+                    {MEAL_CONDITION.find(c => c.value === feed.meal_condition)?.icon || ''}
+                    {MEAL_CONDITION.find(c => c.value === feed.meal_condition)?.name || ''}
+                </Text>
               </View>
             </View>
           </View>

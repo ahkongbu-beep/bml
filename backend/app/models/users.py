@@ -63,7 +63,6 @@ class Users(Base):
 
     __table_args__ = (
         UniqueConstraint('email', name='uq_users_email'),
-        UniqueConstraint('phone', name='uq_users_phone'),
         UniqueConstraint('sns_login_type', 'sns_id', name='uq_users_sns'),
         UniqueConstraint('view_hash', name='uq_users_view_hash'),
 
@@ -89,35 +88,15 @@ class Users(Base):
 
     @staticmethod
     def create(session, params: dict, is_commit: bool = True):
-        """
-        회원 생성
-
-        필수 params:
-        - sns_login_type: SnsLoginTypeEnum
-        - sns_id: str
-        - name: str
-        - email: str
-        - phone: str
-
-        선택 params:
-        - password: str (EMAIL 로그인 시 필수)
-        - nickname: str
-        - address: str
-        - profile_image: str
-        - description: str
-        - marketing_agree: int (0 or 1)
-        - push_agree: int (0 or 1)
-        """
         kst = pytz.timezone("Asia/Seoul")
         now = datetime.now(kst)
 
-        # view_hash 생성 (sns_login_type + sns_id + name + email + phone)
+        # view_hash 생성 (sns_login_type + sns_id + nickname + email)
         view_hash = generate_sha256_hash(
             params['sns_login_type'],
             params['sns_id'],
-            params['name'],
+            params['nickname'],
             params['email'],
-            params['phone']
         )
 
         # password 해싱 (argon2)
@@ -129,18 +108,14 @@ class Users(Base):
         user = Users(
             sns_login_type=params['sns_login_type'],
             sns_id=params['sns_id'],
-            name=params['name'],
+            nickname=params['nickname'],
             email=params['email'],
-            phone=params['phone'],
             password=hashed_password,
-            nickname=params.get('nickname', params['name']),  # 기본값: name
-            address=params.get('address', ''),
-            profile_image=settings.BACKEND_SHOP_URL + params.get('profile_image', '') if params.get('profile_image') else None,
-            description=params.get('description', None),
             role=params.get('role', RoleEnum.USER),
             is_active=params.get('is_active', 1),
             marketing_agree=params.get('marketing_agree', 0),
             push_agree=params.get('push_agree', 0),
+            profile_image=params.get('profile_image', ''),
             created_at=now,
             updated_at=now,
             last_login_at=now,

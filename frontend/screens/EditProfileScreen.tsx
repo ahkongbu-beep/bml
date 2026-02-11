@@ -8,18 +8,22 @@ import {
   TextInput,
   TouchableOpacity,
   Image,
-  Alert,
   ActivityIndicator,
   Platform,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import Header from '../components/Header';
 import Layout from '../components/Layout';
+
+import * as ImagePicker from 'expo-image-picker';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import PasswordChangeModal from '../components/PasswordChangeModal';
+
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../libs/contexts/AuthContext';
+import { useChangePassword } from '../libs/hooks/useUsers';
 import { useAgeGroups, useCategoryCodes } from '../libs/hooks/useCategories';
 import { getStaticImage } from '../libs/utils/common';
+import { toastInfo, toastSuccess, toastError } from '../libs/utils/toast';
 
 export default function EditProfileScreen({ navigation }: any) {
   const { user, isLoading, updateProfile, updateProfileLoading } = useAuth();
@@ -30,15 +34,16 @@ export default function EditProfileScreen({ navigation }: any) {
   const [childBirth, setChildBirth] = useState('');
   const [childGender, setChildGender] = useState<'M' | 'W' | ''>('');
   const [childAgeGroup, setChildAgeGroup] = useState<number>(0);
-  const [dietGroup, setDietGroup] = useState<number[]>([]);
   const [marketingAgree, setMarketingAgree] = useState(false);
   const [pushAgree, setPushAgree] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
-
+  const [passwordChangeModalVisible, setPasswordChangeModalVisible] = useState(false);
   // Hooks
   const { data: ageGroups, isLoading: ageGroupsLoading } = useAgeGroups();
   const { data: mealGroups, isLoading: mealGroupsLoading } = useCategoryCodes("MEALS_GROUP");
+
+  const changePasswordMutation = useChangePassword();
 
   // user 데이터가 로드되면 state 업데이트
   useEffect(() => {
@@ -47,7 +52,6 @@ export default function EditProfileScreen({ navigation }: any) {
       setEmail(user.email || '');
       setDescription(user.description || '');
       setProfileImage(user.profile_image || '');
-      setDietGroup(user.meal_group || []);
       setMarketingAgree(!!user.marketing_agree);
       setPushAgree(!!user.push_agree);
     }
@@ -55,12 +59,12 @@ export default function EditProfileScreen({ navigation }: any) {
 
   const handleSave = () => {
     if (!nickname.trim()) {
-      Alert.alert('알림', '닉네임을 입력해주세요.');
+      toastError('닉네임을 입력해주세요.');
       return;
     }
 
     if (!user?.view_hash) {
-      Alert.alert('오류', '사용자 정보를 찾을 수 없습니다.');
+      toastError('사용자 정보를 찾을수 없습니다.');
       return;
     }
 
@@ -77,26 +81,34 @@ export default function EditProfileScreen({ navigation }: any) {
       },
       {
         onSuccess: () => {
-          Alert.alert('성공', '프로필이 수정되었습니다.', [
-            {
-              text: '확인',
-              onPress: () => navigation.navigate('EditProfile', { refresh: true })
-            },
-          ]);
+          toastSuccess('프로필이 수정되었습니다.');
+          navigation.navigate('EditProfile', { refresh: true })
         },
         onError: (error: any) => {
-          Alert.alert('오류', error?.message || '프로필 수정 중 오류가 발생했습니다.');
+          toastError(error?.message || '프로필 수정 중 오류가 발생했습니다.');
         },
       }
     );
   };
+
+  const handlePasswordSave = (currentPassword: string, newPassword: string) => {
+    changePasswordMutation.mutate({ current_password: currentPassword, new_password: newPassword }, {
+      onSuccess: () => {
+        toastSuccess('비밀번호가 변경되었습니다.');
+        setPasswordChangeModalVisible(false);
+      },
+      onError: (error: any) => {
+        toastError(error?.message || '비밀번호 변경 중 오류가 발생했습니다.');
+      },
+    });
+  }
 
   const handleImageChange = async () => {
     // 권한 요청
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (permissionResult.granted === false) {
-      Alert.alert('권한 필요', '사진첩 접근 권한이 필요합니다.');
+      toastError('사진첩 접근 권한이 필요합니다.');
       return;
     }
 
@@ -131,17 +143,6 @@ export default function EditProfileScreen({ navigation }: any) {
 
   const closeDatePicker = () => {
     setShowDatePicker(false);
-  };
-
-  // 선호 식단 toggle
-  const toggleDietGroup = (id: number) => {
-    setDietGroup((prev) => {
-      if (prev.includes(id)) {
-        return prev.filter((v) => v !== id);
-      } else {
-        return [...prev, id];
-      }
-    });
   };
 
   return (
@@ -200,6 +201,20 @@ export default function EditProfileScreen({ navigation }: any) {
             </View>
           </View>
 
+          {/* 비밀번호 변경 버튼 */}
+          <TouchableOpacity
+            style={styles.changePasswordButton}
+            onPress={() => setPasswordChangeModalVisible(true)}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <View style={{ backgroundColor: '#FFE5E9', padding: 8, borderRadius: 8 }}>
+                <Ionicons name="lock-closed" size={20} color="#FF9AA2" />
+              </View>
+              <Text style={styles.changePasswordButtonText}>비밀번호 변경</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#999" />
+          </TouchableOpacity>
+
           {/* 알림 설정 */}
           <View style={styles.settingsSection}>
             <Text style={styles.sectionTitle}>알림 설정</Text>
@@ -223,6 +238,7 @@ export default function EditProfileScreen({ navigation }: any) {
               </TouchableOpacity>
             </View>
           </View>
+
         </ScrollView>
 
         {/* 저장 버튼 */}
@@ -239,6 +255,15 @@ export default function EditProfileScreen({ navigation }: any) {
             )}
           </TouchableOpacity>
         </View>
+
+        {/* 비밀번호 변경 모달 */}
+        <PasswordChangeModal
+          visible={passwordChangeModalVisible}
+          onClose={() => setPasswordChangeModalVisible(false)}
+          onSubmit={async (currentPassword, newPassword) => {
+            handlePasswordSave(currentPassword, newPassword);
+          }}
+        />
       </View>
     </Layout>
   );

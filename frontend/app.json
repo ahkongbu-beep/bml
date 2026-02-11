@@ -1,6 +1,8 @@
 {
   "expo": {
-    "name": "BML",
+    "name": "bml",
+    "scheme": "com.bml.app",
+    "owner": "limyeongmin",
     "slug": "bml",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -24,19 +26,34 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.bml.app"
+      "usesCleartextTraffic": true,
+      "package": "com.bml.app",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "data": [
+            {
+              "scheme": "com.bml.app"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "scheme": "bml",
     "extra": {
       "eas": {
         "projectId": "d199e4f7-e0ad-46db-b44a-ac3c5055ee2c"
       }
     },
     "plugins": [
-      "expo-web-browser"
+      "expo-web-browser",
+      "@react-native-google-signin/google-signin"
     ]
   }
 }

@@ -254,6 +254,7 @@ def _handle_social_login(db: Session, social_info: SocialUserInfo, refresh_token
     user.is_active = 1
     user.updated_at = func.now()
     db.commit()
+
     # 프로필 이미지 업데이트 (소셜 로그인 시 최신 이미지로)
     if social_info.profile_image and user.profile_image != social_info.profile_image:
         user.profile_image = social_info.profile_image

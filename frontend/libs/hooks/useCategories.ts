@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { getCategoryCodes, getAgeGroups } from '../api/categoriesApi';
+import { getCategoryCodes, getAgeGroups, getAllergyCategories } from '../api/categoriesApi';
 
 // Query Keys
 export const categoryKeys = {
@@ -26,6 +26,14 @@ export const useAgeGroups = () => {
   return useQuery({
     queryKey: categoryKeys.ageGroups(),
     queryFn: () => getAgeGroups(),
+    staleTime: 1000 * 60 * 30, // 30분
+  });
+};
+
+export const useAllergyCategories = () => {
+  return useQuery({
+    queryKey: categoryKeys.codes('ALLERGY'),
+    queryFn: () => getAllergyCategories('ALLERGY'),
     staleTime: 1000 * 60 * 30, // 30분
   });
 };

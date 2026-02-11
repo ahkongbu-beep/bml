@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import styles from './FeedDetailScreen.styles';
 import {
   View,
   Text,
@@ -7,15 +6,20 @@ import {
   ScrollView,
   Image,
   TouchableOpacity,
-  ActivityIndicator,
-  Alert,
+  ActivityIndicator
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import Header from '../components/Header';
-import { useFeed, useDeleteFeed } from '../libs/hooks/useFeeds';
-import { useAuth } from '../libs/contexts/AuthContext';
-import { getStaticImage } from '../libs/utils/common';
 import Layout from '../components/Layout';
+import Header from '../components/Header';
+import ConfirmPortal from '../components/ConfirmPortal';
+import styles from './FeedDetailScreen.styles';
+import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '../libs/contexts/AuthContext';
+import { diffMonthsFrom, getStaticImage } from '@/libs/utils/common';
+import { LoadingPage } from '../components/Loading';
+import { useFeed, useDeleteFeed } from '../libs/hooks/useFeeds';
+import { USER_CHILD_GENDER } from '../libs/utils/codes/UserChildCode';
+import { MEAL_CONDITION } from '../libs/utils/codes/FeedMealCondition';
+import { toastError, toastSuccess } from '@/libs/utils/toast';
 
 export default function FeedDetailScreen({ route, navigation }: any) {
   const { feedId } = route.params;
@@ -23,77 +27,63 @@ export default function FeedDetailScreen({ route, navigation }: any) {
   const { data: feed, isLoading } = useFeed(feedId);
   const deleteFeedMutation = useDeleteFeed(feedId);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [ deleteConfirmVisible, setDeleteConfirmVisible ] = useState(false);
+
+  // 삭제 모달 제거
+  const cancelDeleteConfirm = () => {
+    setDeleteConfirmVisible(false);
+  }
+
+  // 삭제 확정
+  const confirmDelete = async (feedId: number) => {
+    setDeleteConfirmVisible(false);
+
+    try {
+      const result = await deleteFeedMutation.mutateAsync(feedId);
+      if (result.success) {
+        toastSuccess('식단정보가 삭제되었습니다.', {
+          onHide: () => navigation.navigate('MyPage')
+        });
+      } else {
+        toastError(result.error || '식단정보 삭제에 실패했습니다.');
+      }
+
+    } catch (error) {
+      toastError('식단정보 삭제 중 오류가 발생했습니다.');
+    }
+  }
 
   const handleDelete = (feedId) => {
-    Alert.alert(
-      '피드 삭제',
-      '정말로 이 피드를 삭제하시겠습니까?',
-      [
-        {
-          text: '취소',
-          style: 'cancel',
-        },
-        {
-          text: '삭제',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const result = await deleteFeedMutation.mutateAsync(feedId);
-              console.log('피드 삭제 결과:', result);
-              Alert.alert('성공', '피드가 삭제되었습니다.', [
-                { text: '확인', onPress: () => navigation.navigate('MyPage') },
-              ]);
-            } catch (error) {
-              Alert.alert('오류', '피드 삭제에 실패했습니다.');
-            }
-          },
-        },
-      ]
-    );
+    setDeleteConfirmVisible(true);
   };
 
   const handleEdit = () => {
     navigation.navigate('FeedSave', { feed });
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}.${month}.${day}`;
-  };
-
   if (isLoading || !feed) {
     return (
-      <Layout>
-        <View style={styles.container}>
-          <Header
-            title="피드 상세"
-            showBack={true}
-            onBackPress={() => navigation.goBack()}
-          />
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#FF9AA2" />
-          </View>
-        </View>
-      </Layout>
+      <LoadingPage title="식단정보를 불러오는 중"/>
     );
   }
 
+  const condition = MEAL_CONDITION.find(v => v.value === feed.meal_condition);
   const isMyFeed = user?.view_hash === feed.user_hash;
   const images = (feed.images || []).map((image: string) => getStaticImage('medium', image));
+  const allergy_info = feed.childs.allergies.map((allergy: any) => {
+    return allergy.allergy_name;
+  });
 
   return (
     <Layout>
       <View style={styles.container}>
         <Header
-          title="피드 상세"
+          title="식단정보"
           showBack={true}
           onBackPress={() => navigation.goBack()}
         />
         <ScrollView style={styles.scrollView}>
-          {/* 사용자 정보 */}
+          {/* 사용자 정보 S */}
           <View style={styles.userSection}>
             <Image
               source={{
@@ -102,67 +92,41 @@ export default function FeedDetailScreen({ route, navigation }: any) {
               style={styles.userImage}
             />
             <View style={styles.userInfo}>
-              <Text style={styles.userName}>{feed.user?.nickname || '익명'}</Text>
-              <Text style={styles.feedDate}>{formatDate(feed.created_at)}</Text>
+              <Text style={styles.userName}>{feed.user?.nickname}</Text>
+              {feed.childs && (
+                <Text style={styles.timestamp}>
+                  {diffMonthsFrom(feed.childs.child_birth)} 개월 · {USER_CHILD_GENDER[feed.childs.child_gender]}
+                </Text>
+              )}
+              {allergy_info.length > 0 && (
+                <View style={styles.allergiesContainer}>
+                  {allergy_info.map((allergyName, index) => (
+                    <View key={index} style={styles.allergyBadge}>
+                      <Text style={styles.allergyBadgeText}>{allergyName}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
             </View>
-            {isMyFeed && (
-              <View style={styles.actionButtons}>
-                <TouchableOpacity
-                  style={styles.editButton}
-                  onPress={handleEdit}
-                >
-                  <Ionicons name="pencil" size={20} color="#FF9AA2" />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.deleteButton}
-                  onPress={() => handleDelete(feed.id)}
-                >
-                  <Ionicons name="trash" size={20} color="#FF6B6B" />
-                </TouchableOpacity>
+            {feed.category_name && (
+              <View style={styles.categoryLabel}>
+                <Text style={styles.categoryLabelText}>{feed.category_name}</Text>
               </View>
             )}
           </View>
+          {/* 사용자 정보 E */}
 
           {/* 이미지 섹션 */}
           {images.length > 0 && (
             <View style={styles.imageSection}>
-              <ScrollView
-                horizontal
-                pagingEnabled
-                showsHorizontalScrollIndicator={false}
-                onScroll={(event) => {
-                  const index = Math.round(
-                    event.nativeEvent.contentOffset.x /
-                      event.nativeEvent.layoutMeasurement.width
-                  );
-                  setCurrentImageIndex(index);
-                }}
-                scrollEventThrottle={16}
-              >
-                {images.map((image, index) => (
-                  <Image
-                    key={index}
-                    source={{ uri: image }}
-                    style={styles.feedImage}
-                    resizeMode="cover"
-                  />
-                ))}
-              </ScrollView>
-              {images.length > 1 && (
-                <View style={styles.imageIndicator}>
-                  <Text style={styles.imageIndicatorText}>
-                    {currentImageIndex + 1} / {images.length}
-                  </Text>
-                </View>
-              )}
-            </View>
-          )}
-
-
-          {/* 제목 */}
-          {feed.title && (
-            <View style={styles.titleSection}>
-              <Text style={styles.title}>{feed.title}</Text>
+              {images.map((image, index) => (
+                <Image
+                  key={index}
+                  source={{ uri: image }}
+                  style={styles.feedImage}
+                  resizeMode="cover"
+                />
+              ))}
             </View>
           )}
 
@@ -176,7 +140,7 @@ export default function FeedDetailScreen({ route, navigation }: any) {
             <View style={styles.tagsSection}>
               {feed.tags.map((tag, index) => (
                 <View key={index} style={styles.tag}>
-                  <Text style={styles.tagText}>#{tag}</Text>
+                  <Text style={styles.tagText}>{tag}</Text>
                 </View>
               ))}
             </View>
@@ -185,16 +149,51 @@ export default function FeedDetailScreen({ route, navigation }: any) {
           {/* 통계 */}
           <View style={styles.statsSection}>
             <View style={styles.statItem}>
-              <Ionicons name="heart" size={20} color="#FF9AA2" />
+              <Ionicons name="heart" size={11} color="#FF9AA2" />
+              <Text style={styles.statText}>도움이 되었어요</Text>
               <Text style={styles.statText}>{feed.like_count || 0}</Text>
             </View>
+
+            {/* 섭취 상태 - 나에게만 보이게 */}
+            {isMyFeed && (
             <View style={styles.statItem}>
-              <Ionicons name="eye" size={20} color="#999" />
-              <Text style={styles.statText}>{feed.view_count || 0}</Text>
+              <Text style={styles.statText}>{condition ? condition.icon + " " + condition.name : ''}</Text>
             </View>
+            )}
           </View>
         </ScrollView>
+
+        {/* 액션 버튼 */}
+        {isMyFeed && (
+          <View style={styles.actionSection}>
+            <TouchableOpacity
+              style={styles.actionButtonFull}
+              onPress={handleEdit}
+            >
+              <Ionicons name="pencil" size={18} color="#FF9AA2" />
+              <Text style={styles.actionButtonText}>편집</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.actionButtonFull, styles.actionButtonDelete]}
+              onPress={() => handleDelete(feed.id)}
+            >
+              <Ionicons name="trash" size={18} color="#FF6B6B" />
+              <Text style={[styles.actionButtonText, styles.actionButtonDeleteText]}>삭제</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
+
+      <ConfirmPortal
+        visible={deleteConfirmVisible}
+        title="식단 제거"
+        message="정말로 이 식단을 제거하시겠습니까?"
+        onConfirm={() => confirmDelete(feed.id)}
+        onCancel={cancelDeleteConfirm}
+        confirmText="제거"
+        cancelText="취소"
+        confirmColor="#FF6B6B"
+      />
     </Layout>
   );
 }

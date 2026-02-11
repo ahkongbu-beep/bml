@@ -57,7 +57,6 @@ export default function MealCopyByFeedScreen({ route, navigation }: any) {
   // 복사 mutation
   const copyFeedMutation = useCopyFeed();
 
-  const [title, setTitle] = useState('');
   const [memo, setMemo] = useState('');
   const [feedHash, setFeedHash] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
@@ -67,17 +66,12 @@ export default function MealCopyByFeedScreen({ route, navigation }: any) {
   // 피드 정보로 초기값 설정
   useEffect(() => {
     if (feed) {
-      setTitle(feed.title || '');
       setMemo(feed.content || '');
       setFeedHash(feed.feed_hash || '');
     }
   }, [feed]);
 
   const handleCopyFeed = async () => {
-    if (!title.trim()) {
-      Alert.alert('알림', '제목을 입력해주세요.');
-      return;
-    }
     if (!selectedCategory) {
       Alert.alert('알림', '식사 시간을 선택해주세요.');
       return;
@@ -90,7 +84,6 @@ export default function MealCopyByFeedScreen({ route, navigation }: any) {
     const copyData = {
       targetFeedId: feedId,
       targetUserHash: userHash,
-      title: title.trim(),
       memo: memo.trim(),
       categoryCode: selectedCategory,
       inputDate: selectedDate,
@@ -252,19 +245,6 @@ export default function MealCopyByFeedScreen({ route, navigation }: any) {
                   </TouchableOpacity>
                 ))}
               </ScrollView>
-            </View>
-
-            {/* 제목 입력 */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>제목 *</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="식단 제목을 입력하세요"
-                value={title}
-                onChangeText={setTitle}
-                maxLength={50}
-              />
-              <Text style={styles.charCount}>{title.length}/50</Text>
             </View>
 
             {/* 메모 입력 */}

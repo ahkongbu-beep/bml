@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import styles from './LoginScreen.styles';
+import * as AuthSession from 'expo-auth-session';
+import * as WebBrowser from 'expo-web-browser';
 import {
   View,
   Text,
@@ -16,10 +18,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../libs/contexts/AuthContext';
 import { useGoogleAuth } from '../libs/hooks/useGoogleAuth';
 import Layout from '@/components/Layout';
+import { toastError } from '../libs/utils/toast';
 
 export default function LoginScreen({ navigation }: any) {
-
-// 1. 변수를 안전하게 가져오기 (기본값 설정)
+  // 1. 변수를 안전하게 가져오기 (기본값 설정)
   const androidId = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID;
   const webId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
 
@@ -37,7 +39,7 @@ export default function LoginScreen({ navigation }: any) {
     !!process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID &&
     !!process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
 
-  // ID 가 둘다 있을때만 설정을 넘김
+  // Android Client ID로 인증, Web Client ID로 ID 토큰 받기
   const googleConfig = {
     androidClientId: androidId || '',
     webClientId: webId || '',
@@ -46,16 +48,11 @@ export default function LoginScreen({ navigation }: any) {
   // 구글 로그인 훅 - Client ID가 없어도 안전하게 동작
   const { promptAsync: googlePromptAsync, isLoading: googleAuthLoading, error: googleError } = useGoogleAuth(
     googleConfig,
-    async (idToken, userInfo) => {
-      // 구글 로그인 성공 시 백엔드로 idToken 전달
-      console.log('Sending real idToken to backend:', {
-        idTokenLength: idToken.length,
-        userEmail: userInfo.email
-      });
-
+    async (idToken, userInfo, serverAuthCode) => {
       await googleLogin({
         idToken: idToken,
-        accessToken: undefined
+        accessToken: undefined,
+        refreshToken: serverAuthCode || undefined  // serverAuthCode를 refreshToken으로 사용
       });
 
       return { success: true };
@@ -63,28 +60,30 @@ export default function LoginScreen({ navigation }: any) {
   );
 
   // 구글 로그인 핸들러
+  WebBrowser.maybeCompleteAuthSession();
+
   const handleGoogleLogin = async () => {
-    // Client ID 확인
-    if (!androidId || !webId) {
-      Alert.alert('설정 오류', '구글 로그인 설정이 누락되었습니다.');
-      return;
-    }
     try {
-      console.log('Starting Google OAuth...');
       await googlePromptAsync();
     } catch (error) {
-      console.error('Google OAuth failed:', error);
-      Alert.alert('오류', '구글 로그인에 실패했습니다.');
+      toastError('구글 로그인 중 문제가 발생했습니다.');
     }
   };
 
+  // 구글 로그인 에러 표시
+  React.useEffect(() => {
+    if (googleError) {
+      toastError('구글 로그인 오류: ' + googleError);
+    }
+  }, [googleError]);
+
   const handleLogin = () => {
     if (!email.trim()) {
-      Alert.alert('오류', '이메일을 입력해주세요.');
+      toastError('이메일을 입력해주세요.');
       return;
     }
     if (!password.trim()) {
-      Alert.alert('오류', '비밀번호를 입력해주세요.');
+      toastError('비밀번호를 입력해주세요.');
       return;
     }
 
@@ -114,7 +113,7 @@ export default function LoginScreen({ navigation }: any) {
               <Ionicons name="mail-outline" size={20} color="#FF9AA2" style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
-                placeholder="이메일"
+                placeholder="이메일을 입력하세요."
                 placeholderTextColor="#B0B0B0"
                 value={email}
                 onChangeText={setEmail}
@@ -129,7 +128,7 @@ export default function LoginScreen({ navigation }: any) {
               <Ionicons name="lock-closed-outline" size={20} color="#FF9AA2" style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
-                placeholder="비밀번호"
+                placeholder="비밀번호를 입력하세요."
                 placeholderTextColor="#B0B0B0"
                 value={password}
                 onChangeText={setPassword}
@@ -212,7 +211,6 @@ export default function LoginScreen({ navigation }: any) {
               </TouchableOpacity>
             </View>
           </View>
-
         </ScrollView>
       </KeyboardAvoidingView>
     </Layout>

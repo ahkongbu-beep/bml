@@ -85,25 +85,38 @@ def delete_file(file_path: str) -> bool:
         print(f"파일 삭제 실패: {str(e)}")
         return False
 
-def get_file_url(file_path: str, base_url: str = "") -> str:
+def get_file_url(file_path: str, base_url: str = "", remove_size_suffix: bool = False) -> str:
     """
     파일 경로를 URL로 변환
 
     Args:
         file_path: 실제 파일 경로 (예: attaches/users/20251203120000_abc123.jpg)
         base_url: 기본 URL
+        remove_size_suffix: True일 경우 _medium.webp, _large.webp 등의 접미사 제거
 
     Returns:
         접근 가능한 URL
     """
     if not base_url:
-        return file_path
+        result_path = file_path
+    else:
+        # attaches 디렉토리 기준으로 상대 경로 추출
+        if 'attaches' in file_path:
+            relative_path = file_path.split('attaches')[-1].lstrip(os.sep).replace(os.sep, '/')
+            result_path = f"{base_url}/attaches/{relative_path}"
+        else:
+            result_path = file_path
 
-    # attaches 디렉토리 기준으로 상대 경로 추출
-    if 'attaches' in file_path:
-        relative_path = file_path.split('attaches')[-1].lstrip(os.sep).replace(os.sep, '/')
-        return f"{base_url}/attaches/{relative_path}"
-    return file_path
+    # 사이즈 접미사 제거 (프론트엔드에서 조합하기 위함)
+    if remove_size_suffix:
+        result_path = result_path.replace('\\', '/')
+        if '_medium.webp' in result_path:
+            result_path = result_path.replace('_medium.webp', '')
+        elif '.webp' in result_path:
+            # _사이즈.webp 패턴 제거
+            result_path = result_path.rsplit('_', 1)[0] if '_' in result_path.rsplit('/', 1)[-1] else result_path.rsplit('.', 1)[0]
+
+    return result_path
 
 def resize_and_convert_to_webp(image_content: bytes, base_filename: str, save_dir: str) -> Tuple[bool, List[Dict[str, str]], str]:
     """

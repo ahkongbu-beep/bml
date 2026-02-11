@@ -1,5 +1,10 @@
 import { UserProfile } from './UserType';
 
+export interface Allergy {
+  allergy_code: string;
+  allergy_name: string;
+}
+
 export interface Feed {
   id: number;
   user_id: number;
@@ -7,12 +12,21 @@ export interface Feed {
   content: string;
   images?: string[];
   is_liked: boolean;
+  category_id: number;
+  category_name?: string;
+  view_hash: string;
+  nickname: string;
+  profile_image?: string;
+  is_public: string;
+  is_share_meal_plan: string;
+  meal_condition: string;
   user: UserProfile;
   childs?: {
     child_name: string;
     child_birth: string;
     child_gender: 'M' | 'F';
     is_agent: string;
+    allergies: Allergy[];
   };
   tags: string[];
   like_count: number;

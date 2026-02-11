@@ -2,7 +2,7 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { register } from '../api/usersApi';
 import { RegisterRequest } from '../types/ApiTypes';
 import { getMyInfo, getUserProfile, getConfirmUser, getUserEmail, setResetUserPassword } from '../api/authApi';
-import { setRegisterChildren, setDeleteChildren } from '../api/usersApi';
+import { setRegisterChildren, setDeleteChildren, setChangePassword } from '../api/usersApi';
 
 /**
  * 회원가입 Mutation
@@ -74,8 +74,19 @@ export const useRequestPasswordReset = (type: 'email' | 'phone', user_hash: stri
 
   return useMutation({
     mutationFn: () => setResetUserPassword(type, user_hash),
+  })
+}
+
+/**
+ * 사용자 비밀번호 수정
+ */
+export const useChangePassword = () => {
+  return useMutation({
+    mutationFn: (data: { current_password: string; new_password: string }) =>
+      setChangePassword(data.current_password, data.new_password),
   });
 }
+
 
 /*
  * 자녀 정보 등록
@@ -86,6 +97,8 @@ interface ChildInfo {
   child_birth: string;
   child_gender: 'M' | 'F';
   is_agent: string;
+  child_image?: string;
+  allergies?: string[];
 }
 
 export const useRegisterChildren = (children: ChildInfo[]) => {
@@ -107,3 +120,4 @@ export const registerChildren = async (children: ChildInfo[]) => {
 export const deleteChildren = async (child_id: number) => {
   return setDeleteChildren(child_id);
 }
+

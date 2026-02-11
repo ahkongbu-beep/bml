@@ -10,3 +10,7 @@ class CategoryCodeResponse(BaseModel):
     value: str
     sort: int
     is_active: str  # Y / N
+
+class FoodItemSaveRequest(BaseModel):
+    food_type: Optional[str] = "FOOD"
+    food_name: str

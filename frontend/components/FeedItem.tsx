@@ -88,6 +88,10 @@ const FeedItem = React.memo(({
     }
   };
 
+  const allergy_info = item.childs.allergies.map((allergy: any) => {
+    return allergy.allergy_name;
+  });
+
   return (
     <View style={styles.feedContainer}>
       {/* 사용자 정보 */}
@@ -100,135 +104,42 @@ const FeedItem = React.memo(({
             source={{ uri: getStaticImage('thumbnail', item.user.profile_image) }}
             style={styles.profileImage}
           />
-          <View>
+        </TouchableOpacity>
+
+        <View style={{ flex: 1 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}>
             <Text style={styles.nickname}>{item.user.nickname}</Text>
-            {/*  n 개월  */}
             {item.childs && (
               <Text style={styles.timestamp}>
-                {diffMonthsFrom(item.childs.child_birth)} 개월 · {USER_CHILD_GENDER[item.childs.child_gender]}
+                {diffMonthsFrom(item.childs.child_birth)}개월 · {USER_CHILD_GENDER[item.childs.child_gender]}
               </Text>
             )}
           </View>
-        </TouchableOpacity>
-        <TouchableOpacity ref={menuButtonRef} onPress={handleMenuToggle}>
-          <Ionicons name="ellipsis-vertical" size={22} color="#C0C0C0" />
-        </TouchableOpacity>
+          {allergy_info.length > 0 && (
+            <View style={styles.allergiesContainer}>
+              {allergy_info.map((allergyName, index) => (
+                <View key={index} style={styles.allergyBadge}>
+                  <Text style={styles.allergyBadgeText}>{allergyName}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+        <View style={styles.categoryLabel}>
+          <Text style={styles.categoryLabelText}>{item.category_name}</Text>
+        </View>
       </View>
-
-      {/* 드롭다운 메뉴 */}
-      <Modal
-        visible={menuVisible === item.id}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => onMenuToggle(-1)}
-      >
-        <TouchableWithoutFeedback onPress={() => onMenuToggle(-1)}>
-          <View style={styles.modalOverlay}>
-            <TouchableWithoutFeedback>
-              <View style={[
-                styles.dropdownMenu,
-                { top: menuPosition.top, right: menuPosition.right }
-              ]}>
-                <TouchableOpacity
-                  style={styles.menuItem}
-                  onPress={() => onViewProfile(item.user.user_hash || '', item.user.nickname)}
-                >
-                  <Ionicons name="person-outline" size={20} color="#4A4A4A" />
-                  <Text style={styles.menuText}>사용자 계정보기</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.menuItem}
-                  onPress={() => onAddToMealCalendar(item.user.user_hash, item.id)}
-                >
-                  <Ionicons name="person-outline" size={20} color="#4A4A4A" />
-                  <Text style={styles.menuText}>식단 캘린더에 추가</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.menuItem}
-                  onPress={() => onBlock(item.user.user_hash, item.user.nickname)}
-                >
-                  <Ionicons name="ban-outline" size={20} color="#FF6B6B" />
-                  <Text style={[styles.menuText, styles.menuTextDanger]}>차단하기</Text>
-                </TouchableOpacity>
-                <View style={styles.menuDivider} />
-                <TouchableOpacity
-                  style={styles.menuItem}
-                  onPress={() => {
-                    onLike(item.id);
-                    onMenuToggle(-1);
-                  }}
-                >
-                  <Ionicons
-                    name={item.is_liked ? 'heart' : 'heart-outline'}
-                    size={20}
-                    color={item.is_liked ? '#FF9AA2' : '#4A4A4A'}
-                  />
-                  <Text style={styles.menuText}>
-                    {item.is_liked ? '좋아요 취소' : '좋아요'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </TouchableWithoutFeedback>
-          </View>
-        </TouchableWithoutFeedback>
-      </Modal>
 
       {/* 피드 이미지 */}
       {item.images.length > 0 ? (
         <View style={styles.imageCarouselContainer}>
-          <ScrollView
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            onScroll={(event) => {
-              const slideIndex = Math.round(
-                event.nativeEvent.contentOffset.x / (width - 16)
-              );
-              onImageScroll(item.id, slideIndex);
-            }}
-            scrollEventThrottle={16}
-          >
-            {item.images.map((imageUri, index) => (
+          {item.images.map((imageUri, index) => (
               <Image
-                key={`${item.id}-image-${extractImageId(imageUri) || index}`}
-                source={{ uri: getStaticImage('medium', imageUri) }}
-                style={styles.feedImage}
+              key={`${item.id}-image-${extractImageId(imageUri) || index}`}
+              source={{ uri: getStaticImage('medium', imageUri) }}
+              style={styles.feedImage}
               />
-            ))}
-          </ScrollView>
-          {item.images.length > 1 && (
-            <View style={styles.imageIndicatorContainer}>
-              <Text style={styles.imageIndicator}>
-                {(currentImageIndex[item.id] || 0) + 1} / {item.images.length}
-              </Text>
-            </View>
-          )}
-          {onAiSummary && userHash && (
-            <TouchableOpacity
-              style={styles.aiSummaryButton}
-              onPress={() => {
-                const currentIndex = currentImageIndex[item.id] || 0;
-                const currentImageUrl = item.images[currentIndex];
-
-                // 이미지 URL 또는 인덱스를 전달
-                onAiSummary(userHash, item.id, currentIndex.toString());
-              }}
-              activeOpacity={0.8}
-            >
-              <Animated.View
-                style={[
-                  styles.aiButtonInner,
-                  {
-                    opacity: shimmerOpacity,
-                    transform: [{ scale: shimmerScale }],
-                  },
-                ]}
-              >
-                <Ionicons name="sparkles" size={20} color="#FFFFFF" />
-                <Text style={styles.aiButtonText}>AI</Text>
-              </Animated.View>
-            </TouchableOpacity>
-          )}
+          ))}
         </View>
       ) : (
         <View style={[styles.feedImage, styles.noImageContainer]}>
@@ -236,40 +147,67 @@ const FeedItem = React.memo(({
         </View>
       )}
 
-      {/* 액션 버튼 */}
-      <View style={styles.actions}>
-        <View style={styles.leftActions}>
-          <TouchableOpacity
-            onPress={() => onLike(item.id)}
-            style={styles.actionButton}
-          >
-            <Ionicons
-              name={item.is_liked ? 'heart' : 'heart-outline'}
-              size={30}
-              color={item.is_liked ? '#FF9AA2' : '#C0C0C0'}
-            />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => onCommentPress(item.id)}
-          >
-            <Ionicons name="chatbubble-outline" size={28} color="#C0C0C0" />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* 좋아요 수 */}
-      <Text style={styles.likeCount}>좋아요 {item.like_count}개</Text>
-
       {/* 내용 */}
       <View style={styles.contentContainer}>
-        <Text style={styles.content}>
+        {/* 주 식재료 */}
+        <View style={styles.tagsSection}>
           {item.tags.length > 0 && item.tags.map((tag, idx) => (
-            <Text key={`${item.id}-tag-${idx}-${tag}`}>#{tag} </Text>
-          ))}{"\n"}
-          <Text style={styles.contentNickname}>{item.user.nickname}</Text>{' '}
+            <View key={`${item.id}-tag-${idx}-${tag}`} style={styles.tag}>
+              <Text style={styles.tagText}>{tag} </Text>
+            </View>
+          ))}
+        </View>
+        <Text style={styles.content}>
           {item.content}
         </Text>
+      </View>
+
+      {/* 액션 버튼 */}
+      <View style={styles.actions}>
+        <TouchableOpacity
+          onPress={() => onLike(item.id)}
+          style={styles.actionButton}
+        >
+          <Ionicons
+            name={item.is_liked ? 'heart' : 'heart-outline'}
+            size={14}
+            color="#FF9AA2"
+          />
+          <Text style={styles.actionButtonText}>도움이 되었어요</Text>
+          <Text style={styles.actionButtonCount}>{item.like_count || 0}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => onCommentPress(item.id)}
+        >
+          <Ionicons name="chatbubble-outline" size={14} color="#FF9AA2" />
+          <Text style={styles.actionButtonText}>댓글</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* 액션 버튼 */}
+      <View style={styles.actionButtonsContainer}>
+        {onAiSummary && userHash && (
+          <TouchableOpacity
+            style={styles.bottomActionButton}
+            onPress={() => {
+              const currentIndex = currentImageIndex[item.id] || 0;
+              onAiSummary(userHash, item.id, currentIndex.toString());
+            }}
+          >
+            <Ionicons name="sparkles" size={18} color="#FF9AA2" />
+            <Text style={styles.bottomActionButtonText}>AI 요약</Text>
+          </TouchableOpacity>
+        )}
+        {onAddToMealCalendar && (
+          <TouchableOpacity
+            style={styles.bottomActionButton}
+            onPress={() => onAddToMealCalendar(item.user.user_hash, item.id)}
+          >
+            <Ionicons name="calendar-outline" size={18} color="#FF9AA2" />
+            <Text style={styles.bottomActionButtonText}>식단 캘린더에 추가</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );
@@ -288,6 +226,25 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.1)',
   },
+  allergiesContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 8,
+  },
+  allergyBadge: {
+    backgroundColor: '#FFF9E6',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FFE8B3',
+  },
+  allergyBadgeText: {
+    fontSize: 11,
+    color: '#FF9800',
+    fontWeight: '600',
+  },
   dropdownMenu: {
     position: 'absolute',
     backgroundColor: '#FFFFFF',
@@ -301,6 +258,26 @@ const styles = StyleSheet.create({
     elevation: 8,
     borderWidth: 1,
     borderColor: '#FFE5E5',
+  },
+  tagsSection: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingTop:10,
+    paddingBottom:10,
+    gap: 8,
+  },
+  tag: {
+    borderWidth: 1,
+    borderColor: '#DDD',
+    backgroundColor: '#f3f3f3',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+  tagText: {
+    fontSize: 14,
+    color: '#707070',
+    fontWeight: '600',
   },
   menuItem: {
     flexDirection: 'row',
@@ -348,17 +325,34 @@ const styles = StyleSheet.create({
     color: '#4A4A4A',
   },
   timestamp: {
+    fontSize: 11,
+    color: '#919191',
+    marginTop: 0,
+  },
+  categoryLabel: {
+    alignSelf: 'center',
+    backgroundColor: '#FFE5E5',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  categoryLabelText: {
     fontSize: 12,
-    color: '#B0B0B0',
-    marginTop: 3,
+    color: '#FF9AA2',
+    fontWeight: '600',
   },
   imageCarouselContainer: {
     position: 'relative',
+    paddingLeft: 16,
+    paddingRight: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   feedImage: {
-    width: width - 16,
-    height: width - 16,
+    width: width - 32,
+    height: width - 32,
     resizeMode: 'cover',
+    borderRadius: 10,
   },
   noImageContainer: {
     backgroundColor: '#FFF5F0',
@@ -413,23 +407,29 @@ const styles = StyleSheet.create({
   },
   actions: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     paddingHorizontal: 14,
     paddingTop: 12,
-  },
-  leftActions: {
-    flexDirection: 'row',
+    gap: 10,
   },
   actionButton: {
-    marginRight: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#FFE8B3',
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    gap: 6,
   },
-  likeCount: {
-    fontSize: 14,
+  actionButtonText: {
+    fontSize: 12,
+    color: '#666',
     fontWeight: '600',
-    color: '#4A4A4A',
-    paddingHorizontal: 14,
-    paddingTop: 8,
+  },
+  actionButtonCount: {
+    fontSize: 12,
+    color: '#666',
+    fontWeight: '700',
   },
   contentContainer: {
     paddingHorizontal: 14,
@@ -443,6 +443,30 @@ const styles = StyleSheet.create({
   contentNickname: {
     fontWeight: '700',
     color: '#4A4A4A',
+  },
+  actionButtonsContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 14,
+    paddingBottom: 14,
+    paddingTop: 14,
+    gap: 10,
+  },
+  bottomActionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFF5F0',
+    borderWidth: 1,
+    borderColor: '#FFE5E5',
+    borderRadius: 10,
+    paddingVertical: 12,
+    gap: 6,
+  },
+  bottomActionButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FF9AA2',
   },
 });
 

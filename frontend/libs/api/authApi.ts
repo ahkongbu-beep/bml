@@ -1,4 +1,4 @@
-import { fetchGet, fetchPost, fetchPostFormData, fetchPutFormData } from './config';
+import { fetchDelete, fetchGet, fetchPost, fetchPostFormData, fetchPutFormData } from './config';
 import { LoginRequest, LoginResponse, RegisterRequest, User } from '../types/UserType';
 import { ApiResponse } from '../types/ApiTypes';
 
@@ -15,6 +15,7 @@ export const login = async (data: LoginRequest): Promise<LoginResponse> => {
 export interface GoogleLoginRequest {
   idToken: string;
   accessToken?: string;
+  refreshToken?: string;
 }
 
 export const googleLogin = async (data: GoogleLoginRequest): Promise<LoginResponse> => {
@@ -59,6 +60,13 @@ export const register = async (data: RegisterRequest): Promise<ApiResponse<User>
 
   return fetchPostFormData<ApiResponse<User>>('/users/create', formData);
 };
+
+/**
+ * 회원탈퇴
+ */
+export const withdrawalApi = async (): Promise<ApiResponse<null>> => {
+  return fetchDelete<ApiResponse<null>>('/auth/deny', {});
+}
 
 /**
  * 로그아웃

@@ -1,4 +1,3 @@
-// 댓글 입력 모달
 // frontend/components/CommentModal.tsx
 
 import React, { useState } from 'react';
@@ -6,19 +5,17 @@ import {
   View,
   Text,
   StyleSheet,
-  Modal,
   TouchableOpacity,
   TextInput,
-  FlatList,
   Image,
   Platform,
-  KeyboardAvoidingView,
-  ScrollView,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  FlatList,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { getStaticImage } from '../libs/utils/common';
-import { formatDate } from '../libs/utils/common';
+import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
+import { getStaticImage, formatDate } from '../libs/utils/common';
 
 interface CommentUser {
   nickname: string;
@@ -32,6 +29,7 @@ interface Comment {
   comment: string;
   created_at: string;
   updated_at: string;
+  deleted_at?: string | null;
   is_owner: boolean;
   view_hash: string;
   parent_hash: string;
@@ -40,9 +38,7 @@ interface Comment {
 }
 
 interface CommentModalProps {
-  visible: boolean;
   onClose: () => void;
-  feedId: number;
   comments?: Comment[];
   onSubmit?: (content: string, parentHash?: string) => void;
   onDelete?: (commentHash: string) => void;
@@ -50,34 +46,43 @@ interface CommentModalProps {
 }
 
 export default function CommentModal({
-  visible,
   onClose,
-  feedId,
   comments = [],
   onSubmit,
   onDelete,
   isLoading = false,
 }: CommentModalProps) {
+  const insets = useSafeAreaInsets();
+
   const [commentText, setCommentText] = useState('');
   const [replyingTo, setReplyingTo] = useState<{ hash: string; nickname: string } | null>(null);
 
+  /* =============================
+     handlers
+  ============================= */
+
   const handleSubmit = () => {
-    if (commentText.trim() && onSubmit) {
-      onSubmit(commentText.trim(), replyingTo?.hash);
-      setCommentText('');
-      setReplyingTo(null);
-    }
+    if (!commentText.trim() || !onSubmit) return;
+
+    onSubmit(commentText.trim(), replyingTo?.hash);
+    setCommentText('');
+    setReplyingTo(null);
   };
 
-  const handleDelete = (commentHash: string) => {
-    if (onDelete) {
-      onDelete(commentHash);
-    }
+  const handleDelete = (hash: string) => {
+    onDelete?.(hash);
   };
 
   const handleReply = (comment: Comment) => {
-    setReplyingTo({ hash: comment.view_hash, nickname: comment.user.nickname });
+    setReplyingTo({
+      hash: comment.view_hash,
+      nickname: comment.user.nickname,
+    });
   };
+
+  /* =============================
+     render comment
+  ============================= */
 
   const renderComment = ({ item, depth = 0 }: { item: Comment; depth?: number }) => (
     <View style={[styles.commentItem, depth > 0 && styles.replyItem]}>
@@ -92,32 +97,34 @@ export default function CommentModal({
             <Ionicons name="person" size={16} color="#FFB7C5" />
           </View>
         )}
+
         <View style={styles.commentContent}>
           <View style={styles.commentTopRow}>
             <Text style={styles.commentNickname}>{item.user.nickname}</Text>
             <Text style={styles.commentDate}>
-              {(item.deleted_at ? formatDate(item.deleted_at) + " 삭제됨" : formatDate(item.created_at))}
+              {item.deleted_at
+                ? `${formatDate(item.deleted_at)} 삭제됨`
+                : formatDate(item.created_at)}
             </Text>
           </View>
-          <Text style={styles.commentText}>{(item.deleted_at ? "[사용자가 삭제한 댓글 입니다]" : item.comment)}</Text>
-          <TouchableOpacity
-            style={styles.replyButton}
-            onPress={() => handleReply(item)}
-          >
-            <Text style={styles.replyButtonText}>[{item.user.nickname}] 답글</Text>
+
+          <Text style={styles.commentText}>
+            {item.deleted_at ? '[사용자가 삭제한 댓글 입니다]' : item.comment}
+          </Text>
+
+          <TouchableOpacity onPress={() => handleReply(item)}>
+            <Text style={styles.replyButtonText}>답글</Text>
           </TouchableOpacity>
         </View>
+
         {item.is_owner && !item.deleted_at && (
-          <TouchableOpacity
-            style={styles.deleteButton}
-            onPress={() => handleDelete(item.view_hash)}
-          >
+          <TouchableOpacity onPress={() => handleDelete(item.view_hash)}>
             <Ionicons name="trash-outline" size={18} color="#FF6B6B" />
           </TouchableOpacity>
         )}
       </View>
-      {/* 대댓글 렌더링 */}
-      {item.children && item.children.length > 0 && (
+
+      {item.children?.length > 0 && (
         <View style={styles.repliesContainer}>
           {item.children.map((child) => (
             <View key={child.view_hash}>
@@ -129,150 +136,137 @@ export default function CommentModal({
     </View>
   );
 
-  const renderEmptyList = () => (
+  /* =============================
+     render empty
+  ============================= */
+
+  const renderEmpty = () => (
     <View style={styles.emptyContainer}>
       <Ionicons name="chatbubbles-outline" size={48} color="#FFB7C5" />
       <Text style={styles.emptyText}>첫 댓글을 남겨보세요</Text>
     </View>
   );
 
+  /* =============================
+     UI
+  ============================= */
+
   return (
-   <Modal
-      visible={visible}
-      animationType="slide"
-      transparent={true}
-      onRequestClose={onClose}
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={0}
     >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.modalContainer}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
-      >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={onClose}
-        >
-          <View
-            style={styles.modalContent}
-            onStartShouldSetResponder={() => true}
-          >
-            {/* 헤더 */}
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>댓글</Text>
-              <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                <Ionicons name="close" size={24} color="#333" />
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+        {/* 헤더 */}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={onClose} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color="#333" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>댓글</Text>
+          <View style={styles.headerPlaceholder} />
+        </View>
+
+        {/* 댓글 리스트 */}
+        <FlatList
+          data={comments}
+          keyExtractor={(item) => item.view_hash}
+          renderItem={({ item }) => renderComment({ item })}
+          ListEmptyComponent={renderEmpty}
+          contentContainerStyle={
+            comments.length === 0 ? styles.emptyListContainer : styles.commentList
+          }
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        />
+
+        {/* 하단 고정 입력창 */}
+        <View style={[styles.inputContainer, { paddingBottom: insets.bottom > 0 ? insets.bottom : (Platform.OS === 'android' ? 8 : 8) }]}>
+          {replyingTo && (
+            <View style={styles.replyingToContainer}>
+              <Text style={styles.replyingToText}>
+                {replyingTo.nickname}님에게 답글 작성 중
+              </Text>
+              <TouchableOpacity onPress={() => setReplyingTo(null)}>
+                <Ionicons name="close-circle" size={20} color="#999" />
               </TouchableOpacity>
             </View>
+          )}
 
-            {/* 댓글 목록 */}
-            <FlatList
-              data={comments}
-              renderItem={({ item }) => renderComment({ item, depth: 0 })}
-              keyExtractor={(item) => item.view_hash}
-              ListEmptyComponent={renderEmptyList}
-              contentContainerStyle={
-                comments.length === 0
-                  ? styles.emptyListContainer
-                  : styles.commentList
-              }
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
+          <View style={styles.inputRow}>
+            <TextInput
+              style={styles.input}
+              placeholder={replyingTo ? "답글을 입력하세요..." : "댓글을 입력하세요..."}
+              placeholderTextColor="#999"
+              value={commentText}
+              onChangeText={setCommentText}
+              multiline
+              maxLength={500}
+              editable={!isLoading}
             />
 
-            {/* 댓글 입력 */}
-            <View style={styles.inputContainer}>
-              {replyingTo && (
-                <View style={styles.replyingToContainer}>
-                  <Text style={styles.replyingToText}>
-                    {replyingTo.nickname}님에게 답글 작성 중
-                  </Text>
-                  <TouchableOpacity onPress={() => setReplyingTo(null)}>
-                    <Ionicons name="close-circle" size={20} color="#999" />
-                  </TouchableOpacity>
-                </View>
-              )}
-              <View style={styles.inputRow}>
-                <TextInput
-                  style={styles.input}
-                  placeholder={replyingTo ? "답글을 입력하세요..." : "댓글을 입력하세요..."}
-                  placeholderTextColor="#999"
-                  value={commentText}
-                  onChangeText={setCommentText}
-                  multiline
-                  maxLength={500}
-                  editable={!isLoading}
+            <TouchableOpacity
+              style={[
+                styles.sendButton,
+                (!commentText.trim() || isLoading) && styles.sendButtonDisabled,
+              ]}
+              disabled={!commentText.trim() || isLoading}
+              onPress={handleSubmit}
+            >
+              {isLoading ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Ionicons
+                  name="send"
+                  size={20}
+                  color={commentText.trim() ? '#FFFFFF' : '#CCC'}
                 />
-                <TouchableOpacity
-                  style={[
-                    styles.sendButton,
-                    (!commentText.trim() || isLoading) && styles.sendButtonDisabled,
-                  ]}
-                  onPress={handleSubmit}
-                  disabled={!commentText.trim() || isLoading}
-                >
-                  {isLoading ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
-                  ) : (
-                    <Ionicons
-                      name="send"
-                      size={20}
-                      color={commentText.trim() ? '#FFFFFF' : '#CCC'}
-                    />
-                  )}
-                </TouchableOpacity>
-              </View>
-            </View>
+              )}
+            </TouchableOpacity>
           </View>
-        </TouchableOpacity>
-      </KeyboardAvoidingView>
-    </Modal>
+        </View>
+      </SafeAreaView>
+    </KeyboardAvoidingView>
   );
 }
 
+/* =============================
+   styles
+============================= */
+
 const styles = StyleSheet.create({
-  modalContainer: {
+  container: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  modalOverlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '85%',
-    display: 'flex',
-    flexDirection: 'column',
   },
-  modalHeader: {
+  header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#FFE5E5',
   },
-  commentScrollView: {
-    flex: 1,
+  backButton: {
+    padding: 4,
   },
-  modalTitle: {
+  headerTitle: {
     fontSize: 18,
     fontWeight: '700',
     color: '#FF9AA2',
   },
-  closeButton: {
-    padding: 4,
+  headerPlaceholder: {
+    width: 32,
   },
   commentList: {
     padding: 16,
+    paddingBottom: 8,
   },
   emptyListContainer: {
-    padding: 40,
-    alignItems: 'center',
+    flex: 1,
     justifyContent: 'center',
+    alignItems: 'center',
   },
   emptyContainer: {
     alignItems: 'center',
@@ -288,7 +282,6 @@ const styles = StyleSheet.create({
   },
   commentHeader: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
   },
   commentAvatar: {
     width: 36,
@@ -306,13 +299,10 @@ const styles = StyleSheet.create({
   },
   commentTopRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     marginBottom: 4,
   },
   commentNickname: {
-    fontSize: 14,
     fontWeight: '600',
-    color: '#333',
     marginRight: 8,
   },
   commentDate: {
@@ -321,41 +311,31 @@ const styles = StyleSheet.create({
   },
   commentText: {
     fontSize: 14,
-    color: '#333',
-    lineHeight: 20,
-  },
-  deleteButton: {
-    padding: 4,
-    marginLeft: 8,
-  },
-  replyButton: {
-    marginTop: 4,
-    paddingVertical: 2,
   },
   replyButtonText: {
-    fontSize: 12,
     color: '#FF9AA2',
-    fontWeight: '600',
+    fontSize: 12,
   },
   replyItem: {
     marginLeft: 20,
-    paddingLeft: 12,
     borderLeftWidth: 2,
     borderLeftColor: '#FFE5E5',
+    paddingLeft: 12,
   },
   repliesContainer: {
     marginTop: 8,
   },
   inputContainer: {
-    padding: 12,
     borderTopWidth: 1,
     borderTopColor: '#FFE5E5',
-    backgroundColor: '#FFFBF7',
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    backgroundColor: '#FFFFFF',
   },
   replyingToContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
+    alignItems: 'center',
     paddingVertical: 8,
     paddingHorizontal: 12,
     backgroundColor: '#FFF0F3',
@@ -365,34 +345,29 @@ const styles = StyleSheet.create({
   replyingToText: {
     fontSize: 12,
     color: '#FF9AA2',
-    fontWeight: '600',
   },
   inputRow: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'center',
   },
   input: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    maxHeight: 100,
-    fontSize: 14,
-    color: '#333',
     borderWidth: 1,
     borderColor: '#FFE5E5',
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
   },
   sendButton: {
-    backgroundColor: '#FF9AA2',
     width: 40,
     height: 40,
     borderRadius: 20,
+    marginLeft: 8,
+    backgroundColor: '#FF9AA2',
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 8,
   },
   sendButtonDisabled: {
-    backgroundColor: '#F0F0F0',
+    backgroundColor: '#ccc',
   },
 });

@@ -1,11 +1,69 @@
 from fastapi import APIRouter, Depends, File, Form, Form, Request, Query, UploadFile
 from app.services import users_service
-from app.schemas.users_schemas import UserCreateSchema, UserLoginRequest, UserMyInfoRequest, UserFindPasswordRequest, UserPasswordConfirmRequest, SearchUserPasswordConfirmRequest, SearchUserAccountConfirmRequest, UserChildRegistRequest, UserChildItemSchema, UserChildDeleteRequest
+from app.schemas.users_schemas import UserCreateSchema, UserFindPasswordRequest, UserPasswordConfirmRequest, SearchUserPasswordConfirmRequest, SearchUserAccountConfirmRequest, UserPasswordChangeRequest, UserChildDeleteRequest
 from app.schemas.common_schemas import CommonResponse
 from app.core.database import get_db
 from sqlalchemy.orm import Session
 from typing import List
+import re
+
 router = APIRouter()
+
+""" 회원 가입 """
+@router.post("/create")
+async def create_user(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    # FormData로 받은 데이터 파싱
+    form_data = await request.form()
+
+    # FormData의 모든 키 확인
+    print(f"🔑 FormData keys: {list(form_data.keys())}")
+    for key in form_data.keys():
+        value = form_data.get(key)
+        print(f"  - {key}: {type(value)} = {value if not hasattr(value, 'filename') else f'File({value.filename})'}")
+
+    # JSON 데이터 파싱
+    import json
+    data_json = form_data.get('data')
+    if not data_json:
+        return CommonResponse(success=False, error="요청 데이터가 없습니다.", data=None)
+
+    data = json.loads(data_json)
+
+    # 프로필 이미지 파일 가져오기
+    profile_image_file = form_data.get('profile_image')
+    print(f"📸 프로필 이미지 파일: {profile_image_file}")
+    print(f"📸 파일 타입: {type(profile_image_file)}")
+
+    # UserCreateSchema 형식으로 생성 (profile_image 제외)
+    user_data = UserCreateSchema(
+        sns_login_type=data.get('sns_login_type'),
+        nickname=data.get('nickname'),
+        email=data.get('email'),
+        password=data.get('password'),
+        sns_id=data.get('sns_id', ''),
+        marketing_agree=data.get('marketing_agree', 0),
+        push_agree=data.get('push_agree', 0),
+        children=data.get('children', [])
+    )
+
+    validated_data = user_data.dict()
+
+    # UploadFile 객체를 별도로 추가
+    if profile_image_file:
+        validated_data['profile_image'] = profile_image_file
+        print(f"✅ profile_image added to validated_data")
+
+    if not validated_data.get("sns_login_type"):
+        return CommonResponse(success=False, error="회원가입 유형은 필수 항목입니다.", data=None)
+
+    if validated_data.get("sns_login_type") == "EMAIL":
+        if not validated_data.get("password"):
+            return CommonResponse(success=False, error="EMAIL 회원가입의 경우 비밀번호는 필수 항목입니다.", data=None)
+
+    return await users_service.create_user(db, validated_data)
 
 """ 비밀번호 찾기 """
 @router.post("/password/find")
@@ -25,26 +83,18 @@ async def confirm_password_reset(request: UserPasswordConfirmRequest, db: Sessio
 
     return await users_service.confirm_password_reset(db, data)
 
+""" 비밀번호 변경 """
+@router.put("/password/change")
+async def change_password(request: Request, body: UserPasswordChangeRequest, db: Session = Depends(get_db)):
+    user_hash = getattr(request.state, "user_hash", None)
+    if user_hash is None:
+        return CommonResponse(success=False, message="사용자 인증이 필요합니다.", data=None)
 
-""" 회원 가입 """
-@router.post("/create")
-async def create_user(
-    form_data: UserCreateSchema = Depends(UserCreateSchema.as_form),
-    file: UploadFile = File(None),
-    db: Session = Depends(get_db)
-):
-    data = form_data.dict()
+    data = body.dict()
+    if (not data.get("current_password")) or (not data.get("new_password")):
+        return CommonResponse(success=False, message="비밀번호 변경을 위한 현재 비밀번호와 새 비밀번호가 필요합니다.", data=None)
 
-    if not data.get("sns_login_type"):
-        return CommonResponse(success=False, error="회원가입 유형은 필수 항목입니다.", data=None)
-
-    if data.get("sns_login_type") == "EMAIL":
-        if not data.get("password"):
-            return CommonResponse(success=False, error="EMAIL 회원가입의 경우 비밀번호는 필수 항목입니다.", data=None)
-
-    data["file"] = file
-
-    return await users_service.create_user(db, data)
+    return await users_service.change_password(db, user_hash, data)
 
 """ 회원 정보 수정 """
 @router.put("/update")
@@ -91,14 +141,30 @@ async def update_user(
 
 """ 자녀 정보 등록 """
 @router.post("/children/create")
-async def create_user_child(request: Request, body: List[UserChildItemSchema], db: Session = Depends(get_db)):
+async def create_user_child(request: Request, db: Session = Depends(get_db)):
     user_hash = getattr(request.state, "user_hash", None)
     print("user_hash:", user_hash)
 
     if not user_hash:
         return CommonResponse(success=False, message="사용자 인증이 필요합니다.", data=None)
 
-    return await users_service.create_user_child(db, user_hash, body)
+    # FormData로 받은 데이터 파싱
+    form_data = await request.form()
+
+    # 디버깅: 받은 모든 키 출력
+    print("📥 Received form_data keys:", list(form_data.keys()))
+    for key in form_data.keys():
+        print(f"  {key}: {form_data.get(key)}")
+
+    # JSON 데이터 파싱
+    import json
+    data_json = form_data.get('data')
+    if not data_json:
+        return CommonResponse(success=False, message="요청 데이터가 없습니다. 받은 키들: " + str(list(form_data.keys())), data=None)
+
+    children_data = json.loads(data_json)
+
+    return await users_service.create_user_child(db, user_hash, children_data)
 
 """ 자녀 정보 삭제 """
 @router.delete("/children/delete")
