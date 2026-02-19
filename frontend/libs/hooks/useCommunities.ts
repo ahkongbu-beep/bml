@@ -38,7 +38,7 @@ export const useCreateCommunity = () => {
 // 커뮤니티 수정
 export const useUpdateCommunity = () => {
   return useMutation({
-    mutationFn: ({ view_hash, data }: { view_hash: string; data: any }) => updateCommunity(view_hash, data),
+    mutationFn: ({ view_hash, formData }: { view_hash: string; formData: FormData }) => updateCommunity(view_hash, formData),
   });
 }
 

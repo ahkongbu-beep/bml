@@ -2,6 +2,7 @@
 from app.models.users import Users
 from app.models.communities import Community
 from app.models.users_childs import UsersChilds
+from app.models.communities_images import CommunitiesImages
 from app.schemas.common_schemas import CommonResponse
 from app.models.communities_comments import CommunitiesComments
 from app.core.config import settings
@@ -28,7 +29,6 @@ def get_community_list(db, user_hash, params) -> CommonResponse:
         "limit": params.get("limit", 20),
     }
 
-
     community_list = [item._data for item in Community.get_list(db, user.id, db_params).serialize()]
     for community in community_list:
         community['profile_image'] = community['profile_image'] if community.get('profile_image') else None
@@ -44,7 +44,7 @@ def get_community_list(db, user_hash, params) -> CommonResponse:
     }
     return CommonResponse(success=True, data=data)
 
-def create_community(db, user_hash, client_ip, params) -> CommonResponse:
+async def create_community(db, user_hash, client_ip, title, contents, category_code, is_secret, files) -> CommonResponse:
     """커뮤니티 글 작성 서비스 함수"""
     user = Users.findByViewHash(db, user_hash)
     if not user:
@@ -52,10 +52,10 @@ def create_community(db, user_hash, client_ip, params) -> CommonResponse:
 
     try:
         params = {
-            "title": params.title,
-            "contents": params.contents,
-            "category_code": params.category_code,
-            "is_secret": params.is_secret,
+            "title": title,
+            "contents": contents,
+            "category_code": category_code,
+            "is_secret": is_secret,
             "user_id": user.id,
             "user_nickname": user.nickname,
             "user_ip": client_ip,
@@ -63,13 +63,24 @@ def create_community(db, user_hash, client_ip, params) -> CommonResponse:
 
         new_community = Community.create(db, params)
 
+        # 이미지 업로드 처리 (최대 3장)
+        if files and len(files) > 0:
+            for idx, file in enumerate(files[:3]):  # 최대 3장
+                if file and file.filename:
+                    ext = file.filename.split('.')[-1]
+                    await CommunitiesImages.upload(db, new_community.id, file, ext, sort_order=idx)
+
         user_child = UsersChilds.getAgentChild(db, user.id)
+
+        # 이미지 목록 조회
+        images = CommunitiesImages.findImagesByCommunityId(db, new_community.id)
 
         return_data = {
             "title": new_community.title,
             "contents": new_community.contents,
             "category_code": new_community.category_code,
             "is_secret": new_community.is_secret,
+            "images": images,
             "user_hash": user.view_hash,
             "user_profile_image": user.profile_image if user.profile_image else None,
             "user_nickname": new_community.user_nickname,
@@ -111,11 +122,15 @@ def get_community_detail(db, user_hash, community_hash) -> CommonResponse:
 
         user_child = UsersChilds.getAgentChild(db, community.user_id)
 
+        # 이미지 목록 조회
+        images = CommunitiesImages.findImagesByCommunityId(db, community.id)
+
         return_data = {
             "title": community.title,
             "contents": community.contents,
             "category_code": community.category_code,
             "is_secret": community.is_secret,
+            "images": images,
             "user_hash": commnity_user.view_hash,
             "user_profile_image": commnity_user.profile_image if commnity_user.profile_image else None,
             "user_nickname": community.user_nickname,
@@ -163,7 +178,7 @@ def delete_community(db, user_hash, community_hash) -> CommonResponse:
 
     return CommonResponse(success=True, message="커뮤니티 글이 성공적으로 삭제되었습니다.")
 
-def update_community(db, user_hash, community_hash, params) -> CommonResponse:
+async def update_community(db, user_hash, community_hash, title, contents, is_secret, files) -> CommonResponse:
     """커뮤니티 글 수정 서비스 함수"""
     user = Users.findByViewHash(db, user_hash)
     if not user:
@@ -180,20 +195,34 @@ def update_community(db, user_hash, community_hash, params) -> CommonResponse:
         return CommonResponse(success=False, message="본인이 작성한 글만 수정할 수 있습니다.")
 
     try:
-        community.title = params.title
-        community.contents = params.contents
-        community.is_secret = params.is_secret
+        # 기존 이미지 모두 삭제
+        CommunitiesImages.deleteByCommunityId(db, community.id, is_commit=False)
+
+        # 새 이미지 업로드 (최대 3장)
+        if files and len(files) > 0:
+            for idx, file in enumerate(files[:3]):  # 최대 3장
+                if file and file.filename:
+                    ext = file.filename.split('.')[-1]
+                    await CommunitiesImages.upload(db, community.id, file, ext, sort_order=idx)
+
+        community.title = title
+        community.contents = contents
+        community.is_secret = is_secret
 
         db.commit()
         db.refresh(community)
 
         user_child = UsersChilds.getAgentChild(db, user.id)
 
+        # 이미지 목록 조회
+        images = CommunitiesImages.findImagesByCommunityId(db, community.id)
+
         return_data = {
             "title": community.title,
             "contents": community.contents,
             "category_code": community.category_code,
             "is_secret": community.is_secret,
+            "images": images,
             "user_hash": user.view_hash,
             "user_profile_image": user.profile_image if user.profile_image else None,
             "user_nickname": community.user_nickname,

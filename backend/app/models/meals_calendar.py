@@ -9,6 +9,7 @@ from app.models.feeds_tags_mappers import FeedsTagsMapper
 from app.models.feeds_tags import FeedsTags
 from app.models.feeds_images import FeedsImages
 from app.core.config import settings
+from app.libs.hash_utils import generate_sha256_hash
 
 class MealsCalendars(Base):
     __tablename__ = "meals_calendars"
@@ -17,7 +18,7 @@ class MealsCalendars(Base):
     category_code = Column(Integer, nullable=False, default=0, comment="카테고리의 식사 구분 pk")
     refer_feed_id = Column(Integer, nullable=False, default=0, comment="참조한 피드 pk")
     user_id = Column(Integer, nullable=False, default=0, comment="요청 user.pk")
-    title = Column(String(255), nullable=False, default="", comment="식사제목")
+    title = Column(String(255), nullable=True, default="", comment="식사제목")
     contents = Column(Text, nullable=True, comment="설명")
     month = Column(String(7), nullable=False, default="", comment="YYYY-MM")
     input_date = Column(Date, nullable=False, comment="식사일")
@@ -46,6 +47,16 @@ class MealsCalendars(Base):
         )
 
     @staticmethod
+    def create_hash(session, user_id: int, input_date: str, category_code: int):
+        tmp_hash = generate_sha256_hash(user_id, input_date, category_code, settings.SECRET_KEY)
+
+        findByHash = MealsCalendars.findByViewHash(session, tmp_hash)
+        if findByHash:
+            return False
+
+        return tmp_hash
+
+    @staticmethod
     def findByViewHash(session, view_hash: str):
         return session.query(MealsCalendars).filter(
             MealsCalendars.view_hash == view_hash
@@ -53,21 +64,35 @@ class MealsCalendars(Base):
 
     @staticmethod
     def create(session, params, is_commit=True):
-        meal_calendar = MealsCalendars(
-            category_code=params.get("category_code", 0),
-            refer_feed_id=params.get("refer_feed_id", 0),
-            user_id=params.get("user_id", 0),
-            title=params.get("title", ""),
-            contents=params.get("contents", ""),
-            month=params.get("month", ""),
-            input_date=params.get("input_date"),
-            view_hash=params.get("view_hash", "")
-        )
-        session.add(meal_calendar)
-        if is_commit:
-            session.commit()
-        return meal_calendar
 
+        try:
+            if not params.get("view_hash"):
+                # view_hash는 "meal_{user_id}_{input_date}_{category_code}" 형식으로 생성
+                view_hash = MealsCalendars.create_hash(session, params.get("user_id", 0), params.get("input_date", ""), params.get("category_code", 0))
+                if not view_hash:
+                    raise ValueError("이미 존재하는 view_hash입니다. 다시 시도해주세요.")
+
+                params["view_hash"] = view_hash
+
+            meal_calendar = MealsCalendars(
+                category_code=params.get("category_code", 0),
+                refer_feed_id=params.get("refer_feed_id", 0),
+                user_id=params.get("user_id", 0),
+                title=params.get("title", ""),
+                contents=params.get("contents", ""),
+                month=params.get("month", ""),
+                input_date=params.get("input_date"),
+                view_hash=params.get("view_hash", "")
+            )
+            session.add(meal_calendar)
+            if is_commit:
+                session.commit()
+            return meal_calendar
+        except Exception as e:
+            session.rollback()
+            raise e
+
+    @staticmethod
     def update(session, params, where_clause: dict, is_commit=True):
         try:
             session.query(MealsCalendars).filter_by(**where_clause).update(params)
@@ -80,11 +105,17 @@ class MealsCalendars(Base):
 
 
     @staticmethod
-    def findByUserIdAndDate(session, user_id: int, input_date: str):
-        return session.query(MealsCalendars).filter(
+    def findByUserIdAndDate(session, user_id: int, input_date: str, category_code: int = None):
+
+        query = session.query(MealsCalendars).filter(
             MealsCalendars.user_id == user_id,
             MealsCalendars.input_date == input_date
-        ).all()
+        )
+
+        if category_code is not None:
+            query = query.filter(MealsCalendars.category_code == category_code)
+
+        return query.all()
 
     @staticmethod
     def getList(session, params):

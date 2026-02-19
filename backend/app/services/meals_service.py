@@ -93,7 +93,6 @@ async def create_meal(db, body: dict) -> CommonResponse:
             tags_ids.append(tag.id)
 
     except Exception as e:
-        print("⭕⭕⭕⭕⭕" + str(e))
         return CommonResponse(success=False, error="식단 캘린더 생성 중 오류가 발생했습니다. " + str(e), data=None)
 
     """ 중복 캘린더 체크 """
@@ -112,7 +111,6 @@ async def create_meal(db, body: dict) -> CommonResponse:
             "contents": body['contents'],
             "month": body['input_date'][:7],
             "input_date": body['input_date'],
-            "view_hash": generate_sha256_hash(user.id, body['input_date'], category_code.code, settings.SECRET_KEY)
         }
 
         meal_calendar = MealsCalendars.create(db, meal_data, is_commit=True)
@@ -148,7 +146,6 @@ async def create_meal(db, body: dict) -> CommonResponse:
 
     except Exception as e:
         db.rollback()
-        print("⭕⭕⭕⭕⭕" + str(e))
         return CommonResponse(success=False, error="식단 캘린더 생성 중 오류가 발생했습니다. " + str(e), data=None)
 
 """ 식단 캘린더 수정 """

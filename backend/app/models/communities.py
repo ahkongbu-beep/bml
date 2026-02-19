@@ -108,10 +108,21 @@ class Community(Base):
         from app.models.users import Users
         from app.models.communities_likes import CommunitiesLikes
         from app.models.communities_comments import CommunitiesComments
+        from app.models.communities_images import CommunitiesImages
 
         # 기본값 설정
         limit = params.get("limit", 20)
         cursor = params.get("cursor")
+
+        # 이미지 서브쿼리: 각 커뮤니티의 이미지들을 콤마로 연결
+        image_subquery = (
+            db.query(
+                CommunitiesImages.community_id,
+                sql_func.group_concat(CommunitiesImages.image_url).label('images')
+            )
+            .group_by(CommunitiesImages.community_id)
+            .subquery()
+        )
 
         # 메인 쿼리
         query = (
@@ -131,6 +142,7 @@ class Community(Base):
                 Community.updated_at,
                 Community.pinned_at,
                 Community.view_hash,
+                image_subquery.c.images,
                 Users.nickname,
                 Users.profile_image,
                 Users.view_hash.label("user_hash"),
@@ -154,6 +166,7 @@ class Community(Base):
             )
             .join(Users, Community.user_id == Users.id)
             .join(UsersChilds, and_(Users.id == UsersChilds.user_id, UsersChilds.is_agent == 'Y'), isouter=True)
+            .outerjoin(image_subquery, Community.id == image_subquery.c.community_id)
             .filter(Community.deleted_at.is_(None))
             .filter(Community.is_active == 'Y')
             .outerjoin(CommunitiesLikes, and_(Community.id == CommunitiesLikes.community_id, CommunitiesLikes.user_id == user_id))

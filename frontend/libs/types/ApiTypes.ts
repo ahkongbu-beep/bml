@@ -30,6 +30,7 @@ export interface FeedListParams {
   tag?: string;
   is_public?: 'Y' | 'N';
   type?: string;
+  cursor?: number;
 }
 
 export interface CreateFeedCommentRequest {

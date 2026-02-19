@@ -50,6 +50,14 @@ export const normalizeDate = (dateString: string): string => {
 };
 
 export const getStaticImage = (type: string, imagePath: string): string => {
+  if (imagePath.startsWith('http') || imagePath.startsWith('file://')) {
+    return imagePath;
+  }
+
+  if (imagePath.startsWith('/') == false) {
+    imagePath = '/' + imagePath;
+  }
+
   const STATIC_BASE_URL = process.env.EXPO_PUBLIC_STATIC_BASE_URL || '';
   return STATIC_BASE_URL + imagePath + `_${type}.webp`;
 }

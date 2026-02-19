@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient, UseQueryResult } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, UseQueryResult, useInfiniteQuery } from '@tanstack/react-query';
 import {
   getFeeds,
   getFeedById,
@@ -64,6 +64,28 @@ export const useFeeds = (params?: FeedListParams) => {
 };
 
 /**
+ * 무한 스크롤 피드 목록 조회 Hook (cursor 기반)
+ */
+export const useInfiniteFeeds = (params?: Omit<FeedListParams, 'cursor'>) => {
+  return useInfiniteQuery<PaginationResponse<Feed>, Error>({
+    queryKey: ['feeds', 'infinite', params],
+    queryFn: ({ pageParam = undefined }) => {
+      return getFeeds({ ...params, cursor: pageParam });
+    },
+    getNextPageParam: (lastPage) => {
+      // 마지막 피드의 id를 다음 cursor로 사용
+      if (lastPage.data && lastPage.data.length > 0) {
+        const lastFeed = lastPage.data[lastPage.data.length - 1];
+        return lastFeed.id;
+      }
+      return undefined;
+    },
+    staleTime: 1000 * 60 * 5, // 5분
+    initialPageParam: undefined,
+  });
+};
+
+/**
  * 특정 피드 상세 조회 Hook
  */
 export const useFeed = (id: number) => {
@@ -107,6 +129,7 @@ export const useCreateFeed = () => {
     mutationFn: (data: CreateFeedRequest) => createFeed(data),
     onSuccess: () => {
       // 피드 목록 다시 불러오기
+      queryClient.invalidateQueries({ queryKey: ['feeds', 'infinite'] });
       queryClient.invalidateQueries({ queryKey: feedKeys.lists() });
       queryClient.invalidateQueries({ queryKey: feedKeys.myFeeds() });
     },
@@ -154,6 +177,7 @@ export const useCopyFeed = () => {
   return useMutation({
     mutationFn: (data: CopyFeedRequest) => copyFeed(data),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['feeds', 'infinite'] });
       queryClient.invalidateQueries({ queryKey: feedKeys.lists() });
       queryClient.invalidateQueries({ queryKey: feedKeys.myFeeds() });
     },
@@ -184,6 +208,7 @@ export const useUpdateFeed = () => {
   return useMutation({
     mutationFn: ({ id, data }: { id: number; data: UpdateFeedRequest }) => updateFeed(id, data),
       onSuccess: (_, variables) => {
+        queryClient.invalidateQueries({ queryKey: ['feeds', 'infinite'] });
         queryClient.invalidateQueries({ queryKey: feedKeys.detail(variables.id) });
         queryClient.invalidateQueries({ queryKey: feedKeys.lists() });
         queryClient.invalidateQueries({ queryKey: feedKeys.myFeeds() });
@@ -200,6 +225,7 @@ export const useDeleteFeed = () => {
     // ✅ mutate(id) 로 받음
     mutationFn: (id: number) => deleteFeed(id),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['feeds', 'infinite'] });
       queryClient.invalidateQueries({ queryKey: feedKeys.lists() });
       queryClient.invalidateQueries({ queryKey: feedKeys.myFeeds() });
     },
@@ -215,57 +241,10 @@ export const useToggleLike = () => {
 
   return useMutation({
     mutationFn: (feedId: number) => toggleLike(feedId),
-    onMutate: async ({ feedId }) => {
-      // 진행 중인 쿼리 취소
-      await queryClient.cancelQueries({ queryKey: feedKeys.lists() });
-
-      // 이전 데이터 백업
-      const previousFeeds = queryClient.getQueryData(feedKeys.lists());
-
-      // 낙관적 업데이트: UI를 즉시 업데이트
-      queryClient.setQueriesData({ queryKey: feedKeys.lists() }, (old: any) => {
-        if (!old?.data) return old;
-
-        return {
-          ...old,
-          data: old.data.map((feed: Feed) =>
-            feed.id === feedId
-              ? {
-                  ...feed,
-                  isLiked: !feed.isLiked,
-                  like_count: feed.isLiked ? feed.like_count - 1 : feed.like_count + 1,
-                }
-              : feed
-          ),
-        };
-      });
-
-      return { previousFeeds };
-    },
-    onError: (err, variables, context) => {
-      // 에러 발생 시 이전 데이터로 복구
-      if (context?.previousFeeds) {
-        queryClient.setQueryData(feedKeys.lists(), context.previousFeeds);
-      }
-    },
-    onSuccess: (response, variables) => {
-      // 서버 응답으로 최종 업데이트
-      queryClient.setQueriesData({ queryKey: feedKeys.lists() }, (old: any) => {
-        if (!old?.data) return old;
-
-        return {
-          ...old,
-          data: old.data.map((feed: Feed) =>
-            feed.id === response.data.feed_id
-              ? {
-                  ...feed,
-                  isLiked: response.data.liked,
-                  like_count: response.data.like_count,
-                }
-              : feed
-          ),
-        };
-      });
+    onSuccess: () => {
+      // 무한 스크롤 쿼리 갱신
+      queryClient.invalidateQueries({ queryKey: ['feeds', 'infinite'] });
+      queryClient.invalidateQueries({ queryKey: feedKeys.lists() });
     },
   });
 };
@@ -294,6 +273,7 @@ export const useBlockUser = () => {
     mutationFn: (deny_user_hash: string) => blockUser(deny_user_hash),
     onSuccess: () => {
       // 차단 후 피드 목록 갱신
+      queryClient.invalidateQueries({ queryKey: ['feeds', 'infinite'] });
       queryClient.invalidateQueries({ queryKey: feedKeys.lists() });
     },
   });

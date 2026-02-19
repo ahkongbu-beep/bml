@@ -27,7 +27,7 @@ import FeedItem from '../components/FeedItem';
 import { LoadingPage } from '../components/Loading';
 import { ErrorPage } from '../components/ErrorPage';
 import {
-  useFeeds,
+  useInfiniteFeeds,
   useToggleLike,
   useToggleBookmark,
   useBlockUser,
@@ -69,10 +69,20 @@ export default function FeedListScreen() {
     [key: number]: { is_liked: boolean; like_count: number };
   }>({});
 
-  // React Query로 피드 데이터 조회
-  const { data, isLoading, isError, error, refetch } = useFeeds({ page: 1, limit: 20, type: 'list' });
+  // React Query로 피드 데이터 조회 (무한 스크롤)
+  const {
+    data,
+    isLoading,
+    isError,
+    error,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    refetch
+  } = useInfiniteFeeds({ limit: 20, type: 'list' });
 
-  const feeds = data?.data;
+  // 모든 페이지의 피드를 평탄화
+  const feeds = data?.pages.flatMap(page => page.data) ?? [];
 
   const summaryFeedImageMutation  = useSummaryFeedImage(); // 이미지 요약
 
@@ -232,6 +242,13 @@ export default function FeedListScreen() {
 
   const keyExtractor = useCallback((item: Feed) => item.id.toString(), []);
 
+  // 리스트 끝에 도달했을 때 다음 페이지 로드
+  const onEndReached = useCallback(() => {
+    if (hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
+    }
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
   const renderFeed = useCallback(({ item }: { item: Feed }) => {
     // 낙관적 업데이트가 있으면 그것을 우선 사용
     const optimisticState = optimisticLikes[item.id];
@@ -294,6 +311,15 @@ export default function FeedListScreen() {
         updateCellsBatchingPeriod={50}
         initialNumToRender={5}
         windowSize={10}
+        onEndReached={onEndReached}
+        onEndReachedThreshold={0.5}
+        ListFooterComponent={
+          isFetchingNextPage ? (
+            <View style={{ padding: 20, alignItems: 'center' }}>
+              <ActivityIndicator size="large" color="#FF9AA2" />
+            </View>
+          ) : null
+        }
         refreshControl={
           <RefreshControl
             refreshing={isLoading}

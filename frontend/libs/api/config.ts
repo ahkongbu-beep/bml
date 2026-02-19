@@ -1,9 +1,63 @@
 // 백엔드 API 기본 URL
 // React Native에서는 localhost 대신 실제 IP를 사용해야 함
 
-import { getToken } from '../utils/storage';
+import { getToken, getRefreshToken, saveToken } from '../utils/storage';
+import { logout as clearStorage } from '../utils/storage';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_STATIC_BASE_URL || "https://bml-e3uz.onrender.com";
+
+// 토큰 갱신 중인지 확인하는 플래그
+let isRefreshing = false;
+let refreshSubscribers: ((token: string) => void)[] = [];
+
+// 토큰 갱신 대기열에 추가
+const subscribeTokenRefresh = (cb: (token: string) => void) => {
+  refreshSubscribers.push(cb);
+};
+
+// 토큰 갱신 완료 후 대기 중인 요청들에게 알림
+const onRefreshed = (token: string) => {
+  refreshSubscribers.forEach(cb => cb(token));
+  refreshSubscribers = [];
+};
+
+// Refresh Token으로 Access Token 갱신
+const refreshAccessToken = async (): Promise<string | null> => {
+  const refreshToken = await getRefreshToken();
+
+  if (!refreshToken) {
+    console.log('No refresh token available');
+    return null;
+  }
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    });
+
+    if (!response.ok) {
+      console.log('Refresh token request failed');
+      return null;
+    }
+
+    const data = await response.json();
+    if (data.success && data.data?.token) {
+      const newAccessToken = data.data.token;
+      await saveToken(newAccessToken, refreshToken);
+      console.log('Access token refreshed successfully');
+      return newAccessToken;
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Failed to refresh access token:', error);
+    return null;
+  }
+};
 
 // Fetch API 에러 클래스
 export class ApiError extends Error {
@@ -50,7 +104,7 @@ const buildUrl = (endpoint: string, params?: Record<string, any>): string => {
 };
 
 // 응답 에러 처리
-const handleResponse = async (response: Response) => {
+const handleResponse = async (response: Response, endpoint: string, retryFn?: () => Promise<any>) => {
 
   if (!response.ok) {
     let errorData;
@@ -61,6 +115,42 @@ const handleResponse = async (response: Response) => {
     }
 
     const { status } = response;
+
+    if (status === 401 && retryFn && !endpoint.includes('/auth/refresh')) {
+      console.log('401 error detected, attempting token refresh...');
+
+      // 이미 갱신 중이면 대기
+      if (isRefreshing) {
+        return new Promise((resolve) => {
+          subscribeTokenRefresh(async (token: string) => {
+            resolve(retryFn());
+          });
+        });
+      }
+
+      isRefreshing = true;
+
+      try {
+        const newToken = await refreshAccessToken();
+
+        if (newToken) {
+          isRefreshing = false;
+          onRefreshed(newToken);
+          // 새로운 토큰으로 재시도
+          return retryFn();
+        } else {
+          // Refresh token도 만료되었으므로 로그아웃
+          console.log('토큰 갱신 실패. 로그아웃 처리합니다.');
+          isRefreshing = false;
+          await clearStorage();
+          throw new ApiError(status, errorData, errorData.message);
+        }
+      } catch (error) {
+        isRefreshing = false;
+        await clearStorage();
+        throw error;
+      }
+    }
 
     switch (status) {
       case 401:
@@ -82,13 +172,12 @@ const handleResponse = async (response: Response) => {
     throw new ApiError(status, errorData, errorData.message);
   }
 
-
   return response.json();
 };
 
 // Fetch wrapper - GET
 export const fetchGet = async <T>(endpoint: string, params?: Record<string, any>): Promise<T> => {
-  try {
+  const makeRequest = async (): Promise<T> => {
     const headers = await getHeaders();
     const url = buildUrl(endpoint, params);
     console.log("GET Request URL:", url);
@@ -101,7 +190,11 @@ export const fetchGet = async <T>(endpoint: string, params?: Record<string, any>
       console.log("GET Request URL:", url);
     }
 
-    return handleResponse(response);
+    return handleResponse(response, endpoint, makeRequest);
+  };
+
+  try {
+    return await makeRequest();
   } catch (error) {
     console.error('Network error:', error);
     throw error;
@@ -110,7 +203,7 @@ export const fetchGet = async <T>(endpoint: string, params?: Record<string, any>
 
 // Fetch wrapper - POST
 export const fetchPost = async <T>(endpoint: string, data?: any): Promise<T> => {
-  try {
+  const makeRequest = async (): Promise<T> => {
     const headers = await getHeaders();
     const url = `${API_BASE_URL}${endpoint}`;
     console.log("POST Request URL:", url);
@@ -122,7 +215,11 @@ export const fetchPost = async <T>(endpoint: string, data?: any): Promise<T> => 
       body: data ? JSON.stringify(data) : undefined,
     });
 
-    return handleResponse(response);
+    return handleResponse(response, endpoint, makeRequest);
+  };
+
+  try {
+    return await makeRequest();
   } catch (error) {
     console.error('Network error:', error);
     throw error;
@@ -131,41 +228,49 @@ export const fetchPost = async <T>(endpoint: string, data?: any): Promise<T> => 
 
 // Fetch wrapper - PUT
 export const fetchPut = async <T>(endpoint: string, data?: any): Promise<T> => {
-  const headers = await getHeaders();
-  const url = `${API_BASE_URL}${endpoint}`;
+  const makeRequest = async (): Promise<T> => {
+    const headers = await getHeaders();
+    const url = `${API_BASE_URL}${endpoint}`;
 
-  console.log("PUT Request URL:", url);
-  console.log(JSON.stringify(data, null, 2));
-  const response = await fetch(url, {
-    method: 'PUT',
-    headers,
-    body: data ? JSON.stringify(data) : undefined,
-  });
+    console.log("PUT Request URL:", url);
+    console.log(JSON.stringify(data, null, 2));
+    const response = await fetch(url, {
+      method: 'PUT',
+      headers,
+      body: data ? JSON.stringify(data) : undefined,
+    });
 
-  return handleResponse(response);
+    return handleResponse(response, endpoint, makeRequest);
+  };
+
+  return makeRequest();
 };
 
 // Fetch wrapper - DELETE
 export const fetchDelete = async <T>(endpoint: string, data?:any): Promise<T> => {
-  const headers = await getHeaders();
-  const url = `${API_BASE_URL}${endpoint}`;
+  const makeRequest = async (): Promise<T> => {
+    const headers = await getHeaders();
+    const url = `${API_BASE_URL}${endpoint}`;
 
-  console.log("DELETE Request URL:", url);
-  console.log("Headers:", headers);
-  console.log(JSON.stringify(data, null, 2));
+    console.log("DELETE Request URL:", url);
+    console.log("Headers:", headers);
+    console.log(JSON.stringify(data, null, 2));
 
-  const response = await fetch(url, {
-    method: 'DELETE',
-    headers,
-    body: data ? JSON.stringify(data) : undefined,
-  });
+    const response = await fetch(url, {
+      method: 'DELETE',
+      headers,
+      body: data ? JSON.stringify(data) : undefined,
+    });
 
-  return handleResponse(response);
+    return handleResponse(response, endpoint, makeRequest);
+  };
+
+  return makeRequest();
 };
 
 // Fetch wrapper - POST with FormData (for file uploads)
 export const fetchPostFormData = async <T>(endpoint: string, formData: FormData): Promise<T> => {
-  try {
+  const makeRequest = async (): Promise<T> => {
     const url = `${API_BASE_URL}${endpoint}`;
 
     console.log("POST FormData Request URL:", url);
@@ -188,7 +293,11 @@ export const fetchPostFormData = async <T>(endpoint: string, formData: FormData)
       body: formData,
     });
 
-    return handleResponse(response);
+    return handleResponse(response, endpoint, makeRequest);
+  };
+
+  try {
+    return await makeRequest();
   } catch (error) {
     console.error('Network error:', error);
     throw error;
@@ -197,7 +306,7 @@ export const fetchPostFormData = async <T>(endpoint: string, formData: FormData)
 
 // Fetch wrapper - PUT with FormData (for file uploads)
 export const fetchPutFormData = async <T>(endpoint: string, formData: FormData): Promise<T> => {
-  try {
+  const makeRequest = async (): Promise<T> => {
     const url = `${API_BASE_URL}${endpoint}`;
 
     // FormData 요청에도 JWT 토큰 추가
@@ -222,7 +331,11 @@ export const fetchPutFormData = async <T>(endpoint: string, formData: FormData):
     console.log("PUT FormData Response Status:", response.status);
     console.log("PUT FormData Response Headers:", response.headers);
 
-    return handleResponse(response);
+    return handleResponse(response, endpoint, makeRequest);
+  };
+
+  try {
+    return await makeRequest();
   } catch (error) {
     console.error('Network error:', error);
     throw error;

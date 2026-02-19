@@ -130,6 +130,47 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#343A40',
   },
+  imageGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  imageUploadButton: {
+    borderWidth: 1,
+    borderColor: '#DEE2E6',
+    borderRadius: 12,
+    borderStyle: 'dashed',
+    width: 100,
+    height: 100,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F8F9FA',
+  },
+  imageUploadText: {
+    fontSize: 12,
+    color: '#868E96',
+    marginTop: 4,
+  },
+  imageContainer: {
+    position: 'relative',
+    width: 100,
+    height: 100,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  uploadedImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 12,
+  },
+  imageRemoveButton: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 2,
+  },
 });
 
 export default styles;

@@ -18,6 +18,8 @@ import {
   saveToken,
   logout as clearStorage,
   saveNeedChildRegistration,
+  isTokenExpired,
+  isTokenExpiringSoon,
 } from '../utils/storage';
 
 interface AuthContextType {
@@ -52,21 +54,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const loggedIn = await checkIsLoggedIn();
         if (loggedIn) {
+          // 토큰 만료 체크
+          const tokenExpired = await isTokenExpired();
+          if (tokenExpired) {
+            console.log('토큰이 만료되었습니다. 로그아웃 처리합니다.');
+            await clearStorage();
+            setUser(null);
+            setIsAuthenticated(false);
+            setIsLoading(false);
+            return;
+          }
+
           const savedUser = await getUserInfo();
           if (savedUser) {
             // 1. 먼저 저장된 정보로 빠르게 로드
             setUser(savedUser);
             setIsAuthenticated(true);
 
-            // 2. 백그라운드에서 최신 프로필 정보 가져오기
+            // 2. 토큰이 곧 만료될 예정이면 경고 로그
+            const expiringSoon = await isTokenExpiringSoon();
+            if (expiringSoon) {
+              console.warn('토큰이 1시간 이내에 만료됩니다. 다시 로그인하시기 바랍니다.');
+            }
+
+            // 3. 백그라운드에서 최신 프로필 정보 가져오기
             try {
               const responseData = await getUserProfile(savedUser.view_hash);
               if (responseData) {
                 await saveUserInfo(responseData);
                 setUser(responseData);
               }
-            } catch (profileError) {
+            } catch (profileError: any) {
               console.error('Failed to fetch latest profile:', profileError);
+              // 401 에러면 토큰 만료로 간주하고 로그아웃
+              if (profileError?.status === 401) {
+                console.log('인증 실패. 로그아웃 처리합니다.');
+                await clearStorage();
+                setUser(null);
+                setIsAuthenticated(false);
+              }
               // 에러가 나도 기존 저장된 정보로 계속 사용
             }
           }

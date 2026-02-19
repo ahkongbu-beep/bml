@@ -76,6 +76,13 @@ export const logout = async (user_hash: string): Promise<ApiResponse<null>> => {
 };
 
 /**
+ * Refresh Token으로 새로운 Access Token 발급
+ */
+export const refreshAccessToken = async (refreshToken: string): Promise<ApiResponse<{ token: string }>> => {
+  return fetchPost<ApiResponse<{ token: string }>>('/auth/refresh', { refresh_token: refreshToken });
+};
+
+/**
  * 내 정보 조회 (sns_id 기반)
  */
 export const getMyInfo = async (userHash: string): Promise<User> => {

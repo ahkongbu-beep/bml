@@ -10,7 +10,10 @@ import {
   Image,
   ActivityIndicator,
   Platform,
+  SafeAreaView,
+  KeyboardAvoidingView,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Header from '../components/Header';
 import Layout from '../components/Layout';
 
@@ -26,6 +29,7 @@ import { getStaticImage } from '../libs/utils/common';
 import { toastInfo, toastSuccess, toastError } from '../libs/utils/toast';
 
 export default function EditProfileScreen({ navigation }: any) {
+  const insets = useSafeAreaInsets();
   const { user, isLoading, updateProfile, updateProfileLoading } = useAuth();
   const [nickname, setNickname] = useState('');
   const [email, setEmail] = useState('');
@@ -147,13 +151,21 @@ export default function EditProfileScreen({ navigation }: any) {
 
   return (
     <Layout>
-      <View style={styles.container}>
-        <Header
-          title="프로필 수정"
-          showBack={true}
-          onBackPress={() => navigation.goBack()}
-        />
-        <ScrollView style={styles.content}>
+      <SafeAreaView style={styles.container}>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+        >
+          <Header
+            title="프로필 수정"
+            showBack={true}
+            onBackPress={() => navigation.goBack()}
+          />
+        <ScrollView
+          style={styles.content}
+          contentContainerStyle={{ paddingBottom: 20 }}
+        >
           {/* 프로필 이미지 */}
           <View style={styles.imageSection}>
             <Image
@@ -241,30 +253,31 @@ export default function EditProfileScreen({ navigation }: any) {
 
         </ScrollView>
 
-        {/* 저장 버튼 */}
-        <View style={styles.footer}>
-          <TouchableOpacity
-            style={[styles.saveButton, updateProfileLoading && styles.saveButtonDisabled]}
-            onPress={handleSave}
-            disabled={updateProfileLoading}
-          >
-            {updateProfileLoading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.saveButtonText}>저장하기</Text>
-            )}
-          </TouchableOpacity>
-        </View>
+          {/* 저장 버튼 */}
+          <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+            <TouchableOpacity
+              style={[styles.saveButton, updateProfileLoading && styles.saveButtonDisabled]}
+              onPress={handleSave}
+              disabled={updateProfileLoading}
+            >
+              {updateProfileLoading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.saveButtonText}>저장하기</Text>
+              )}
+            </TouchableOpacity>
+          </View>
 
-        {/* 비밀번호 변경 모달 */}
-        <PasswordChangeModal
-          visible={passwordChangeModalVisible}
-          onClose={() => setPasswordChangeModalVisible(false)}
-          onSubmit={async (currentPassword, newPassword) => {
-            handlePasswordSave(currentPassword, newPassword);
-          }}
-        />
-      </View>
+          {/* 비밀번호 변경 모달 */}
+          <PasswordChangeModal
+            visible={passwordChangeModalVisible}
+            onClose={() => setPasswordChangeModalVisible(false)}
+            onSubmit={async (currentPassword, newPassword) => {
+              handlePasswordSave(currentPassword, newPassword);
+            }}
+          />
+        </KeyboardAvoidingView>
+      </SafeAreaView>
     </Layout>
   );
 }

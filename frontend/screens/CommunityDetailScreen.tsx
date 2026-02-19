@@ -15,7 +15,7 @@ import {
   KeyboardAvoidingView,
   Platform
 } from 'react-native';
-//import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
 import styles from './CommunityDetailScreen.styles';
 import { Ionicons } from '@expo/vector-icons';
 import Layout from '../components/Layout';
@@ -27,6 +27,7 @@ import { useCategoryCodes } from '../libs/hooks/useCategories';
 import { LoadingPage } from '../components/Loading';
 import { formatDate, diffMonthsFrom, getStaticImage, formatRelativeTime } from '@/libs/utils/common';
 import { Portal, Dialog, Button, Icon } from 'react-native-paper';
+import { toastError, toastInfo, toastSuccess } from '@/libs/utils/toast';
 import { CommunityDetail } from '../libs/types/community';
 
 export default function CommunityDetailScreen({ route, navigation }: any) {
@@ -58,27 +59,50 @@ export default function CommunityDetailScreen({ route, navigation }: any) {
   // 댓글 삭제
   const deleteCommunityCommentMutation = useDeleteCommunityComment();
 
-  // 기존 데이터 불러오기
-  useEffect(() => {
-    if (viewHash) {
-      getDetailCommunity.mutate(viewHash, {
-        onSuccess: (response) => {
-          if (response.success && response.data) {
-            setCommunityData(response.data);
-          } else {
-            Alert.alert('오류', response.error || '게시글을 불러올 수 없습니다.');
-            navigation.goBack();
+  // 데이터 불러오기 함수
+  const loadCommunityDetail = () => {
+    if (!viewHash) return;
+
+    setIsLoading(true);
+    getDetailCommunity.mutate(viewHash, {
+      onSuccess: (response) => {
+        if (response.success && response.data) {
+          const data = response.data;
+          // images가 콤마로 구분된 문자열이면 배열로 변환
+          if (data.images && typeof data.images === 'string') {
+            data.images = data.images.split(',').map(img => img.trim()).filter(img => img);
           }
-          setIsLoading(false);
-        },
-        onError: (error) => {
-          console.error('Failed to load community:', error);
-          Alert.alert('오류', '게시글을 불러오는 중 오류가 발생했습니다.');
-          navigation.goBack();
-        },
-      });
-    }
-  }, [viewHash]);
+          setCommunityData(data);
+        } else {
+          toastError(response.error || '게시글을 불러오는데 실패했습니다.', {
+            onHide: () => navigation.goBack(),
+            onPress: () => navigation.goBack(),
+          });
+        }
+        setIsLoading(false);
+      },
+      onError: (error) => {
+        console.error('Failed to load community:', error);
+        toastError('게시글을 불러오는 중 오류가 발생했습니다.', {
+          onHide: () => navigation.goBack(),
+          onPress: () => navigation.goBack(),
+        });
+        setIsLoading(false);
+      },
+    });
+  };
+
+  // 초기 로드
+  useEffect(() => {
+    loadCommunityDetail();
+  }, []);
+
+  // 화면 포커스 시 데이터 재로드 (수정 후 돌아왔을 때)
+  useFocusEffect(
+    useCallback(() => {
+      loadCommunityDetail();
+    }, [])
+  );
 
   useEffect(() => {
     if (commentsData && commentsData.success && commentsData.data) {
@@ -107,12 +131,15 @@ export default function CommunityDetailScreen({ route, navigation }: any) {
       },
       {
         onSuccess: () => {
-          setCommentInput("");
-          Alert.alert('성공', '댓글이 등록되었습니다.');
-          refetchComments();
-          // 대댓글 작성 후에는 대댓글 상태 초기화
-          setParentCommentHash(null);
-          setReplyToNickname(null);
+          toastSuccess('댓글이 등록되었습니다.', {
+            onHide: () => {
+              setCommentInput("");
+              refetchComments();
+              // 대댓글 작성 후에는 대댓글 상태 초기화
+              setParentCommentHash(null);
+              setReplyToNickname(null);
+            }
+          });
         }
       }
     );
@@ -135,17 +162,20 @@ export default function CommunityDetailScreen({ route, navigation }: any) {
     deleteCommunityCommentMutation.mutate(deleteTargetCommentHash || '', {
       onSuccess: (response) => {
         if (response.success) {
-          setDeleteCommentDialogVisible(false);
-          setDeleteTargetCommentHash(null);
-          Alert.alert('성공', '댓글이 삭제되었습니다.');
-          refetchComments();
+          toastSuccess('댓글이 삭제되었습니다.', {
+            onHide: () => {
+              setDeleteCommentDialogVisible(false);
+              setDeleteTargetCommentHash(null);
+              refetchComments();
+            }
+          });
         } else {
-          Alert.alert('오류', response.error || '댓글 삭제에 실패했습니다.');
+          toastError(response.error || '댓글 삭제에 실패했습니다.');
         }
       },
       onError: (error) => {
         console.error('Failed to delete comment:', error);
-        Alert.alert('오류', '댓글 삭제 중 오류가 발생했습니다.');
+        toastError('댓글 삭제 중 오류가 발생했습니다.');
       }
     });
   }
@@ -169,34 +199,26 @@ export default function CommunityDetailScreen({ route, navigation }: any) {
       onSuccess: (response) => {
         if (response.success) {
           setDeleteDialogVisible(false);
-          Alert.alert('성공', '게시글이 삭제되었습니다.', [
-            {
-              text: '확인',
-              onPress: () => navigation.navigate('Community'),
-            },
-          ]);
+
+          toastSuccess('게시글이 삭제되었습니다.', {
+            onHide: () => navigation.navigate('Community'),
+            onPress: () => navigation.navigate('Community'),
+          });
         } else {
-          Alert.alert('오류', response.error || '게시글 삭제에 실패했습니다.');
+          toastError(response.error || '게시글 삭제에 실패했습니다.');
         }
       },
       onError: (error) => {
         console.error('Failed to delete community:', error);
-        Alert.alert('오류', '게시글 삭제 중 오류가 발생했습니다.');
+        toastError('게시글 삭제 중 오류가 발생했습니다.');
       },
     });
-  };
-
-  // 좋아요 토글
-  const handleLikeToggle = () => {
-    // TODO: 좋아요 API 호출
-    console.log('Like toggled');
   };
 
   // 댓글 모달 열기
   const handleCommentPress = (commentHash: string, nickname?: string) => {
     setParentCommentHash(commentHash);
     setReplyToNickname(nickname || null);
-
   };
 
   if (isLoading || !communityData) {
@@ -304,6 +326,20 @@ export default function CommunityDetailScreen({ route, navigation }: any) {
 
           {/* 내용 */}
           <Text style={styles.contents}>{communityData.contents}</Text>
+
+          {/* 이미지 표시 (여러 장) */}
+          {communityData.images && communityData.images.length > 0 && (
+            <View style={styles.imageSection}>
+              {communityData.images.map((imageUrl, index) => (
+                <Image
+                  key={index}
+                  source={{ uri: getStaticImage('large', imageUrl) || '' }}
+                  style={styles.contentImage}
+                  resizeMode="cover"
+                />
+              ))}
+            </View>
+          )}
 
           {/* 조회수, 작성일 */}
           <View style={styles.metaInfo}>

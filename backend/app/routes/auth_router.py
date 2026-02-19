@@ -5,7 +5,8 @@ from app.schemas.auth_schemas import (
     EmailLoginRequest,
     GoogleLoginRequest,
     KakaoLoginRequest,
-    NaverLoginRequest
+    NaverLoginRequest,
+    RefreshTokenRequest
 )
 from app.schemas.common_schemas import CommonResponse
 from app.services import auth_service
@@ -101,6 +102,21 @@ async def logout(
     이 엔드포인트는 필요 시 로그 기록 등의 추가 처리를 위해 사용할 수 있습니다.
     """
     return await auth_service.logout(db, "")
+
+@router.post("/refresh", response_model=CommonResponse)
+async def refresh_token(
+    request: RefreshTokenRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Refresh Token으로 새로운 Access Token 발급
+
+    - **refresh_token**: Refresh Token
+
+    ## 응답
+    - 새로운 Access Token 반환
+    """
+    return auth_service.refresh_access_token(db, request.refresh_token)
 
 @router.delete("/deny", response_model=CommonResponse)
 async def remove_deny_user(

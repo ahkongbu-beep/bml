@@ -1,4 +1,4 @@
-import { fetchGet, fetchPost, fetchPut } from './config';
+import { fetchGet, fetchPost, fetchPut, fetchPostFormData, fetchPutFormData } from './config';
 import { ApiResponse, PaginationResponse } from '../types/ApiTypes';
 import { CommunityListRequest, CommunityListResponse, CommunityPost } from '../types/CommunitiesType';
 
@@ -36,13 +36,8 @@ interface CreateCommunityRequest {
   is_secret: string;
 }
 
-export const createCommunity = async (data: {
-  category_code: number;
-  title: string;
-  contents: string;
-  is_secret: string;
-}): Promise<ApiResponse<CommunityPost>> => {
-  const response = await fetchPost<ApiResponse<CommunityPost>>(`/communities/create`, data, 'POST');
+export const createCommunity = async (formData: FormData): Promise<ApiResponse<CommunityPost>> => {
+  const response = await fetchPostFormData<ApiResponse<CommunityPost>>(`/communities/create`, formData);
   return response;
 };
 
@@ -53,12 +48,8 @@ export const updateCommunityComment = async (comment_hash: string, data: {
   return response;
 };
 
-export const updateCommunity = async (view_hash: string, data: {
-  title: string;
-  contents: string;
-  is_secret: string;
-}): Promise<ApiResponse<CommunityPost>> => {
-  const response = await fetchPut<ApiResponse<CommunityPost>>(`/communities/update/${view_hash}`, data, 'PUT');
+export const updateCommunity = async (view_hash: string, formData: FormData): Promise<ApiResponse<CommunityPost>> => {
+  const response = await fetchPutFormData<ApiResponse<CommunityPost>>(`/communities/update/${view_hash}`, formData);
   return response;
 };
 

@@ -159,7 +159,7 @@ export const copyFeed = async (data: CopyFeedRequest): Promise<null> => {
 
   console.log("params", params);
   const response = await fetchPost<ApiResponse<null>>('/feeds/copy', params);
-  return response.data;
+  return response;
 };
 
 /**

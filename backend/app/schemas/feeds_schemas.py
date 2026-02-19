@@ -13,7 +13,7 @@ class FeedCopyRequest(BaseModel):
     category_code: int
     input_date: str
     memo: str
-    title: str
+    title: Optional[str] = None
     target_feed_id: int
     target_user_hash: str
 

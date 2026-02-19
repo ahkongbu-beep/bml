@@ -28,6 +28,7 @@ import { useCategoryCodes } from '../libs/hooks/useCategories';
 import { getToday } from '../libs/utils/common';
 import { useFeed, useCopyFeed } from '../libs/hooks/useFeeds';
 import { LoadingPage } from '../components/Loading';
+import { toastError, toastInfo, toastSuccess } from '@/libs/utils/toast';
 import styles from './MealCopyByFeedScreen.styles';
 
 // 한국어 설정
@@ -92,19 +93,16 @@ export default function MealCopyByFeedScreen({ route, navigation }: any) {
     copyFeedMutation.mutate(copyData, {
       onSuccess: (response) => {
         if (response.success) {
-          Alert.alert('성공', '식단이 복사되었습니다.', [
-            {
-              text: '확인',
-              onPress: () => navigation.goBack(),
-            },
-          ]);
+          toastSuccess('식단이 복사되었습니다.', {
+            onPress: () => navigation.goBack(),
+            onHide: () => navigation.goBack(),
+          });
         } else {
-          Alert.alert('오류', response.error || '식단 복사에 실패했습니다.');
+          toastError(response.error || '식단 복사에 실패했습니다.');
         }
       },
       onError: (error) => {
-        console.error('식단 복사 오류:', error);
-        Alert.alert('오류', '식단 복사 중 오류가 발생했습니다.');
+        toastError('식단 복사 중 오류가 발생했습니다.');
       },
     });
   };

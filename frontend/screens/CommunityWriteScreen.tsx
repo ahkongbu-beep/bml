@@ -14,8 +14,10 @@ import {
   Alert,
   ActivityIndicator,
   StyleSheet,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import Layout from '../components/Layout';
 import Header from '../components/Header';
 import { useCreateCommunity } from '../libs/hooks/useCommunities';
@@ -31,12 +33,44 @@ export default function CommunityWriteScreen({ navigation }: any) {
   const [categoryCode, setCategoryCode] = useState<number | null>(null);
   const [isSecret, setIsSecret] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [imageUris, setImageUris] = useState<string[]>([]);
 
   // 선택된 카테고리 이름 가져오기
   const getSelectedCategoryName = () => {
     if (!categoryCode || !topicGroups) return '주제를 선택해주세요';
     const selected = topicGroups.find((cat) => cat.id === categoryCode);
     return selected ? selected.value : '주제를 선택해주세요';
+  };
+
+  // 이미지 선택
+  const handleImagePick = async () => {
+    if (imageUris.length >= 3) {
+      Alert.alert('알림', '이미지는 최대 3장까지 등록할 수 있습니다.');
+      return;
+    }
+
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (permissionResult.granted === false) {
+      Alert.alert('알림', '사진첩 접근 권한이 필요합니다.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      setImageUris([...imageUris, result.assets[0].uri]);
+    }
+  };
+
+  // 이미지 제거
+  const handleImageRemove = (index: number) => {
+    setImageUris(imageUris.filter((_, i) => i !== index));
   };
 
   // 유효성 검사
@@ -60,14 +94,27 @@ export default function CommunityWriteScreen({ navigation }: any) {
   const handleSubmit = () => {
     if (!validateForm()) return;
 
-    const data = {
-      category_code: categoryCode!,
-      title: title.trim(),
-      contents: contents.trim(),
-      is_secret: isSecret ? 'Y' : 'N',
-    };
+    const formData = new FormData();
+    formData.append('title', title.trim());
+    formData.append('contents', contents.trim());
+    formData.append('category_code', categoryCode!.toString());
+    formData.append('is_secret', isSecret ? 'Y' : 'N');
 
-    createCommunity.mutate(data, {
+    // 이미지가 있으면 추가 (최대 3장)
+    if (imageUris.length > 0) {
+      imageUris.forEach((uri, index) => {
+        const uriParts = uri.split('.');
+        const fileType = uriParts[uriParts.length - 1];
+
+        formData.append('files', {
+          uri: uri,
+          name: `community_image_${index}.${fileType}`,
+          type: `image/${fileType}`,
+        } as any);
+      });
+    }
+
+    createCommunity.mutate(formData, {
       onSuccess: (response) => {
         if (response.success) {
           Alert.alert('성공', '게시글이 등록되었습니다.', [{
@@ -101,6 +148,30 @@ export default function CommunityWriteScreen({ navigation }: any) {
       <Header title="커뮤니티 작성" showBackButton onBackPress={() => navigation.goBack()} />
 
       <ScrollView style={styles.container}>
+        {/* 이미지 업로드 */}
+        <View style={styles.section}>
+          <Text style={styles.label}>이미지 (최대 3장)</Text>
+          <View style={styles.imageGrid}>
+            {imageUris.map((uri, index) => (
+              <View key={index} style={styles.imageContainer}>
+                <Image source={{ uri }} style={styles.uploadedImage} />
+                <TouchableOpacity
+                  style={styles.imageRemoveButton}
+                  onPress={() => handleImageRemove(index)}
+                >
+                  <Ionicons name="close-circle" size={24} color="#FF6B6B" />
+                </TouchableOpacity>
+              </View>
+            ))}
+            {imageUris.length < 3 && (
+              <TouchableOpacity style={styles.imageUploadButton} onPress={handleImagePick}>
+                <Ionicons name="image-outline" size={32} color="#868E96" />
+                <Text style={styles.imageUploadText}>이미지 선택</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+
         {/* 주제 선택 */}
         <View style={styles.section}>
           <Text style={styles.label}>주제 *</Text>

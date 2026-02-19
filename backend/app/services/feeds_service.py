@@ -169,7 +169,7 @@ def copy_feed(db, user_hash: str, params):
     if not category_code:
         return CommonResponse(success=False, error="존재하지 않는 카테고리 코드입니다.", data=None)
 
-    exist_calendar = MealsCalendars.findByUserIdAndDate(db, user.id, params.input_date)
+    exist_calendar = MealsCalendars.findByUserIdAndDate(db, user.id, params.input_date, category_code.id)
     if exist_calendar:
         return CommonResponse(success=False, error="해당 날짜에 이미 식단이 존재합니다.", data=None)
 
@@ -252,7 +252,6 @@ def copy_feed(db, user_hash: str, params):
                     }
 
                     FeedsImages.create(db, image_params)
-                    print(f"✅ 이미지 복사 완료: {len(matching_files)}개 사이즈")
 
             except Exception as e:
                 print(f"⚠️ 이미지 복사 중 오류: {str(e)}")
@@ -264,11 +263,15 @@ def copy_feed(db, user_hash: str, params):
 
 
 # 피드 목록 조회
-def list_feeds(db, type:str, limit: int, offset: int, user_hash: str = None, title: str = None, nickname: str = None, sort_by: str = "created_at", start_date: str = None, end_date: str = None, target_user_hash: str = None):
+def list_feeds(db, type:str, limit: int, offset: int, cursor: int = None, user_hash: str = None, title: str = None, nickname: str = None, sort_by: str = "created_at", start_date: str = None, end_date: str = None, target_user_hash: str = None):
 
     params = {
         "is_deleted": "N"
     }
+
+    # cursor가 있으면 offset을 무시하고 cursor 기반 페이징 사용
+    if cursor is not None:
+        params["cursor"] = cursor
     if title is not None:
         params["title"] = title
 

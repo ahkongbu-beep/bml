@@ -61,6 +61,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     marginBottom: 16,
   },
+  imageSection: {
+    paddingHorizontal: 16,
+    marginBottom: 16,
+    gap: 8,
+  },
+  contentImage: {
+    width: '100%',
+    height: 250,
+    borderRadius: 12,
+    marginBottom: 8,
+  },
   metaInfo: {
     flexDirection: 'row',
     alignItems: 'center',

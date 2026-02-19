@@ -12,7 +12,7 @@ from app.schemas.users_schemas import UserResponseSchema
 from app.schemas.common_schemas import CommonResponse
 from app.schemas.auth_schemas import SocialUserInfo
 from app.libs.password_utils import verify_password
-from app.libs.jwt_utils import create_access_token
+from app.libs.jwt_utils import create_access_token, create_refresh_token, verify_token
 import httpx
 import os
 from app.core.config import settings
@@ -274,6 +274,7 @@ def _generate_login_response(db: Session, user: Users) -> CommonResponse:
         "role": user.role.value if hasattr(user.role, 'value') else user.role
     }
     access_token = create_access_token(token_data)
+    refresh_token = create_refresh_token(token_data)
 
     # 마지막 로그인 시간 업데이트
     Users.update_last_login(db, user.id)
@@ -306,7 +307,8 @@ def _generate_login_response(db: Session, user: Users) -> CommonResponse:
         message="로그인에 성공했습니다.",
         data={
             "user": user_response_dict,
-            "token": access_token
+            "token": access_token,
+            "refresh_token": refresh_token
         }
     )
 
@@ -358,4 +360,67 @@ async def remove_deny_user(db: Session, user_hash: str) -> CommonResponse:
         success=True,
         message="회원 탈퇴가 완료되었습니다.",
         data=None
+    )
+
+
+def refresh_access_token(db: Session, refresh_token: str) -> CommonResponse:
+    """Refresh Token으로 새로운 Access Token 발급"""
+    # Refresh Token 검증
+    payload = verify_token(refresh_token)
+
+    if not payload:
+        return CommonResponse(
+            success=False,
+            message="유효하지 않거나 만료된 Refresh Token입니다.",
+            data=None
+        )
+
+    # token_type 확인
+    if payload.get("token_type") != "refresh":
+        return CommonResponse(
+            success=False,
+            message="Refresh Token이 아닙니다.",
+            data=None
+        )
+
+    # 사용자 확인
+    user_hash = payload.get("user_hash")
+    if not user_hash:
+        return CommonResponse(
+            success=False,
+            message="토큰에 사용자 정보가 없습니다.",
+            data=None
+        )
+
+    user = db.query(Users).filter(Users.view_hash == user_hash).first()
+    if not user:
+        return CommonResponse(
+            success=False,
+            message="사용자를 찾을 수 없습니다.",
+            data=None
+        )
+
+    if not user.is_active or user.deleted_at:
+        return CommonResponse(
+            success=False,
+            message="비활성화되거나 삭제된 사용자입니다.",
+            data=None
+        )
+
+    # 새로운 Access Token 생성
+    token_data = {
+        "user_id": user.id,
+        "user_hash": user.view_hash,
+        "email": user.email,
+        "nickname": user.nickname,
+        "role": user.role.value if hasattr(user.role, 'value') else user.role
+    }
+    new_access_token = create_access_token(token_data)
+
+    return CommonResponse(
+        success=True,
+        message="Access Token이 갱신되었습니다.",
+        data={
+            "token": new_access_token
+        }
     )

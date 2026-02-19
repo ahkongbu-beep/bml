@@ -254,6 +254,10 @@ class Feeds(Base):
         if params.get("start_date") and params.get("end_date"):
             query = query.filter(Feeds.created_at.between(params["start_date"], params["end_date"]))
 
+        # cursor 기반 페이징: cursor(last_id)보다 작은 id만 조회
+        if params.get("cursor"):
+            query = query.filter(Feeds.id < params["cursor"])
+
         result = query.order_by(order_by).offset(offset).limit(limit).all()
 
         return QueryResult(result)

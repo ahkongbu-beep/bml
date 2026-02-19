@@ -20,6 +20,10 @@ class NaverLoginRequest(BaseModel):
     """네이버 로그인 요청"""
     accessToken: str
 
+class RefreshTokenRequest(BaseModel):
+    """Refresh Token 요청"""
+    refresh_token: str
+
 class SocialUserInfo(BaseModel):
     """소셜 로그인 사용자 정보"""
     social_id: str
