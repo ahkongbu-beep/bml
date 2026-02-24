@@ -280,7 +280,7 @@ def _generate_login_response(db: Session, user: Users) -> CommonResponse:
     Users.update_last_login(db, user.id)
 
     # 식단 선호도 조회
-    meals_mapper = MealsMappers.getList(db, user.id).serialize()
+    meals_mapper = MealsMappers.get_list(db, user.id).serialize()
     meal_group_ids = [mapper.category_id for mapper in meals_mapper]
 
     # 자녀 정보 조회
@@ -330,7 +330,7 @@ async def remove_deny_user(db: Session, user_hash: str) -> CommonResponse:
     """
     회원 탈퇴
     """
-    user = Users.findByViewHash(db, user_hash)
+    user = Users.find_by_view_hash(db, user_hash)
     if not user:
         return CommonResponse(success=False, message="회원 정보를 찾을 수 없습니다.", data=None)
 

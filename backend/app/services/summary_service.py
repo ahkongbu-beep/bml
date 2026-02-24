@@ -22,7 +22,7 @@ async def search_summary(db, user_hash: str, model: str, model_id: int, query: s
     if model is None:
         return CommonResponse(success=False, message="조회를 위한 필수 파라미터가 없습니다.", data=[])
 
-    user = Users.findByViewHash(db, user_hash)
+    user = Users.find_by_view_hash(db, user_hash)
     if not user:
         return CommonResponse(success=False, message="존재하지 않는 회원입니다.", data=[])
 
@@ -75,7 +75,7 @@ async def list_summaries(db, user_hash: str, model: str, model_id: int, search_t
 
     params = {}
     if user_hash is not None:
-        user = Users.findByViewHash(db, user_hash)
+        user = Users.find_by_view_hash(db, user_hash)
         if not user:
             return CommonResponse(success=False, message="존재하지 않는 회원입니다.", data=[])
         params['user_id'] = user.id
@@ -90,7 +90,7 @@ async def list_summaries(db, user_hash: str, model: str, model_id: int, search_t
         params['search_type'] = search_type
         params['search_value'] = search_value.strip()
 
-    summary_list = SummariesAgents.getList(db, params, offset=offset, limit=limit).getData()
+    summary_list = SummariesAgents.get_list(db, params, offset=offset, limit=limit).getData()
 
     return CommonResponse(success=True, message="요약 리스트 조회 성공", data=summary_list)
 
@@ -108,7 +108,7 @@ async def feed_summary(db, data) -> CommonResponse:
     if data['prompt'].strip() == "":
         return CommonResponse(success=False, message="프롬프트를 입력해주세요.", data=[])
 
-    user = Users.findByViewHash(db, data["user_hash"])
+    user = Users.find_by_view_hash(db, data["user_hash"])
     if not user:
         return CommonResponse(success=False, message="존재하지 않는 회원입니다.", data=[])
 
@@ -120,13 +120,8 @@ async def feed_summary(db, data) -> CommonResponse:
     if not feed:
         return CommonResponse(success=False, message="존재하지 않는 피드입니다.", data=[])
 
-    # 동일한 요약이 있는 경우 재사용
-    exist_summary = SummariesAgents.findByModelIdAndQuestion(db, "FeedsImages", data["image_id"], data["prompt"].strip())
-    if exist_summary:
-        return CommonResponse(success=True, message="요약 검색 성공", data=exist_summary.answer)
-
     feed_image = db.query(FeedsImages).filter(
-        FeedsImages.id == data["image_id"],
+        FeedsImages.sort_order == data["image_id"],
         FeedsImages.img_model == "Feeds",
         FeedsImages.img_model_id == data["feed_id"]
     ).first()
@@ -134,7 +129,14 @@ async def feed_summary(db, data) -> CommonResponse:
     if not feed_image:
         return CommonResponse(success=False, message="존재하지 않는 피드 이미지입니다.", data=[])
 
+    # 동일한 요약이 있는 경우 재사용
+    exist_summary = SummariesAgents.findByModelIdAndQuestion(db, "FeedsImages", feed_image.id, data["prompt"].strip())
+    if exist_summary:
+        return CommonResponse(success=True, message="요약 검색 성공", data=exist_summary.answer)
+
+
     system_prompt = load_prompt_template("system.md").strip()
+    final_prompt  = SummariesAgents.setAiPromptQuestion(prompt, feed.content)
 
     messages = [
         {
@@ -146,7 +148,7 @@ async def feed_summary(db, data) -> CommonResponse:
             "content": [
                 {
                     "type": "text",
-                    "text": prompt
+                    "text": final_prompt
                 },
                 # {
                 #     "type": "image_url",

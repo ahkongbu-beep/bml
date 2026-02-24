@@ -84,7 +84,7 @@ class FeedsImages(Base):
 
     # 이미지 목록 조회
     @staticmethod
-    def findImagesByModelId(session, model: str, model_id: int):
+    def find_images_by_model_id(session, model: str, model_id: int):
         """
         model과 model_id로 이미지 목록 조회
         프론트엔드에서 backend_url과 확장자를 조합할 수 있도록 경로만 반환
@@ -94,7 +94,7 @@ class FeedsImages(Base):
 
     # 이미지 레코드 생성
     @staticmethod
-    def create(session, params: dict):
+    def create(session, params: dict, is_commit: bool = True):
         image = FeedsImages(
             img_model=params.get("img_model", "Feeds"),
             img_model_id=params.get("img_model_id"),
@@ -106,7 +106,10 @@ class FeedsImages(Base):
         )
 
         session.add(image)
-        session.commit()
+        if is_commit:
+            session.commit()
+        else:
+            session.flush()
         session.refresh(image)
         return image
 
@@ -137,12 +140,10 @@ class FeedsImages(Base):
             success, result, original_filename, created_files = await save_upload_file_with_resize(file, destination_path)
 
             if not success:
-                print(f"❌ 이미지 업로드 실패: {result}")
                 return None
 
             # 확장자와 사이즈 접미사 제거 (프론트엔드에서 조합)
             image_url = get_file_url(result, base_url="")
-            # /attaches/Feeds/45/12345/20260123120000_abc123_medium.webp -> /attaches/Feeds/45/12345/20260123120000_abc123
             image_path = image_url.replace('\\', '/')
             if '_medium.webp' in image_path:
                 image_path = image_path.replace('_medium.webp', '')
@@ -164,9 +165,8 @@ class FeedsImages(Base):
                 "is_active": "Y"
             }
 
-            return FeedsImages.create(session, image_params)
+            return FeedsImages.create(session, image_params, is_commit=False)
 
         except Exception as e:
-            print(f"❌ Image upload error: {str(e)}")
             return None
 

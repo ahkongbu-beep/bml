@@ -43,7 +43,7 @@ class MealsMappers(Base):
 
     """ categories_codes, users 테이블 join 후 user_id로 조회 """
     @staticmethod
-    def getList(session, user_id: int):
+    def get_list(session, user_id: int):
         from app.models.categories_codes import CategoriesCodes
 
         result = session.query(

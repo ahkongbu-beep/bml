@@ -9,7 +9,7 @@ def list_categories_codes(db, cc_type: str = None):
     if cc_type:
         params["type"] = cc_type
 
-    categories_codes = CategoriesCodes.getList(db, params).serialize()
+    categories_codes = CategoriesCodes.get_list(db, params).serialize()
 
     # type별로 그룹화
     grouped_data = {}
@@ -104,13 +104,13 @@ def delete_categories_code(db, category_id: int):
 """ 음식 리스트 조회 서비스 함수 """
 def list_food_items(db, food_type: str, food_name: str = None):
 
-    result_data = FoodItem.getList(db, food_type, food_name).to_list()
+    result_data = FoodItem.get_list(db, food_type, food_name).to_list()
     return CommonResponse(success=True, message="", data=result_data)
 
 """ 음식 검색 서비스 함수 (이름으로) """
 def search_food_items(db, food_name: str):
 
-    food_items = FoodItem.searchByName(db, food_name).to_list()
+    food_items = FoodItem.search_by_name(db, food_name).to_list()
 
     result_data = []
     for item in food_items:

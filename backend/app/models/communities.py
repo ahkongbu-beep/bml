@@ -53,7 +53,7 @@ class Community(Base):
     )
 
     @staticmethod
-    def findByViewHash(db, view_hash):
+    def find_by_view_hash(db, view_hash):
         return db.query(Community).filter(Community.view_hash == view_hash, Community.deleted_at.is_(None)).first()
 
     @staticmethod

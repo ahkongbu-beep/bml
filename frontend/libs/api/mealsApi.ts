@@ -24,6 +24,10 @@ export const createMealWithImage = async (formData: FormData): Promise<ApiRespon
   return fetchPostFormData<ApiResponse>('/meals/create', formData);
 }
 
+export const getCalendarMonthImage = async (month: string): Promise<ApiResponse<string>> => {
+  return fetchGet<ApiResponse<string>>('/meals/calendar/month_image', { month });
+}
+
 /**
  * 식단수정
  */
@@ -36,6 +40,13 @@ export const updateMeal = async (mealHash: string, mealData: any): Promise<ApiRe
  */
 export const updateMealWithImage = async (mealHash: string, formData: FormData): Promise<ApiResponse> => {
   return fetchPutFormData<ApiResponse>(`/meals/update/${mealHash}`, formData);
+}
+
+/**
+ * 월 메인 이미지 등록 (이미지 포함)
+ */
+export const uploadCalendarMonthImage = async (formData: FormData): Promise<ApiResponse> => {
+  return fetchPostFormData<ApiResponse>('/meals/calendar/image/create', formData);
 }
 
 /**

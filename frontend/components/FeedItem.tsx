@@ -98,7 +98,7 @@ const FeedItem = React.memo(({
       <View style={styles.userHeader}>
         <TouchableOpacity
           style={styles.userInfo}
-          onPress={() => onViewProfile(item.user.user_hash || '', item.user.nickname)}
+          onPress={() => onViewProfile(item.user.user_hash || '')}
         >
           <Image
             source={{ uri: getStaticImage('thumbnail', item.user.profile_image) }}

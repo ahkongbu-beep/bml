@@ -104,7 +104,7 @@ class CategoriesCodes(Base):
         return category_code
 
     @staticmethod
-    def getList(session, params: dict):
+    def get_list(session, params: dict):
         # TODO: Admin 및 Category 테이블이 생성되면 JOIN 추가
         # 현재는 임시 데이터 사용
 

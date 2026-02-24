@@ -4,11 +4,11 @@ from app.models.categories_codes import CategoriesCodes
 from app.schemas.common_schemas import CommonResponse
 
 def list_notices(db):
-    notice_list = Notices.getList(db, params={}).getData()
+    notice_list = Notices.get_list(db, params={}).getData()
     return CommonResponse(success=True, message="", data=notice_list)
 
 def notice_detail(db, view_hash: str):
-    notice = Notices.findByViewHash(db, view_hash)
+    notice = Notices.find_by_view_hash(db, view_hash)
 
     if not notice:
         return CommonResponse(success=False, error="존재하지 않는 공지사항입니다.", data=None)
@@ -74,7 +74,7 @@ def create_notice(notice: NoticesCreateRequest, client_ip: str, db):
 """ 공지 수정"""
 def update_notice(notice: NoticesUpdateRequest, view_hash: str, db):
 
-    existing_notice = Notices.findByViewHash(db, view_hash)
+    existing_notice = Notices.find_by_view_hash(db, view_hash)
 
     if not existing_notice:
         return CommonResponse(success=False, error="존재하지 않는 공지사항입니다.", data=None)
@@ -117,7 +117,7 @@ def update_notice(notice: NoticesUpdateRequest, view_hash: str, db):
 
 def toggle_notice(view_hash: str, db):
 
-    existing_notice = Notices.findByViewHash(db, view_hash)
+    existing_notice = Notices.find_by_view_hash(db, view_hash)
 
     if not existing_notice:
         return CommonResponse(success=False, error="존재하지 않는 공지사항입니다.", data=None)

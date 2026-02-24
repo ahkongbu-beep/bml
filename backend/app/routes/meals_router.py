@@ -24,9 +24,11 @@ async def create_meal(
     user_hash: Optional[str] = Form(None),
     category_id: int = Form(...),
     input_date: str = Form(...),
-    title: str = Form(...),
     contents: str = Form(...),
-    tags: str = Form("[]"),
+    isPreMade: str = Form("N"),
+    ingredients: str = Form("[]"),
+    is_public: str = Form("N"),
+    meal_condition: int = Form(0),
     attaches: Optional[UploadFile] = File(None),
     db: Session = Depends(get_db)
 ):
@@ -34,23 +36,53 @@ async def create_meal(
     if not user_hash:
         user_hash = getattr(request.state, "user_hash", None)
 
-    # tags는 JSON string으로 전달되므로 파싱
+    # ingredients는 JSON string으로 전달되므로 파싱
     try:
-        tags_list = json.loads(tags) if tags else []
+        ingredients_list = json.loads(ingredients) if ingredients else []
     except:
-        tags_list = []
+        ingredients_list = []
 
     body = {
         'user_hash': user_hash,
         'category_id': category_id,
         'input_date': input_date,
-        'title': title,
         'contents': contents,
-        'tags': tags_list,
+        'ingredients': ingredients_list,
+        'is_pre_made': isPreMade,
+        'is_public': is_public,
+        'meal_condition': meal_condition,
         'attaches': attaches
     }
 
     return await meals_service.create_meal(db, body)
+
+@router.get("/calendar/month_image")
+async def get_calendar_month_image(request: Request, month: str = Query(...), db: Session = Depends(get_db)):
+    user_hash = getattr(request.state, "user_hash", None)
+
+    if not user_hash:
+        return CommonResponse(success=False, message="사용자 인증이 필요합니다.", data=None)
+
+    params = {
+        "user_hash": user_hash,
+        "month": month
+    }
+
+    return await meals_service.get_calendar_month_image(db, params)
+
+@router.post("/calendar/image/create")
+async def upload_calendar_month_image(
+    request: Request,
+    month: str = Form(...),
+    attaches: Optional[UploadFile] = File(None),
+    db: Session = Depends(get_db)
+):
+    user_hash = getattr(request.state, "user_hash", None)
+
+    if not user_hash:
+        return CommonResponse(success=False, message="사용자 인증이 필요합니다.", data=None)
+
+    return await meals_service.upload_calendar_month_image(db, user_hash, month, attaches)
 
 @router.put("/update/{meal_hash}")
 async def update_meal(
@@ -61,7 +93,9 @@ async def update_meal(
     input_date: Optional[str] = Form(None),
     title: Optional[str] = Form(None),
     contents: Optional[str] = Form(None),
-    tags: Optional[str] = Form(None),
+    ingredients: Optional[str] = Form(None),
+    isPreMade: Optional[str] = Form(None),
+    is_public: Optional[str] = Form(None),
     attaches: Optional[UploadFile] = File(None),
     db: Session = Depends(get_db)
 ):
@@ -69,13 +103,13 @@ async def update_meal(
     if not user_hash:
         user_hash = getattr(request.state, "user_hash", None)
 
-    # tags는 JSON string으로 전달되므로 파싱
-    tags_list = None
-    if tags:
+    # ingredients는 JSON string으로 전달되므로 파싱
+    ingredients_list = None
+    if ingredients:
         try:
-            tags_list = json.loads(tags)
+            ingredients_list = json.loads(ingredients)
         except:
-            tags_list = []
+            ingredients_list = []
 
     body = {
         'meal_hash': meal_hash,
@@ -92,8 +126,12 @@ async def update_meal(
         body['title'] = title
     if contents is not None:
         body['contents'] = contents
-    if tags_list is not None:
-        body['tags'] = tags_list
+    if ingredients_list is not None:
+        body['ingredients'] = ingredients_list
+    if isPreMade is not None:
+        body['is_pre_made'] = isPreMade
+    if is_public is not None:
+        body['is_public'] = is_public
 
     return await meals_service.update_meal(db, body)
 

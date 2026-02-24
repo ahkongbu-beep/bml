@@ -42,7 +42,7 @@ class Feeds(Base):
     )
 
     @staticmethod
-    def create(session, params: dict):
+    def create(session, params: dict, is_commit: bool = True):
         feed = Feeds(
             user_id=params.get("user_id"),
             title=params.get("title", ""),
@@ -56,8 +56,11 @@ class Feeds(Base):
         )
 
         session.add(feed)
-        session.commit()
-        session.refresh(feed)
+        if is_commit:
+            session.commit()
+            session.refresh(feed)
+        else:
+            session.flush()  # ID를 즉시 사용할 수 있도록 flush
         return feed
 
     @staticmethod

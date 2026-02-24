@@ -1,4 +1,4 @@
-    import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import {
   login as loginApi,
@@ -85,7 +85,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 setUser(responseData);
               }
             } catch (profileError: any) {
-              console.error('Failed to fetch latest profile:', profileError);
               // 401 에러면 토큰 만료로 간주하고 로그아웃
               if (profileError?.status === 401) {
                 console.log('인증 실패. 로그아웃 처리합니다.');

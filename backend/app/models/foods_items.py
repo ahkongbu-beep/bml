@@ -36,7 +36,7 @@ class FoodItem(Base):
         return f"{prefix}_{new_number:06d}"
 
     @staticmethod
-    def getList(session, food_type: str = None, food_name: str = None):
+    def get_list(session, food_type: str = None, food_name: str = None):
         query = session.query(FoodItem)
         if food_type:
             query = query.filter(FoodItem.food_type == food_type)
@@ -76,7 +76,7 @@ class FoodItem(Base):
         return food_item
 
     @staticmethod
-    def searchByName(session, food_name: str):
+    def search_by_name(session, food_name: str):
         query = session.query(FoodItem)
         if food_name:
             query = query.filter(FoodItem.food_name.ilike(f"%{food_name}%"))

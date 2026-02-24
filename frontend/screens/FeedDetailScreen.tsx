@@ -20,11 +20,12 @@ import { useFeed, useDeleteFeed } from '../libs/hooks/useFeeds';
 import { USER_CHILD_GENDER } from '../libs/utils/codes/UserChildCode';
 import { MEAL_CONDITION } from '../libs/utils/codes/FeedMealCondition';
 import { toastError, toastSuccess } from '@/libs/utils/toast';
+import { ErrorPage } from '../components/ErrorPage';
 
 export default function FeedDetailScreen({ route, navigation }: any) {
   const { feedId } = route.params;
   const { user } = useAuth();
-  const { data: feed, isLoading } = useFeed(feedId);
+  const { data: feed, isLoading, isError, error } = useFeed(feedId);
   const deleteFeedMutation = useDeleteFeed(feedId);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [ deleteConfirmVisible, setDeleteConfirmVisible ] = useState(false);
@@ -47,7 +48,6 @@ export default function FeedDetailScreen({ route, navigation }: any) {
       } else {
         toastError(result.error || '식단정보 삭제에 실패했습니다.');
       }
-
     } catch (error) {
       toastError('식단정보 삭제 중 오류가 발생했습니다.');
     }
@@ -61,9 +61,19 @@ export default function FeedDetailScreen({ route, navigation }: any) {
     navigation.navigate('FeedSave', { feed });
   };
 
-  if (isLoading || !feed) {
+  if (isLoading) {
     return (
       <LoadingPage title="식단정보를 불러오는 중"/>
+    );
+  }
+
+  if (isError || !feed) {
+    return (
+      <ErrorPage
+        message="식단정보를 불러오는 중 오류가 발생했습니다."
+        subMessage={error?.message}
+        refetch={() => { navigation.replace('FeedDetail', { feedId }) }}
+      />
     );
   }
 
@@ -156,9 +166,9 @@ export default function FeedDetailScreen({ route, navigation }: any) {
 
             {/* 섭취 상태 - 나에게만 보이게 */}
             {isMyFeed && (
-            <View style={styles.statItem}>
-              <Text style={styles.statText}>{condition ? condition.icon + " " + condition.name : ''}</Text>
-            </View>
+              <View style={styles.statItem}>
+                <Text style={styles.statText}>{condition ? condition.icon + " " + condition.name : ''}</Text>
+              </View>
             )}
           </View>
         </ScrollView>

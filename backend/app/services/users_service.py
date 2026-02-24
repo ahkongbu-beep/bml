@@ -23,6 +23,12 @@ from app.core.config import settings
 from app.models.feeds_comments import FeedsComments
 from app.libs.file_utils import get_file_url
 
+def validate_user(db, user_hash):
+    user = Users.find_by_view_hash(db, user_hash)
+    if not user:
+        raise Exception("회원 정보를 찾을 수 없습니다.")
+    return user
+
 """ 비밀번호 찾기 """
 async def find_password(db, data) -> CommonResponse:
     user = db.query(Users).filter(
@@ -85,7 +91,7 @@ async def confirm_password_reset(db, data) -> CommonResponse:
 
 def get_my_info(db, data) -> CommonResponse:
 
-    user = Users.findByViewHash(db, data.get("user_hash"))
+    user = Users.find_by_view_hash(db, data.get("user_hash"))
     if not user:
         return CommonResponse(success=False, error="회원 정보를 찾을 수 없습니다.", data=None)
 
@@ -281,7 +287,7 @@ async def update_user(db, data):
         return CommonResponse(success=False, error=f"회원 정보 수정 중 오류가 발생했습니다: {str(e)}", data=None)
 
     # 식단 선호도 조회하여 응답에 포함
-    meals_mapper = MealsMappers.getList(db, updated_user.id).serialize()
+    meals_mapper = MealsMappers.get_list(db, updated_user.id).serialize()
     meal_group_ids = [mapper.category_id for mapper in meals_mapper]
 
     user_response = UserResponseSchema.model_validate(updated_user)
@@ -299,7 +305,7 @@ async def create_user_child(db, user_hash, children):
     from app.models.foods_items import FoodItem
     from app.libs.file_utils import save_upload_file_with_resize
 
-    user = Users.findByViewHash(db, user_hash)
+    user = Users.find_by_view_hash(db, user_hash)
 
     if not user:
         return CommonResponse(success=False, error="회원 정보를 찾을 수 없습니다.", data=None)
@@ -394,7 +400,7 @@ async def create_user_child(db, user_hash, children):
 
 """ 자녀 정보 삭제 """
 async def delete_user_child(db, user_hash: str, child_id: int) -> CommonResponse:
-    user = Users.findByViewHash(db, user_hash)
+    user = Users.find_by_view_hash(db, user_hash)
     if not user:
         return CommonResponse(success=False, error="회원 정보를 찾을 수 없습니다.", data=None)
 
@@ -415,12 +421,12 @@ async def delete_user_child(db, user_hash: str, child_id: int) -> CommonResponse
 # 회원차단
 async def deny_usre_profile(db, user_hash, deny_user_hash):
 
-    user = Users.findByViewHash(db, user_hash)
+    user = Users.find_by_view_hash(db, user_hash)
 
     if not user:
         raise Exception("회원 정보를 찾을 수 없습니다.")
 
-    deny_user = Users.findByViewHash(db, deny_user_hash)
+    deny_user = Users.find_by_view_hash(db, deny_user_hash)
     if not deny_user:
         raise Exception("차단할 회원 정보를 찾을 수 없습니다.")
 
@@ -446,7 +452,7 @@ async def deny_usre_profile(db, user_hash, deny_user_hash):
 
 # 회원차단 list
 def get_deny_users_list(db, user_hash):
-    user = Users.findByViewHash(db, user_hash)
+    user = Users.find_by_view_hash(db, user_hash)
 
     if not user:
         return CommonResponse(success=False, error="회원 정보를 찾을 수 없습니다.", data=None)
@@ -460,7 +466,7 @@ def get_user_profile(db, user_hash, user_id):
     if user_id:
         user = Users.findById(db, user_id)
     else:
-        user = Users.findByViewHash(db, user_hash)
+        user = Users.find_by_view_hash(db, user_hash)
 
     if not user:
         return CommonResponse(success=False, error="회원 정보를 찾을 수 없습니다.", data=None)
@@ -471,7 +477,7 @@ def get_user_profile(db, user_hash, user_id):
     meal_count = db.query(MealsCalendars).filter(MealsCalendars.user_id == user.id).count()
 
     # 식단 선호도 조회
-    meals_mapper = MealsMappers.getList(db, user.id).serialize()
+    meals_mapper = MealsMappers.get_list(db, user.id).serialize()
     meal_group_ids = [mapper.category_id for mapper in meals_mapper]
 
     # 자녀 정보 조회 s
@@ -587,7 +593,7 @@ def user_login(db, data):
     Users.update_last_login(db, user.id)
 
     # 식단 선호도 조회
-    meals_mapper = MealsMappers.getList(db, user.id).serialize()
+    meals_mapper = MealsMappers.get_list(db, user.id).serialize()
     meal_group_ids = [mapper.category_id for mapper in meals_mapper]
 
     user_response = UserResponseSchema.model_validate(user)
@@ -604,7 +610,7 @@ def user_login(db, data):
     )
 
 async def change_password(db, user_hash, data) -> CommonResponse:
-    user = Users.findByViewHash(db, user_hash)
+    user = Users.find_by_view_hash(db, user_hash)
 
     if not user:
         return CommonResponse(success=False, error="회원 정보를 찾을 수 없습니다.", data=None)
@@ -640,7 +646,7 @@ async def user_logout(db, user_hash):
     """
 
     # 사용자 존재 여부만 확인
-    user = Users.findByViewHash(db, user_hash)
+    user = Users.find_by_view_hash(db, user_hash)
 
     # JWT 토큰은 프론트엔드에서 삭제하므로 서버에서는 추가 작업 불필요
     return CommonResponse(success=True, message="로그아웃에 성공했습니다.", data=None)
@@ -704,7 +710,7 @@ def confirm_email(db, user_name: str, user_phone: str) -> CommonResponse:
 
 """ [관리자] 회원 상세 프로필 """
 def get_user_admin_profile(db, user_hash: str):
-    user = Users.findByViewHash(db, user_hash)
+    user = Users.find_by_view_hash(db, user_hash)
     if not user:
         return CommonResponse(success=False, error="회원 정보를 찾을 수 없습니다.", data=None)
 
@@ -726,7 +732,7 @@ def get_user_admin_profile(db, user_hash: str):
         }
         comments_response.append(comment_data)
 
-    feeds = Feeds.getList(db, {"user_id": user.id}).getData()
+    feeds = Feeds.get_list(db, {"user_id": user.id}).getData()
 
     data = {
         "user": UserResponseSchema.model_validate(user),

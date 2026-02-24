@@ -80,7 +80,7 @@ class Users(Base):
         return session.query(Users).filter(Users.id == user_id).first()
 
     @staticmethod
-    def findByViewHash(session, view_hash: str):
+    def find_by_view_hash(session, view_hash: str):
         """
         view_hash로 회원 조회
         """

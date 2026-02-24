@@ -10,13 +10,16 @@ class CalendarCopyRequest(BaseModel):
     category_id: int
 
 class MealsCalendarResponse(BaseModel):
-    title: str
     contents: str
     tags: List[str] = []
     input_date: str
     month: str
+    meal_condition: Optional[str] = None
     category_id: int
     category_name: str
+    is_public: str
+    is_pre_made: str
+    mapped_tags: List[str] = []
     refer_feed_id: int
     image_url: Optional[str] = None
     view_hash: str

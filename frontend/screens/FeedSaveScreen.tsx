@@ -71,7 +71,7 @@ export default function FeedSaveScreen({ route, navigation }: any) {
   const searchTerm = tagInput.trim();
   const { data: tagSuggestions = [] } = useSearchTags(searchTerm);
   const showTagSuggestions = searchTerm.length > 0 && tagSuggestions.length > 0;
-
+  console.log('태그 자동완성 검색어:', tagSuggestions);
   const handleImagePick = async () => {
     if (images.length >= 1) {
       toastError('사진은 최대 1장까지 업로드할 수 있습니다.');
@@ -103,6 +103,7 @@ export default function FeedSaveScreen({ route, navigation }: any) {
 
   // 재료 추가함수
   const handleAddTag = (tagName: string) => {
+    console.log('태그 추가 시도:', tagName);
     const cleanTag = tagName.replace('#', '').trim();
     if (cleanTag && !tags.includes(cleanTag)) {
       setTags([...tags, cleanTag]);
@@ -272,6 +273,7 @@ export default function FeedSaveScreen({ route, navigation }: any) {
 
                 {/* 재료 자동완성 */}
                 {showTagSuggestions && tagSuggestions.length > 0 && (
+
                   <View style={styles.suggestionsContainer}>
                     {tagSuggestions.map((suggestion, key) => (
                       <TouchableOpacity

@@ -22,6 +22,9 @@ class MealsCalendars(Base):
     contents = Column(Text, nullable=True, comment="설명")
     month = Column(String(7), nullable=False, default="", comment="YYYY-MM")
     input_date = Column(Date, nullable=False, comment="식사일")
+    is_pre_made = Column(String(2), nullable=False, default="N", comment="기성품 여부 Y/N")
+    is_public = Column(String(2), nullable=False, default="N", comment="공개 여부 Y/N")
+    meal_condition = Column(String(2), nullable=True, default="", comment="식사 상태")
     created_at = Column(DateTime, server_default=sql_func.now(), comment="등록일")
     view_hash = Column(String(255), nullable=False, default="", comment="뷰 해시")
 
@@ -39,25 +42,18 @@ class MealsCalendars(Base):
         Index("idx_user", "user_id"),
     )
 
-    def __repr__(self):
-        return (
-            f"<MealsCalendar("
-            f"id={self.id}, user_id={self.user_id}, category={self.category_code}, date={self.input_date}"
-            f")>"
-        )
-
     @staticmethod
     def create_hash(session, user_id: int, input_date: str, category_code: int):
         tmp_hash = generate_sha256_hash(user_id, input_date, category_code, settings.SECRET_KEY)
 
-        findByHash = MealsCalendars.findByViewHash(session, tmp_hash)
+        findByHash = MealsCalendars.find_by_view_hash(session, tmp_hash)
         if findByHash:
             return False
 
         return tmp_hash
 
     @staticmethod
-    def findByViewHash(session, view_hash: str):
+    def find_by_view_hash(session, view_hash: str):
         return session.query(MealsCalendars).filter(
             MealsCalendars.view_hash == view_hash
         ).first()
@@ -78,7 +74,9 @@ class MealsCalendars(Base):
                 category_code=params.get("category_code", 0),
                 refer_feed_id=params.get("refer_feed_id", 0),
                 user_id=params.get("user_id", 0),
-                title=params.get("title", ""),
+                is_pre_made=params.get("is_pre_made", "N"),
+                is_public=params.get("is_public", "N"),
+                meal_condition=params.get("meal_condition", ""),
                 contents=params.get("contents", ""),
                 month=params.get("month", ""),
                 input_date=params.get("input_date"),
@@ -118,7 +116,7 @@ class MealsCalendars(Base):
         return query.all()
 
     @staticmethod
-    def getList(session, params):
+    def get_list(session, params):
         if 'user_id' not in params or not params['user_id']:
             raise ValueError("user_id는 필수 항목입니다.")
 
@@ -154,6 +152,18 @@ class MealsCalendars(Base):
             .subquery()
         )
 
+        # feeds_tags_mappers 테이블과 조인하여 태그 정보도 함께 조회
+        tags_mappers_subquery = (
+            session.query(
+                FeedsTagsMapper.feed_id,
+                sql_func.group_concat(FeedsTags.name).label('tags')
+            )
+            .join(FeedsTags, FeedsTagsMapper.tag_id == FeedsTags.id)
+            .filter(FeedsTagsMapper.model == "Meals")
+            .group_by(FeedsTagsMapper.feed_id)
+            .subquery()
+        )
+
         query = (
             session.query(
                 MealsCalendars.view_hash.label("view_hash"),
@@ -162,10 +172,14 @@ class MealsCalendars(Base):
                 MealsCalendars.contents,
                 MealsCalendars.input_date,
                 MealsCalendars.month,
+                MealsCalendars.is_pre_made,
+                MealsCalendars.is_public,
+                MealsCalendars.meal_condition,
                 category_subquery.c.category_id.label("category_id"),
                 category_subquery.c.category_name.label("category_name"),
                 image_subquery.c.image_url.label("image_url"),
                 subquery.c.tags.label("tags"),
+                tags_mappers_subquery.c.tags.label("mapped_tags"),
                 Users.nickname,
                 Users.profile_image,
                 Users.view_hash.label("user_hash")
@@ -174,6 +188,7 @@ class MealsCalendars(Base):
             .outerjoin(category_subquery, MealsCalendars.category_code == category_subquery.c.category_id)
             .outerjoin(subquery, MealsCalendars.id == subquery.c.feed_id)
             .outerjoin(image_subquery, MealsCalendars.id == image_subquery.c.meal_id)
+            .outerjoin(tags_mappers_subquery, MealsCalendars.id == tags_mappers_subquery.c.feed_id)
         )
 
         if params.get("user_id"):
@@ -203,13 +218,16 @@ class QueryResult:
             MealsCalendarResponse(
                 title=v.title,
                 contents=v.contents,
-                tags=v.tags.split(',') if v.tags else [],
                 input_date=f"{v.input_date.year}-{v.input_date.month}-{v.input_date.day}",
                 month=v.month,
                 refer_feed_id=v.refer_feed_id,
                 image_url=v.image_url if v.image_url else None,
                 category_id=v.category_id,
                 category_name=v.category_name,
+                is_pre_made=v.is_pre_made,
+                meal_condition=v.meal_condition,
+                is_public=v.is_public,
+                mapped_tags=v.mapped_tags.split(',') if v.mapped_tags else [],
                 user=FeedsUserResponse(
                     nickname=v.nickname,
                     profile_image=v.profile_image if v.profile_image else None,
@@ -227,13 +245,16 @@ class QueryResult:
             {
                 "title": v.title,
                 "contents": v.contents,
-                "tags": v.tags.split(',') if v.tags else [],
+                "mapped_tags": v.mapped_tags.split(',') if v.mapped_tags else [],
                 "input_date": f"{v.input_date.year}-{v.input_date.month}-{v.input_date.day}",
                 "month": v.month,
+                "is_pre_made": v.is_pre_made,
                 "refer_feed_id": v.refer_feed_id,
                 "image_url": v.image_url if v.image_url else None,
+                "meal_condition": v.meal_condition,
                 "category_id": v.category_id,
                 "category_name": v.category_name,
+                "is_public": v.is_public,
                 "user": {
                     "nickname": v.nickname,
                     "profile_image": v.profile_image if v.profile_image else None,

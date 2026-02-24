@@ -46,11 +46,18 @@ class SummariesAgents(Base):
             SummariesAgents.model == model,
             SummariesAgents.model_id == model_id,
             SummariesAgents.question == question
-        ).first()
+        ).order_by(SummariesAgents.id.desc()).first()
 
     @staticmethod
     def findUsedCountByUserId(session, user_id: int):
         return session.query(SummariesAgents).filter(SummariesAgents.user_id == user_id).count()
+
+    @staticmethod
+    def setAiPromptQuestion(prompt: str, desc: str):
+        f_prompt = f"사용자가 다음과 같이 질문했습니다: {prompt}\n\n"
+        f_prompt += f"이 음식에 대한 간단한 설명을 참고하고 도움이 될만한 답변을 하세요\n"
+        f_prompt += f"음식 설명: {desc}\n\n"
+        return f_prompt
 
     @staticmethod
     def getListByFeedImages(session, params, offset=0, limit=10):
@@ -128,9 +135,7 @@ class SummariesAgents(Base):
         return summary_agent
 
     @staticmethod
-    def getList(session, params: dict, offset=0, limit=10):
-
-
+    def get_list(session, params: dict, offset=0, limit=10):
         query = (
             session.query(
                 SummariesAgents.id,

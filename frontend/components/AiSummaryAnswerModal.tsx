@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { AiSummaryAnswerModalProps } from '../libs/types/SummariesType';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -68,11 +69,13 @@ export default function AiSummaryAnswerModal({
           </ScrollView>
 
           {/* 푸터 버튼 */}
-          <View style={styles.modalFooter}>
-            <TouchableOpacity style={styles.confirmButton} onPress={onClose}>
-              <Text style={styles.confirmButtonText}>확인</Text>
-            </TouchableOpacity>
-          </View>
+          <SafeAreaView edges={['bottom']} style={styles.safeFooter}>
+            <View style={styles.modalFooter}>
+              <TouchableOpacity style={styles.confirmButton} onPress={onClose}>
+                <Text style={styles.confirmButtonText}>확인</Text>
+              </TouchableOpacity>
+            </View>
+          </SafeAreaView>
         </View>
       </View>
     </Modal>
@@ -95,6 +98,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 12,
     elevation: 8,
+  },
+  safeFooter: {
+    backgroundColor: '#FFFFFF',
   },
   modalHeader: {
     flexDirection: 'row',

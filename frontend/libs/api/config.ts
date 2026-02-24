@@ -181,6 +181,7 @@ export const fetchGet = async <T>(endpoint: string, params?: Record<string, any>
     const headers = await getHeaders();
     const url = buildUrl(endpoint, params);
     console.log("GET Request URL:", url);
+    console.log("GET Request Headers:", headers);
     const response = await fetch(url, {
       method: 'GET',
       headers,
@@ -206,9 +207,7 @@ export const fetchPost = async <T>(endpoint: string, data?: any): Promise<T> => 
   const makeRequest = async (): Promise<T> => {
     const headers = await getHeaders();
     const url = `${API_BASE_URL}${endpoint}`;
-    console.log("POST Request URL:", url);
-    console.log(JSON.stringify(data, null, 2));
-    console.log("headers:", headers);
+
     const response = await fetch(url, {
       method: 'POST',
       headers,
@@ -243,7 +242,7 @@ export const fetchPut = async <T>(endpoint: string, data?: any): Promise<T> => {
     return handleResponse(response, endpoint, makeRequest);
   };
 
-  return makeRequest();
+  return await makeRequest();
 };
 
 // Fetch wrapper - DELETE
@@ -251,10 +250,6 @@ export const fetchDelete = async <T>(endpoint: string, data?:any): Promise<T> =>
   const makeRequest = async (): Promise<T> => {
     const headers = await getHeaders();
     const url = `${API_BASE_URL}${endpoint}`;
-
-    console.log("DELETE Request URL:", url);
-    console.log("Headers:", headers);
-    console.log(JSON.stringify(data, null, 2));
 
     const response = await fetch(url, {
       method: 'DELETE',
@@ -265,7 +260,7 @@ export const fetchDelete = async <T>(endpoint: string, data?:any): Promise<T> =>
     return handleResponse(response, endpoint, makeRequest);
   };
 
-  return makeRequest();
+  return await makeRequest();
 };
 
 // Fetch wrapper - POST with FormData (for file uploads)
@@ -292,6 +287,11 @@ export const fetchPostFormData = async <T>(endpoint: string, formData: FormData)
       headers,
       body: formData,
     });
+
+    console.log("POST Response Status:", response.status);
+    console.log("POST Response Headers:", response.headers);
+    console.log("POST Response Body:", await response.clone().text());
+
 
     return handleResponse(response, endpoint, makeRequest);
   };

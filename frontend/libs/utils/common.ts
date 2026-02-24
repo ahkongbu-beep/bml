@@ -49,18 +49,37 @@ export const normalizeDate = (dateString: string): string => {
   return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
 };
 
-export const getStaticImage = (type: string, imagePath: string): string => {
-  if (imagePath.startsWith('http') || imagePath.startsWith('file://')) {
+export const getStaticImage = (type: string, imagePath?: string | null): string => {
+  if (!imagePath) return '';
+
+  // 이미 완전한 URL이면 그대로 사용
+  if (
+    imagePath.startsWith('http') ||
+    imagePath.startsWith('file://') ||
+    imagePath.startsWith('content://') ||
+    imagePath.startsWith('data:') ||
+    imagePath.startsWith('asset://') ||
+    imagePath.startsWith('ph://')
+  ) {
     return imagePath;
   }
 
-  if (imagePath.startsWith('/') == false) {
-    imagePath = '/' + imagePath;
-  }
+  // 앞에 / 보장
+  let normalizedPath = imagePath.startsWith('/') ? imagePath : '/' + imagePath;
 
   const STATIC_BASE_URL = process.env.EXPO_PUBLIC_STATIC_BASE_URL || '';
-  return STATIC_BASE_URL + imagePath + `_${type}.webp`;
-}
+
+  // 실제 파일 경로
+  const base = `${STATIC_BASE_URL}${normalizedPath}_${type}.webp`;
+
+  /**
+   * 🔥 핵심: Fresco 캐시 무효화용 버전 파라미터
+   * path 자체가 고유값(업로드시 변경)이라 안정적
+   */
+  const cacheKey = encodeURIComponent(normalizedPath + '_' + type);
+
+  return `${base}?v=${cacheKey}`;
+};
 
 export const getToday = (format: 'YYYY-MM-DD' | 'YYYY-MM-DD HH:mm:ss' = 'YYYY-MM-DD'): string => {
   const date = new Date();
@@ -125,3 +144,16 @@ export function diffMonthsFrom(dateString: string): number {
 
   return Math.max(months, 0);
 }
+
+// 프로필 이동 (내 프로필 or 타인 프로필)
+export const handleViewProfile = (navigation: any, myUserHash: string, targetUserHash: string) => {
+  // 해쉬정보가 같은 경우 내 프로필로 이동
+  if (myUserHash === targetUserHash) {
+    console.log("내 프로필로 이동");
+    navigation.navigate('MyPage');
+  } else {
+    // 타인 프로필로 이동
+    console.log("타인 프로필로 이동");
+    navigation.navigate('UserProfile', { userHash:targetUserHash });
+  }
+};

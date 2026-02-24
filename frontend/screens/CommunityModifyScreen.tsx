@@ -12,7 +12,6 @@ import {
   TouchableOpacity,
   ScrollView,
   Switch,
-  Alert,
   ActivityIndicator,
   StyleSheet,
   BackHandler,
@@ -95,14 +94,14 @@ export default function CommunityModifyScreen({ route, navigation }: any) {
   const handleImagePick = async () => {
     const totalImages = imageUris.length + existingImageUrls.length;
     if (totalImages >= 3) {
-      Alert.alert('알림', '이미지는 최대 3장까지 등록할 수 있습니다.');
+      toastInfo('이미지는 최대 3장까지 등록할 수 있습니다.');
       return;
     }
 
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (permissionResult.granted === false) {
-      Alert.alert('알림', '사진첩 접근 권한이 필요합니다.');
+      toastInfo('사진첩 접근 권한이 필요합니다.');
       return;
     }
 

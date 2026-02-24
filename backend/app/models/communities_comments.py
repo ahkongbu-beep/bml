@@ -25,11 +25,11 @@ class CommunitiesComments(Base):
     parent = relationship("CommunitiesComments", remote_side=[id], backref="children")
 
     @staticmethod
-    def findByViewHash(session, view_hash: str):
+    def find_by_view_hash(session, view_hash: str):
         return session.query(CommunitiesComments).filter(CommunitiesComments.view_hash == view_hash).first()
 
     @staticmethod
-    def deleteById(session, comment_id: int):
+    def delete_by_id(session, comment_id: int):
         comment = session.query(CommunitiesComments).filter(CommunitiesComments.id == comment_id).first()
         comment.deleted_at = datetime.datetime.now(pytz.timezone("Asia/Seoul"))
         try:

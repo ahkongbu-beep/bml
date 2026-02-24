@@ -89,20 +89,26 @@ export const useInfiniteFeeds = (params?: Omit<FeedListParams, 'cursor'>) => {
  * 특정 피드 상세 조회 Hook
  */
 export const useFeed = (id: number) => {
-  return useQuery<Feed, Error>({
+  const { data, isLoading, error, refetch } = useQuery<Feed, Error>({
     queryKey: feedKeys.detail(id),
     queryFn: () => getFeedById(id),
     enabled: !!id,
   });
-};
 
+  return {
+    data,
+    isLoading,
+    error,
+    refetch,
+  };
+};
 /**
  * 내 피드 목록 조회 Hook
  */
 export const useMyFeeds = (params?: FeedListParams) => {
   return useQuery<PaginationResponse<Feed>, Error>({
     queryKey: feedKeys.myFeeds(),
-    staleTime: 1000 * 60 * 5,
+    staleTime: 1000 * 60 * 5, // 5분
     refetchOnWindowFocus: false,
     queryFn: () => getMyFeeds(params),
   });

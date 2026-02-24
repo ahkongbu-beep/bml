@@ -9,7 +9,7 @@ from app.core.config import settings
 
 def get_community_list(db, user_hash, params) -> CommonResponse:
     """커뮤니티 리스트 조회 서비스 함수"""
-    user = Users.findByViewHash(db, user_hash)
+    user = Users.find_by_view_hash(db, user_hash)
     if not user:
         return CommonResponse(success=False, message="유효하지 않은 사용자입니다.")
 
@@ -46,7 +46,7 @@ def get_community_list(db, user_hash, params) -> CommonResponse:
 
 async def create_community(db, user_hash, client_ip, title, contents, category_code, is_secret, files) -> CommonResponse:
     """커뮤니티 글 작성 서비스 함수"""
-    user = Users.findByViewHash(db, user_hash)
+    user = Users.find_by_view_hash(db, user_hash)
     if not user:
         return CommonResponse(success=False, message="유효하지 않은 사용자입니다.")
 
@@ -99,11 +99,11 @@ async def create_community(db, user_hash, client_ip, title, contents, category_c
 
 def get_community_detail(db, user_hash, community_hash) -> CommonResponse:
     """커뮤니티 글 상세 조회 서비스 함수"""
-    user = Users.findByViewHash(db, user_hash)
+    user = Users.find_by_view_hash(db, user_hash)
     if not user:
         return CommonResponse(success=False, error="유효하지 않은 사용자입니다.")
 
-    community = Community.findByViewHash(db, community_hash)
+    community = Community.find_by_view_hash(db, community_hash)
     if not community:
         return CommonResponse(success=False, error="존재하지 않는 커뮤니티 글입니다.")
 
@@ -150,11 +150,11 @@ def get_community_detail(db, user_hash, community_hash) -> CommonResponse:
 
 def delete_community(db, user_hash, community_hash) -> CommonResponse:
     """커뮤니티 글 삭제 서비스 함수"""
-    user = Users.findByViewHash(db, user_hash)
+    user = Users.find_by_view_hash(db, user_hash)
     if not user:
         return CommonResponse(success=False, error="유효하지 않은 사용자입니다.")
 
-    community = Community.findByViewHash(db, community_hash)
+    community = Community.find_by_view_hash(db, community_hash)
     if not community:
         return CommonResponse(success=False, error="존재하지 않는 커뮤니티 글입니다.")
 
@@ -180,11 +180,11 @@ def delete_community(db, user_hash, community_hash) -> CommonResponse:
 
 async def update_community(db, user_hash, community_hash, title, contents, is_secret, files) -> CommonResponse:
     """커뮤니티 글 수정 서비스 함수"""
-    user = Users.findByViewHash(db, user_hash)
+    user = Users.find_by_view_hash(db, user_hash)
     if not user:
         return CommonResponse(success=False, message="유효하지 않은 사용자입니다.")
 
-    community = Community.findByViewHash(db, community_hash)
+    community = Community.find_by_view_hash(db, community_hash)
     if not community:
         return CommonResponse(success=False, message="존재하지 않는 커뮤니티 글입니다.")
 
@@ -241,11 +241,11 @@ async def update_community(db, user_hash, community_hash, title, contents, is_se
 
 def like_community(db, user_hash, community_hash) -> CommonResponse:
     """커뮤니티 글 좋아요 서비스 함수"""
-    user = Users.findByViewHash(db, user_hash)
+    user = Users.find_by_view_hash(db, user_hash)
     if not user:
         return CommonResponse(success=False, message="유효하지 않은 사용자입니다.")
 
-    community = Community.findByViewHash(db, community_hash)
+    community = Community.find_by_view_hash(db, community_hash)
     if not community:
         return CommonResponse(success=False, message="존재하지 않는 커뮤니티 글입니다.")
 
@@ -283,11 +283,11 @@ def like_community(db, user_hash, community_hash) -> CommonResponse:
 
 """ 커뮤니티 댓글 등록 서비스 함수 """
 def create_community_comment(db, user_hash, community_hash, params) -> CommonResponse:
-    user = Users.findByViewHash(db, user_hash)
+    user = Users.find_by_view_hash(db, user_hash)
     if not user:
         return CommonResponse(success=False, message="유효하지 않은 사용자입니다.")
 
-    community = Community.findByViewHash(db, community_hash)
+    community = Community.find_by_view_hash(db, community_hash)
     if not community:
         return CommonResponse(success=False, message="존재하지 않는 커뮤니티 글입니다.")
 
@@ -298,7 +298,7 @@ def create_community_comment(db, user_hash, community_hash, params) -> CommonRes
         # parent_hash가 있으면 parent_id 찾기
         parent_id = None
         if params.parent_hash:
-            parent_comment = CommunitiesComments.findByViewHash(db, params.parent_hash)
+            parent_comment = CommunitiesComments.find_by_view_hash(db, params.parent_hash)
             if parent_comment:
                 parent_id = parent_comment.id
 
@@ -332,11 +332,11 @@ def create_community_comment(db, user_hash, community_hash, params) -> CommonRes
 
 """ 커뮤니티 댓글 삭제 서비스 함수 """
 def delete_community_comment(db, user_hash, comment_hash) -> CommonResponse:
-    user = Users.findByViewHash(db, user_hash)
+    user = Users.find_by_view_hash(db, user_hash)
     if not user:
         return CommonResponse(success=False, message="유효하지 않은 사용자입니다.")
 
-    exist_comment = CommunitiesComments.findByViewHash(db, comment_hash)
+    exist_comment = CommunitiesComments.find_by_view_hash(db, comment_hash)
     if not exist_comment:
         return CommonResponse(success=False, message="존재하지 않는 커뮤니티 댓글입니다.")
 
@@ -356,11 +356,11 @@ def delete_community_comment(db, user_hash, comment_hash) -> CommonResponse:
 
 """ 커뮤니티 댓글 수정 서비스 함수 """
 def update_community_comment(db, user_hash, comment_hash, params) -> CommonResponse:
-    user = Users.findByViewHash(db, user_hash)
+    user = Users.find_by_view_hash(db, user_hash)
     if not user:
         return CommonResponse(success=False, message="유효하지 않은 사용자입니다.")
 
-    exist_comment = CommunitiesComments.findByViewHash(db, comment_hash)
+    exist_comment = CommunitiesComments.find_by_view_hash(db, comment_hash)
     if not exist_comment:
         return CommonResponse(success=False, message="존재하지 않는 커뮤니티 댓글입니다.")
 
@@ -380,11 +380,11 @@ def update_community_comment(db, user_hash, comment_hash, params) -> CommonRespo
 """커뮤니티 댓글 리스트 조회 서비스 함수"""
 def get_community_comments(db, user_hash, params) -> CommonResponse:
 
-    user = Users.findByViewHash(db, user_hash)
+    user = Users.find_by_view_hash(db, user_hash)
     if not user:
         return CommonResponse(success=False, message="유효하지 않은 사용자입니다.")
 
-    community = Community.findByViewHash(db, params.get("community_hash"))
+    community = Community.find_by_view_hash(db, params.get("community_hash"))
     if not community:
         return CommonResponse(success=False, message="존재하지 않는 커뮤니티 글입니다.")
 

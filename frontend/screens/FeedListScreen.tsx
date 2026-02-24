@@ -26,6 +26,7 @@ import BannerCarousel from '../components/BannerCarousel';
 import FeedItem from '../components/FeedItem';
 import { LoadingPage } from '../components/Loading';
 import { ErrorPage } from '../components/ErrorPage';
+import { handleViewProfile } from '@/libs/utils/common';
 import {
   useInfiniteFeeds,
   useToggleLike,
@@ -144,18 +145,6 @@ export default function FeedListScreen() {
     navigation.navigate('MealCopyByFeed', { feedId, userHash });
   }
 
-  // 프로필 이동 (내 프로필 or 타인 프로필)
-  const handleViewProfile = useCallback((userHash: string, nickname: string) => {
-    setMenuVisible(null);
-
-    // 해쉬정보가 같은 경우 내 프로필로 이동
-    if (user.view_hash === userHash) {
-      navigation.navigate('MyPage');
-    } else {
-      // 타인 프로필로 이동
-      navigation.navigate('UserProfile', { userHash });
-    }
-  }, [navigation, user?.view_hash]);
 
   // 사용자 차단 or 해제
   const handleBlock = useCallback((deny_user_hash: string, nickname: string) => {
@@ -212,6 +201,12 @@ export default function FeedListScreen() {
     },
   });
 
+
+  const handleProfileView = useCallback((userHash: string) => {
+    setMenuVisible(null); // 해쉬정보가 같은 경우 내 프로필로 이동
+    handleViewProfile(navigation, user?.view_hash || '', userHash);
+  }, [navigation, user?.view_hash]);
+
   // ai 요약 질문 제출
   const handleAiSummarySubmit = useCallback((prompt: string) => {
     if (!aiSummaryParams) return;
@@ -266,7 +261,7 @@ export default function FeedListScreen() {
         isLiking={likingFeedId === item.id}
         onMenuToggle={handleMenuToggle}
         onImageScroll={handleImageScroll}
-        onViewProfile={handleViewProfile}
+        onViewProfile={handleProfileView}
         onBlock={handleBlock}
         onLike={handleLike}
         onCommentPress={handleCommentPress}
@@ -275,12 +270,11 @@ export default function FeedListScreen() {
         userHash={user?.view_hash}
       />
     );
-  }, [menuVisible, currentImageIndex, likingFeedId, optimisticLikes, handleMenuToggle, handleImageScroll, handleViewProfile, handleBlock, handleLike, handleCommentPress, handleAiSummary, user?.view_hash]);
+  }, [menuVisible, currentImageIndex, likingFeedId, optimisticLikes, handleMenuToggle, handleImageScroll, handleProfileView, handleBlock, handleLike, handleCommentPress, handleAiSummary, user?.view_hash]);
 
   const renderListHeader = () => (
     <View>
       <UserHeader user={user} />
-      <BannerCarousel />
       <View style={styles.feedDivider} />
     </View>
   );

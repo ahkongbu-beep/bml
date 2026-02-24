@@ -11,14 +11,16 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { getStaticImage } from '../libs/utils/common';
+import { getStaticImage, diffMonthsFrom } from '../libs/utils/common';
 import { MEAL_CATEGORIES } from '../libs/utils/codes/MealCalendarCode';
+import { USER_CHILD_GENDER } from '../libs/utils/codes/UserChildCode';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface MealDetailModalProps {
   visible: boolean;
   meal: any;
+  userInfo: any;
   onClose: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
@@ -28,15 +30,15 @@ interface MealDetailModalProps {
 const MealDetailModal: React.FC<MealDetailModalProps> = ({
   visible,
   meal,
+  userInfo,
   onClose,
   onEdit,
   onDelete,
   onViewSource,
 }) => {
   const category = MEAL_CATEGORIES.find((c) => c.name === meal?.category_name);
-
   if (!meal) return null;
-
+  console.log("MealDetailModal rendered with meal:", meal);
   return (
     <Modal
       visible={visible}
@@ -83,11 +85,6 @@ const MealDetailModal: React.FC<MealDetailModalProps> = ({
               </View>
             )}
 
-            {/* 제목 */}
-            <View style={[styles.section, styles.firstSection]}>
-              <Text style={styles.title}>{meal.title || ''}</Text>
-            </View>
-
             {/* 작성자 정보 */}
             {meal.user && (
               <View style={styles.userSection}>
@@ -117,25 +114,38 @@ const MealDetailModal: React.FC<MealDetailModalProps> = ({
                 <Ionicons name="information-circle" size={20} color="#FF9AA2" />
                 <Text style={styles.sectionTitle}>식단 정보</Text>
               </View>
+
               <View style={styles.infoGrid}>
                 <View style={styles.infoItem}>
                   <View style={styles.infoIconContainer}>
                     <Ionicons name="calendar-outline" size={18} color="#FF9AA2" />
                   </View>
                   <View style={styles.infoContent}>
-                    <Text style={styles.infoLabel}>등록일</Text>
-                    <Text style={styles.infoValue}>{meal.input_date?.replace(/-/g, '.') || ''}</Text>
+                    <Text style={styles.infoLabel}>아이정보</Text>
+                    <Text style={styles.infoValue}>
+                      {userInfo.user_childs && userInfo.user_childs.length > 0
+                        ? `${diffMonthsFrom(userInfo.user_childs[0].child_birth)}세 · ${USER_CHILD_GENDER[userInfo.user_childs[0].child_gender]}`
+                        : '정보 없음'}
+                    </Text>
                   </View>
                 </View>
-                <View style={styles.infoItem}>
-                  <View style={styles.infoIconContainer}>
-                    <Ionicons name="time-outline" size={18} color="#FF9AA2" />
+                {meal.is_pre_made == "N" && (
+                  <View style={styles.infoItem}>
+                    <View style={styles.infoIconContainer}>
+                      <Ionicons name="time-outline" size={18} color="#FF9AA2" />
+                    </View>
+                    <View style={styles.infoContent}>
+                      <Text style={styles.infoLabel}>사용재료</Text>
+                      <View style={styles.tagContainer}>
+                        {meal.mapped_tags.map((tag: string, index: number) => (
+                          <View key={index} style={styles.tag}>
+                            <Text style={styles.tagText}>{tag}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    </View>
                   </View>
-                  <View style={styles.infoContent}>
-                    <Text style={styles.infoLabel}>식사 시간</Text>
-                    <Text style={styles.infoValue}>{meal.category_name || ''}</Text>
-                  </View>
-                </View>
+                )}
                 <View style={styles.infoItem}>
                   <View style={styles.infoIconContainer}>
                     <Ionicons name="calendar" size={18} color="#FF9AA2" />
@@ -145,6 +155,7 @@ const MealDetailModal: React.FC<MealDetailModalProps> = ({
                     <Text style={styles.infoValue}>{meal.month || ''}</Text>
                   </View>
                 </View>
+
                 {meal.refer_feed_id > 0 && (
                   <View style={styles.infoItem}>
                     <View style={styles.infoIconContainer}>
@@ -165,25 +176,12 @@ const MealDetailModal: React.FC<MealDetailModalProps> = ({
                 <Ionicons name="document-text" size={20} color="#FF9AA2" />
                 <Text style={styles.sectionTitle}>상세 내용</Text>
               </View>
-              <Text style={styles.contents}>{meal.contents || ''}</Text>
-            </View>
 
-            {/* 태그 */}
-            {meal.tags && meal.tags.length > 0 && (
-              <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                  <Ionicons name="pricetag" size={20} color="#FF9AA2" />
-                  <Text style={styles.sectionTitle}>태그</Text>
-                </View>
-                <View style={styles.tagContainer}>
-                  {meal.tags.map((tag: string, index: number) => (
-                    <View key={index} style={styles.tag}>
-                      <Text style={styles.tagText}>#{tag}</Text>
-                    </View>
-                  ))}
-                </View>
+              <View style={styles.contents}>
+                {/* 상세내용 입력받음 */}
+                <Text style={styles.contentsText}>{meal.contents || ''}</Text>
               </View>
-            )}
+            </View>
 
             {/* 출처 */}
             {meal.refer_feed_id > 0 && onViewSource && (
@@ -419,9 +417,9 @@ const styles = StyleSheet.create({
   },
   tag: {
     backgroundColor: '#FFF0F3',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingHorizontal: 7,
+    paddingVertical: 4,
+    borderRadius: 10,
     borderWidth: 1.5,
     borderColor: '#FFD4DB',
   },

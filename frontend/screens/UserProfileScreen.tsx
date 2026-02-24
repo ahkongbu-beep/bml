@@ -3,7 +3,7 @@
  * MyPageScreen과 유사하지만, 다른 사용자의 정보를 보여줌
  */
 import React, { useState, useEffect } from 'react';
-import styles from './FeedListScreen.styles';
+import styles from './UserProfileScreen.styles';
 import {
   View,
   Text,
@@ -29,10 +29,10 @@ import { getStaticImage } from '../libs/utils/common';
 export default function UserProfileScreen({ route, navigation }: any) {
   const { userHash } = route.params; // 조회할 사용자 Hash
   const { user: currentUser } = useAuth();
-  const [viewType, setViewType] = useState<'grid' | 'list'>('grid');
+  const [ viewType, setViewType ] = useState<'grid' | 'list'>('grid');
 
   // 사용자 프로필 조회
-  const { data: userProfile, isLoading: profileLoading, error: profileError } = useGetUserProfile(userHash);
+  const { data: userProfile, isLoading: profileLoading, isError: profileIsError, error: profileError } = useGetUserProfile(userHash);
   // 사용자의 피드 목록 조회
   const { data: userFeedsData, isLoading: feedsLoading } = useUserFeeds(userHash);
   // 피드 데이터
@@ -65,6 +65,7 @@ export default function UserProfileScreen({ route, navigation }: any) {
                 navigation.goBack();
               },
               onError: (error) => {
+                console.log('차단 처리 오류:', error);
                 Alert.alert('오류', '차단 처리 중 오류가 발생했습니다.');
               },
             });
@@ -74,17 +75,18 @@ export default function UserProfileScreen({ route, navigation }: any) {
     );
   };
 
-  if (profileLoading && feedsLoading) {
+  if (profileLoading) {
     return (
       <LoadingPage title="프로필을 불러오는 중" />
     );
   }
 
   // 에러 상태
-  if (profileError || !userProfile) {
+  if (profileIsError || !userProfile) {
     return (
       <ErrorPage
         message="프로필을 불러오는 중 오류가 발생했습니다."
+        subMessage={profileError?.message}
         refetch={() => { navigation.replace('UserProfile', { userHash }) }}
       />
     );
@@ -172,7 +174,6 @@ export default function UserProfileScreen({ route, navigation }: any) {
                 />
               </TouchableOpacity>
             </View>
-
             <MyFeedGrid
               feeds={userFeeds}
               isLoading={feedsLoading}

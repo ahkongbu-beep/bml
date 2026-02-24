@@ -45,7 +45,7 @@ import {
 import { useCategoryCodes } from '../libs/hooks/useCategories';
 import { Portal, Dialog, Button } from 'react-native-paper';
 import { CommunityPost } from '../libs/types/CommunitiesType';
-import { getStaticImage } from '../libs/utils/common';
+import { getStaticImage, handleViewProfile } from '../libs/utils/common';
 import { toastError, toastInfo, toastSuccess } from '@/libs/utils/toast';
 import ConfirmPortal from '@/components/ConfirmPortal';
 
@@ -241,7 +241,6 @@ export default function CommunityScreen({ navigation }: any) {
 
   // 게시글 작성
   const handleCreatePost = () => {
-    // TODO: 작성 화면으로 이동
     navigation.navigate('CommunityWrite');
   };
 
@@ -251,35 +250,34 @@ export default function CommunityScreen({ navigation }: any) {
       toastError('게시글 정보가 없습니다.');
       return;
     }
-    createCommunityCommentMutation.mutate(
-      {
-        community_hash: selectedPostId,
-        comment: content,
-        parent_hash: parentHash || undefined,
+
+    const mutateParams = {
+      community_hash: selectedPostId,
+      comment: content,
+      parent_hash: parentHash || undefined,
+    }
+
+    createCommunityCommentMutation.mutate(mutateParams, {
+      onSuccess: () => {
+        toastSuccess('댓글이 등록되었습니다.', {
+          onHide: () => {
+            refetchComments(); // 댓글 목록 새로고침
+          },
+          onPress: () => {
+            refetchComments(); // 댓글 목록 새로고침
+          }
+        });
       },
-      {
-        onSuccess: () => {
-          toastSuccess('댓글이 등록되었습니다.', {
-            onHide: () => {
-              refetchComments(); // 댓글 목록 새로고침
-            },
-            onPress: () => {
-              refetchComments(); // 댓글 목록 새로고침
-            }
-          });
-        },
-        onError: (error) => {
-          toastError('댓글 등록 중 오류가 발생했습니다.');
-          console.error('Comment create error:', error);
-        },
-      }
-    );
+      onError: (error) => {
+        toastError('댓글 등록 중 오류가 발생했습니다.');
+        console.error('Comment create error:', error);
+      },
+    });
   };
 
   // 댓글 삭제
   const handleCommentDelete = (commentHash: string) => {
-    deleteCommunityCommentMutation.mutate(
-      commentHash,
+    deleteCommunityCommentMutation.mutate(commentHash,
       {
         onSuccess: () => {
           toastSuccess('댓글이 삭제되었습니다.', {
@@ -314,10 +312,15 @@ export default function CommunityScreen({ navigation }: any) {
           activeOpacity={0.7}
         >
           <View style={styles.postItemContent}>
-            <Image
-              source={{ uri: getStaticImage('thumbnail', item.profile_image) || '' }}
-              style={styles.postProfileImage}
-            />
+            <TouchableOpacity
+              onPress={() => handleViewProfile(navigation, user?.view_hash, item.user_hash)}
+              style={styles.postProfileContainer}
+            >
+              <Image
+                source={{ uri: getStaticImage('thumbnail', item.profile_image) || '' }}
+                style={styles.postProfileImage}
+              />
+            </TouchableOpacity>
             <View style={styles.postItemRight}>
               {/* 카테고리 태그와 메타 정보 */}
               <View style={styles.postMetaRow}>

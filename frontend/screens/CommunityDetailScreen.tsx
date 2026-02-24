@@ -25,7 +25,7 @@ import { useAuth } from '../libs/contexts/AuthContext';
 import { useGetDetailCommunity, useCommunityComments, useSoftDeleteCommunity, useCreateCommunityComment, useDeleteCommunityComment } from '../libs/hooks/useCommunities';
 import { useCategoryCodes } from '../libs/hooks/useCategories';
 import { LoadingPage } from '../components/Loading';
-import { formatDate, diffMonthsFrom, getStaticImage, formatRelativeTime } from '@/libs/utils/common';
+import { formatDate, diffMonthsFrom, getStaticImage, formatRelativeTime, handleViewProfile } from '@/libs/utils/common';
 import { Portal, Dialog, Button, Icon } from 'react-native-paper';
 import { toastError, toastInfo, toastSuccess } from '@/libs/utils/toast';
 import { CommunityDetail } from '../libs/types/community';
@@ -174,7 +174,6 @@ export default function CommunityDetailScreen({ route, navigation }: any) {
         }
       },
       onError: (error) => {
-        console.error('Failed to delete comment:', error);
         toastError('댓글 삭제 중 오류가 발생했습니다.');
       }
     });
@@ -209,11 +208,18 @@ export default function CommunityDetailScreen({ route, navigation }: any) {
         }
       },
       onError: (error) => {
-        console.error('Failed to delete community:', error);
         toastError('게시글 삭제 중 오류가 발생했습니다.');
       },
     });
   };
+
+  const handleUserProfile = (userHash: string) => {
+    handleViewProfile(navigation, user?.view_hash || '', userHash);
+  }
+
+  const handleLikeToggle = () => {
+    toastInfo('좋아요 기능은 준비 중입니다.');
+  }
 
   // 댓글 모달 열기
   const handleCommentPress = (commentHash: string, nickname?: string) => {
@@ -237,10 +243,14 @@ export default function CommunityDetailScreen({ route, navigation }: any) {
     >
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <Image
-            source={{ uri: getStaticImage('small', comment.user.profile_image) || '' }}
-            style={styles.commentProfileImage}
-          />
+          <TouchableOpacity
+            onPress={() => handleUserProfile(comment.user.view_hash)}
+          >
+            <Image
+              source={{ uri: getStaticImage('small', comment.user.profile_image) || '' }}
+              style={styles.commentProfileImage}
+            />
+          </TouchableOpacity>
           <View>
             <Text style={styles.commentAuthor}>{comment.user.nickname}</Text>
             <Text style={styles.commentText}>{comment.comment}</Text>
@@ -280,7 +290,7 @@ export default function CommunityDetailScreen({ route, navigation }: any) {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <Header
-          title="커뮤니티 상세"
+          title={`${communityData.user_nickname}님의 글`}
           showBackButton
           onBackPress={() => navigation.navigate('Community')}
           rightButton={isMine ? {
@@ -302,10 +312,14 @@ export default function CommunityDetailScreen({ route, navigation }: any) {
         <ScrollView style={styles.container}>
           {/* 작성자 정보 */}
           <View style={styles.authorSection}>
-            <Image
+            <TouchableOpacity
+              onPress={() => handleUserProfile(communityData.user_hash)}
+            >
+              <Image
               source={{ uri: getStaticImage('small', communityData.user_profile_image) || '' }}
               style={styles.profileImage}
-            />
+              />
+            </TouchableOpacity>
             <View style={styles.authorInfo}>
               <Text style={styles.authorName}>{communityData.user_nickname}</Text>
               <Text style={styles.authorDetail}>

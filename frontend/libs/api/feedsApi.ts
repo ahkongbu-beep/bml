@@ -22,6 +22,15 @@ export const getFeeds = async (params?: FeedListParams): Promise<PaginationRespo
  */
 export const getFeedById = async (id: number): Promise<Feed> => {
   const response = await fetchGet<ApiResponse<Feed>>(`/feeds/detail/${id}`);
+
+  if (!response.success) {
+    throw new Error(response.error || '식단 정보를 불러올 수 없습니다.');
+  }
+
+  if (!response.data) {
+    throw new Error('식단 데이터가 없습니다.');
+  }
+
   return response.data;
 };
 

@@ -18,7 +18,7 @@ class FeedsTags(Base):
     태그 이름으로 태그 조회, 없으면 생성
     """
     @staticmethod
-    def findOrCreateTag(session, tag_name: str, is_commit=True):
+    def get_or_create_tag(session, tag_name: str, is_commit=True):
 
         tag_name = tag_name.replace("#", "").strip()
         tag = session.query(FeedsTags).filter(FeedsTags.name == tag_name).first()

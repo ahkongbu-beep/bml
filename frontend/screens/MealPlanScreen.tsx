@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import styles from './MealPlanScreen.styles';
 import {
   View,
@@ -6,24 +6,28 @@ import {
   StyleSheet,
   ScrollView,
   Alert,
+  Image,
   TouchableOpacity,
   ActivityIndicator,
   Modal,
   Pressable,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import Header from '../components/Header';
+import Layout from '@/components/Layout';
+import { LoadingPage } from '../components/Loading';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { Dialog, Button, Portal } from 'react-native-paper';
-import Header from '../components/Header';
-import Layout from '@/components/Layout';
 import { useAuth } from '../libs/contexts/AuthContext';
-import { useMeals, useDeleteMeal } from '../libs/hooks/useMeals';
+import { useMeals, useDeleteMeal, useUploadCalendarMonthImage, useMonthImage } from '../libs/hooks/useMeals';
 import { MealItem } from '../libs/types/MealType';
-import { normalizeDate } from '../libs/utils/common';
+import { normalizeDate, getStaticImage } from '../libs/utils/common';
 import { MEAL_CATEGORIES } from '../libs/utils/codes/MealCalendarCode';
 import MealPlanItem from '../components/MealPlanItem';
 import MealDetailModal from '../components/MealDetailModal';
+import { toastError, toastSuccess, toastInfo } from '@/libs/utils/toast';
 
 // 한국어 설정
 LocaleConfig.locales['kr'] = {
@@ -43,6 +47,10 @@ LocaleConfig.defaultLocale = 'kr';
 
 export default function MealPlanScreen({ navigation }: any) {
   const [selectedDate, setSelectedDate] = useState('');
+  const [currentMonth, setCurrentMonth] = useState(new Date().toISOString().slice(0, 7));
+  // 월별 이미지 경로 캐시 (서버 타이밍과 UI 분리)
+  const [monthImageMap, setMonthImageMap] = useState<Record<string, string | null>>({});
+  const [isMonthImageUpdating, setIsMonthImageUpdating] = useState(false);
   const [viewMode, setViewMode] = useState<'week' | 'month'>('month');
   const [isLoading] = useState(false);
   const [menuVisible, setMenuVisible] = useState<string | null>(null);
@@ -52,23 +60,30 @@ export default function MealPlanScreen({ navigation }: any) {
   const [selectedMeal, setSelectedMeal] = useState<MealItem | null>(null);
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const deleteMealMutation = useDeleteMeal();
+  const uploadMonthImageMutation = useUploadCalendarMonthImage();
   const { user } = useAuth();
 
-  const { data: mealsCalendar, isLoading: mealsLoading, refetch } = useMeals({ month: new Date().toISOString().slice(0, 7) });
+  const { data: mealsCalendar, isLoading: mealsLoading, refetch } = useMeals({ month: currentMonth });
+  const { data: monthImage } = useMonthImage(currentMonth);
 
-  // 화면이 포커스될 때마다 데이터 새로고침
-  useFocusEffect(
-    useCallback(() => {
-      refetch();
-    }, [refetch])
-  );
+  // useMonthImage 응답을 월별 캐시에 저장 (이미 저장된 값은 덮어쓰지 않음)
+  useEffect(() => {
+    if (!monthImage?.success) return;
+    const serverPath = monthImage?.data?.image_url ?? null;
+    setMonthImageMap(prev => {
+      if (prev[currentMonth] !== undefined) return prev;
+      return { ...prev, [currentMonth]: serverPath };
+    });
+  }, [monthImage?.data?.image_url, currentMonth]);
 
   const today = new Date().toISOString().split('T')[0];
+  const monthImagePath = monthImageMap[currentMonth];
+  const isLoadingMonthImage = !(currentMonth in monthImageMap);
 
   // API 데이터를 정규화된 날짜 키로 변환
-  const normalizedMealsData = mealsCalendar?.data ? Object.keys(mealsCalendar.data).reduce((acc, date) => {
+  const normalizedMealsData = mealsCalendar?.data.calendar_list ? Object.keys(mealsCalendar.data.calendar_list).reduce((acc, date) => {
     const normalizedDate = normalizeDate(date);
-    acc[normalizedDate] = mealsCalendar.data[date];
+    acc[normalizedDate] = mealsCalendar.data.calendar_list[date];
     return acc;
   }, {} as Record<string, MealItem[]>) : {};
 
@@ -109,10 +124,19 @@ export default function MealPlanScreen({ navigation }: any) {
 
   const confirmDelete = () => {
     if (mealToDelete) {
-      const result = deleteMealMutation.mutate(mealToDelete.view_hash);
-      if (result.success === true) {
-        Alert.alert('식단이 삭제되었습니다.');
-      }
+      deleteMealMutation.mutate(mealToDelete.view_hash, {
+        onSuccess: (response) => {
+          if (response?.success) {
+            toastSuccess('식단이 삭제되었습니다');
+            refetch();
+          } else {
+            toastError('식단 삭제에 실패했습니다');
+          }
+        },
+        onError: (error) => {
+          toastError('식단 삭제 중 오류가 발생했습니다.');
+        }
+      });
     }
     setDeleteDialogVisible(false);
     setMealToDelete(null);
@@ -174,16 +198,151 @@ export default function MealPlanScreen({ navigation }: any) {
     }
   };
 
+  const handlePickMonthImage = async () => {
+    try {
+      if (uploadMonthImageMutation.isPending) {
+        toastInfo('이미지 업로드 중입니다. 잠시만 기다려주세요.');
+        return;
+      }
+
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('권한 필요', '갤러리 접근 권한이 필요합니다.');
+        return;
+      }
+
+      const imagePickerAny = ImagePicker as any;
+      const mediaTypesOption = imagePickerAny?.MediaType?.Images
+        ? [imagePickerAny.MediaType.Images]
+        : ['images'];
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        ...(mediaTypesOption ? { mediaTypes: mediaTypesOption } : {}),
+        allowsEditing: true,
+        aspect: [16, 9],
+        quality: 0.9,
+      });
+
+      if (result.canceled || !result.assets?.[0]) return;
+
+      const selectedAsset = result.assets[0];
+      const monthSnapshot = currentMonth;
+      const fileName = selectedAsset.fileName
+        || selectedAsset.uri.split('/').pop()
+        || `meal-month-${Date.now()}.jpg`;
+      const extMatch = /\.(\w+)$/.exec(fileName);
+      const mimeType = extMatch ? `image/${extMatch[1]}` : (selectedAsset.mimeType || 'image/jpeg');
+
+      const buildFormData = () => {
+        const formData = new FormData();
+        formData.append('month', monthSnapshot);
+        formData.append('attaches', { uri: selectedAsset.uri, name: fileName, type: mimeType } as any);
+        return formData;
+      };
+
+      setIsMonthImageUpdating(true);
+
+      const MAX_ATTEMPTS = 3;
+      const requestUpload = (attempt: number) => {
+        uploadMonthImageMutation.mutate(buildFormData(), {
+          onSuccess: (response) => {
+            if (response?.success) {
+              const imageUrl = (response as any)?.data?.image_url;
+              if (imageUrl) {
+                // 업로드 성공 즉시 해당 월 캐시 갱신
+                setMonthImageMap(prev => ({ ...prev, [monthSnapshot]: imageUrl }));
+              }
+              setIsMonthImageUpdating(false);
+              toastSuccess('월 메인 이미지가 등록되었습니다.');
+              refetch();
+            } else {
+              setIsMonthImageUpdating(false);
+              toastError((response as any)?.error || '월 메인 이미지 등록에 실패했습니다.');
+            }
+          },
+          onError: (error: unknown) => {
+            const message = String(error || '').toLowerCase();
+            const isNetworkError = message.includes('network') || message.includes('failed') || message.includes('timeout');
+            if (isNetworkError && attempt < MAX_ATTEMPTS - 1) {
+              if (attempt === 0) toastInfo('네트워크 불안정으로 업로드를 다시 시도합니다.');
+              setTimeout(() => requestUpload(attempt + 1), (attempt + 1) * 800);
+              return;
+            }
+            setIsMonthImageUpdating(false);
+            toastError('월 메인 이미지 등록 중 오류가 발생했습니다.');
+          },
+        });
+      };
+
+      requestUpload(0);
+    } catch (error) {
+      toastError('갤러리를 여는 중 오류가 발생했습니다.');
+    }
+  };
+
+  // 서버 응답 직접 사용 금지 → 월별 캐시에서 읽기
+  if (!mealsCalendar) {
+    return <LoadingPage title="식단 정보를 불러오는 중" />;
+  }
+
   return (
     <Layout>
       <View style={styles.container}>
         <Header title="식단 관리" />
         <ScrollView style={styles.content}>
+          {/* 메인 이미지 */}
+          <View style={styles.monthImageHeader}>
+            <Text style={styles.monthImageHeaderText}>{currentMonth.replace('-', '년 ')}월의 식단 이미지</Text>
+          </View>
+
+          {isLoadingMonthImage  ? (
+            <View style={styles.monthImagePlaceholder}>
+              <ActivityIndicator size="large" color="#FF9AA2" />
+              <Text style={styles.monthImagePlaceholderText}>이미지 불러오는 중...</Text>
+            </View>
+          ) : monthImagePath ? (
+            <View style={styles.monthImageContainer}>
+              <Image
+                key={monthImagePath}
+                source={{ uri: getStaticImage('small', monthImagePath) }}
+                style={styles.monthImage}
+                resizeMode="cover"
+                fadeDuration={0}
+              />
+              <TouchableOpacity
+                style={styles.monthImageUploadButton}
+                onPress={handlePickMonthImage}
+                disabled={uploadMonthImageMutation.isPending}
+              >
+                <Ionicons name="image-outline" size={16} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={styles.monthImagePlaceholder}>
+              <Ionicons name="image-outline" size={36} color="#D0D0D0" />
+              <Text style={styles.monthImagePlaceholderText}>
+                이번 달의 식단 이미지를 등록해주세요
+              </Text>
+              <TouchableOpacity
+                style={styles.monthImageRegisterButton}
+                onPress={handlePickMonthImage}
+                disabled={uploadMonthImageMutation.isPending}
+              >
+                <Ionicons name="add-circle-outline" size={18} color="#FFFFFF" />
+                <Text style={styles.monthImageRegisterButtonText}>이미지 등록</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
           {/* 캘린더 */}
           <Calendar
-            current={today}
+            current={`${currentMonth}-01`}
             markedDates={markedDates}
             onDayPress={(day) => setSelectedDate(day.dateString)}
+            onMonthChange={(month) => {
+              const next = `${month.year}-${String(month.month).padStart(2, '0')}`;
+              if (next !== currentMonth) setCurrentMonth(next);
+            }}
             theme={{
               backgroundColor: '#FFFFFF',
               calendarBackground: '#FFFFFF',
@@ -334,6 +493,7 @@ export default function MealPlanScreen({ navigation }: any) {
         <MealDetailModal
           visible={detailModalVisible}
           meal={selectedMeal}
+          userInfo={user}
           onClose={handleCloseDetailModal}
           onEdit={handleEditFromModal}
           onDelete={handleDeleteFromModal}

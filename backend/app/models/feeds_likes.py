@@ -30,7 +30,7 @@ class FeedsLikes(Base):
         return like
 
     @staticmethod
-    def findByLikeUserId(session, user_id: int, limit=30, offset=0):
+    def get_like_user_id(session, user_id: int, limit=30, offset=0):
         feed_image_subq = (
             session.query(FeedsImages.image_url)
             .filter(FeedsImages.img_model == "Feeds")

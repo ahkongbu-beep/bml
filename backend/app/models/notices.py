@@ -34,7 +34,7 @@ class Notices(Base):
         ).first()
 
     @staticmethod
-    def findByViewHash(session, view_hash: str):
+    def find_by_view_hash(session, view_hash: str):
         return session.query(Notices).filter(
             Notices.view_hash == view_hash,
         ).first()
@@ -85,7 +85,7 @@ class Notices(Base):
         return existing_notice
 
     @staticmethod
-    def getList(session, params: dict):
+    def get_list(session, params: dict):
 
         query = (
             session.query(

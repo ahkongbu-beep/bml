@@ -191,6 +191,7 @@ const AiSummaryModal: React.FC<AiSummaryModalProps> = ({
                     onChangeText={setPrompt}
                     multiline
                     maxLength={200}
+                    readOnly={true}
                     editable={!isLoading}
                   />
                   <Text style={styles.charCount}>{prompt.length}/200</Text>

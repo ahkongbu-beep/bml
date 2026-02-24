@@ -28,11 +28,11 @@ class FeedsComments(Base):
     parent = relationship("FeedsComments", remote_side=[id], backref="children")
 
     @staticmethod
-    def findByViewHash(session, view_hash: str):
+    def find_by_view_hash(session, view_hash: str):
         return session.query(FeedsComments).filter(FeedsComments.view_hash == view_hash).first()
 
     @staticmethod
-    def deleteById(session, comment_id: int):
+    def delete_by_id(session, comment_id: int):
         comment = session.query(FeedsComments).filter(FeedsComments.id == comment_id).first()
         comment.deleted_at = datetime.datetime.now(pytz.timezone("Asia/Seoul"))
         try:
@@ -73,7 +73,7 @@ class FeedsComments(Base):
             raise e
 
     @staticmethod
-    def getList(session, params: dict, extra: dict):
+    def get_list(session, params: dict, extra: dict):
         user_id = params.get("user_id", None)
 
         query = (

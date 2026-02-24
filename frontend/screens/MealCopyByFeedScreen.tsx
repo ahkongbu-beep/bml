@@ -25,7 +25,7 @@ import Layout from '@/components/Layout';
 import { useAuth } from '../libs/contexts/AuthContext';
 import { MEAL_CATEGORIES } from '../libs/utils/codes/MealCalendarCode';
 import { useCategoryCodes } from '../libs/hooks/useCategories';
-import { getToday } from '../libs/utils/common';
+import { getToday, getStaticImage } from '../libs/utils/common';
 import { useFeed, useCopyFeed } from '../libs/hooks/useFeeds';
 import { LoadingPage } from '../components/Loading';
 import { toastError, toastInfo, toastSuccess } from '@/libs/utils/toast';
@@ -161,7 +161,7 @@ export default function MealCopyByFeedScreen({ route, navigation }: any) {
                 >
                   {feed.images.map((imageUri: string, index: number) => (
                     <View key={index} style={styles.imageWrapper}>
-                      <Image source={{ uri: imageUri }} style={styles.previewImage} />
+                      <Image source={{ uri: getStaticImage("small", imageUri) }} style={styles.previewImage} />
                       <View style={styles.imageOverlay}>
                         <Ionicons name="lock-closed" size={16} color="#FFFFFF" />
                         <Text style={styles.imageOverlayText}>수정 불가</Text>
