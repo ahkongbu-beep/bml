@@ -64,7 +64,7 @@ class Feeds(Base):
         return feed
 
     @staticmethod
-    def update(session, feed_id: int, params: dict):
+    def update(session, feed_id: int, params: dict, is_commit: bool = True):
         feed = session.query(Feeds).filter(Feeds.id == feed_id).first()
         if not feed:
             return None
@@ -75,8 +75,11 @@ class Feeds(Base):
         feed.is_share_meal_plan = params.get("is_share_meal_plan", feed.is_share_meal_plan)
         feed.category_id = params.get("category_id", feed.category_id)
         feed.meal_condition = params.get("meal_condition", feed.meal_condition)
-        session.commit()
-        session.refresh(feed)
+        if is_commit:
+            session.commit()
+            session.refresh(feed)
+        else:
+            session.flush()
         return feed
 
     @staticmethod
@@ -104,6 +107,8 @@ class Feeds(Base):
             feed.deleted_at = func.current_timestamp()
             if is_commit:
                 session.commit()
+            else:
+                session.flush()  # 변경사항을 DB에 반영하지만 커밋하지는 않음
         except:
             session.rollback()
             return False
@@ -232,6 +237,9 @@ class Feeds(Base):
 
         if params.get("is_public"):
             query = query.filter(Feeds.is_public == params["is_public"])
+
+        if params.get("view_type") == "mine":
+            query = query.filter(Feeds.user_id == params["my_user_id"])
 
         if params.get("category_id"):
             query = query.filter(Feeds.category_id == params["category_id"])

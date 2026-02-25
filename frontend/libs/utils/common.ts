@@ -50,9 +50,9 @@ export const normalizeDate = (dateString: string): string => {
 };
 
 export const getStaticImage = (type: string, imagePath?: string | null): string => {
+
   if (!imagePath) return '';
 
-  // 이미 완전한 URL이면 그대로 사용
   if (
     imagePath.startsWith('http') ||
     imagePath.startsWith('file://') ||
@@ -64,21 +64,10 @@ export const getStaticImage = (type: string, imagePath?: string | null): string 
     return imagePath;
   }
 
-  // 앞에 / 보장
-  let normalizedPath = imagePath.startsWith('/') ? imagePath : '/' + imagePath;
-
+  const normalizedPath = imagePath.startsWith('/') ? imagePath : '/' + imagePath;
   const STATIC_BASE_URL = process.env.EXPO_PUBLIC_STATIC_BASE_URL || '';
 
-  // 실제 파일 경로
-  const base = `${STATIC_BASE_URL}${normalizedPath}_${type}.webp`;
-
-  /**
-   * 🔥 핵심: Fresco 캐시 무효화용 버전 파라미터
-   * path 자체가 고유값(업로드시 변경)이라 안정적
-   */
-  const cacheKey = encodeURIComponent(normalizedPath + '_' + type);
-
-  return `${base}?v=${cacheKey}`;
+  return `${STATIC_BASE_URL}${normalizedPath}_${type}.webp`;
 };
 
 export const getToday = (format: 'YYYY-MM-DD' | 'YYYY-MM-DD HH:mm:ss' = 'YYYY-MM-DD'): string => {

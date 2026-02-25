@@ -57,7 +57,7 @@ async def create_meal(
     return await meals_service.create_meal(db, body)
 
 @router.get("/calendar/month_image")
-async def get_calendar_month_image(request: Request, month: str = Query(...), db: Session = Depends(get_db)):
+async def get_calendar_month_image(request: Request, db: Session = Depends(get_db)):
     user_hash = getattr(request.state, "user_hash", None)
 
     if not user_hash:
@@ -65,7 +65,6 @@ async def get_calendar_month_image(request: Request, month: str = Query(...), db
 
     params = {
         "user_hash": user_hash,
-        "month": month
     }
 
     return await meals_service.get_calendar_month_image(db, params)
@@ -92,6 +91,7 @@ async def update_meal(
     category_id: Optional[int] = Form(None),
     input_date: Optional[str] = Form(None),
     title: Optional[str] = Form(None),
+    meal_condition: Optional[int] = Form(None),
     contents: Optional[str] = Form(None),
     ingredients: Optional[str] = Form(None),
     isPreMade: Optional[str] = Form(None),
@@ -132,6 +132,8 @@ async def update_meal(
         body['is_pre_made'] = isPreMade
     if is_public is not None:
         body['is_public'] = is_public
+    if meal_condition is not None:
+        body['meal_condition'] = meal_condition
 
     return await meals_service.update_meal(db, body)
 

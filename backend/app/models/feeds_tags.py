@@ -29,4 +29,6 @@ class FeedsTags(Base):
             if is_commit:
                 session.commit()
                 session.refresh(tag)
+            else:
+                session.flush()  # flush로 ID 생성
         return tag

@@ -10,6 +10,7 @@ def process_tags(db, ingredients):
     return tag_ids
 
 def create_tag_mapper(db, model, model_id, tag_ids):
+
     for tag_id in tag_ids:
         FeedsTagsMapper.create(db, {
             "model": model,

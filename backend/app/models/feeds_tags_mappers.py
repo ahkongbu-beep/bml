@@ -52,7 +52,7 @@ class FeedsTagsMapper(Base):
         return mapper
 
     @staticmethod
-    def deleteByFeedId(session, model:str, feed_id: int):
+    def deleteByFeedId(session, model:str, feed_id: int, is_commit: bool = True):
         """
         feed_id 로 매핑 삭제
         """
@@ -60,4 +60,8 @@ class FeedsTagsMapper(Base):
             FeedsTagsMapper.model == model,
             FeedsTagsMapper.feed_id == feed_id
         ).delete()
-        session.commit()
+
+        if is_commit:
+            session.commit()
+        else:
+            session.flush()

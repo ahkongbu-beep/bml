@@ -42,6 +42,7 @@ def list_feeds(
     request: Request,
     db: Session = Depends(get_db),
     type: str = Query("list"),
+    view_type: str = Query("all"),
     limit: int = Query(10, ge=1),
     offset: int = Query(0, ge=0),
     cursor: int = Query(None),
@@ -53,7 +54,7 @@ def list_feeds(
     target_user_hash: str=Query(None)
 ):
     user_hash = getattr(request.state, "user_hash", None)
-    return feeds_service.list_feeds(db, type=type, limit=limit, offset=offset, cursor=cursor, user_hash=user_hash, title=title, nickname=nickname, sort_by=sort_by, start_date=start_date, end_date=end_date, target_user_hash=target_user_hash)
+    return feeds_service.list_feeds(db, type=type, limit=limit, offset=offset, cursor=cursor, user_hash=user_hash, view_type=view_type, title=title, nickname=nickname, sort_by=sort_by, start_date=start_date, end_date=end_date, target_user_hash=target_user_hash)
 
 @router.post("/comments/create")
 def create_feed_comment(request: Request, comment_request: FeedCreateCommentRequest, db: Session = Depends(get_db)):
@@ -125,7 +126,6 @@ async def create_feed(
 @router.put("/update/{feed_id}")
 async def update_feed(
     feed_id: int,
-    title: str = Form(...),
     content: str = Form(...),
     is_public: str = Form('Y'),
     tags: str = Form(''),

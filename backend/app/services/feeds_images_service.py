@@ -57,11 +57,9 @@ def copy_image(db, origin_model: str, origin_model_instance, target_model: str, 
             )
             db.add(new_image)
             db.flush()
-
             return True
         else:
-            print(f"⚠️ 원본 이미지 파일을 찾을 수 없습니다: {original_file_base}_*.webp")
-            return False
+            raise FileNotFoundError("원본 이미지 파일을 찾을 수 없습니다.")
 
     except Exception as e:
         print(f"⚠️ 이미지 복사 중 오류: {str(e)}")

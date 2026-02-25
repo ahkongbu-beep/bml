@@ -5,4 +5,5 @@ export const MEAL_CATEGORIES = [
   { name: '점저', icon: '🍵', color: '#F0FFE5' },
   { name: '저녁', icon: '🌙', color: '#F0E5FF' },
   { name: '야식', icon: '🌃', color: '#FFE5F5' },
+  { name: '간식', icon: '🍽️', color: '#E5FFF0' },
 ];

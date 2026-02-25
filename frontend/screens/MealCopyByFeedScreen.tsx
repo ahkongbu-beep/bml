@@ -67,18 +67,17 @@ export default function MealCopyByFeedScreen({ route, navigation }: any) {
   // 피드 정보로 초기값 설정
   useEffect(() => {
     if (feed) {
-      setMemo(feed.content || '');
       setFeedHash(feed.feed_hash || '');
     }
   }, [feed]);
 
   const handleCopyFeed = async () => {
     if (!selectedCategory) {
-      Alert.alert('알림', '식사 시간을 선택해주세요.');
+      toastInfo('식사 시간을 선택해주세요.');
       return;
     }
     if (!selectedDate) {
-      Alert.alert('알림', '날짜를 선택해주세요.');
+      toastInfo('식사 날짜를 선택해주세요.');
       return;
     }
 
@@ -251,7 +250,6 @@ export default function MealCopyByFeedScreen({ route, navigation }: any) {
               <TextInput
                 style={[styles.input, styles.textArea]}
                 placeholder="추가 메모를 입력하세요 (선택사항)"
-                value={memo}
                 onChangeText={setMemo}
                 multiline
                 numberOfLines={4}

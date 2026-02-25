@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import styles from './MealPlanScreen.styles';
 import {
   View,
@@ -49,7 +49,6 @@ export default function MealPlanScreen({ navigation }: any) {
   const [selectedDate, setSelectedDate] = useState('');
   const [currentMonth, setCurrentMonth] = useState(new Date().toISOString().slice(0, 7));
   // 월별 이미지 경로 캐시 (서버 타이밍과 UI 분리)
-  const [monthImageMap, setMonthImageMap] = useState<Record<string, string | null>>({});
   const [isMonthImageUpdating, setIsMonthImageUpdating] = useState(false);
   const [viewMode, setViewMode] = useState<'week' | 'month'>('month');
   const [isLoading] = useState(false);
@@ -62,26 +61,17 @@ export default function MealPlanScreen({ navigation }: any) {
   const deleteMealMutation = useDeleteMeal();
   const uploadMonthImageMutation = useUploadCalendarMonthImage();
   const { user } = useAuth();
-
   const { data: mealsCalendar, isLoading: mealsLoading, refetch } = useMeals({ month: currentMonth });
-  const { data: monthImage } = useMonthImage(currentMonth);
-
-  // useMonthImage 응답을 월별 캐시에 저장 (이미 저장된 값은 덮어쓰지 않음)
-  useEffect(() => {
-    if (!monthImage?.success) return;
-    const serverPath = monthImage?.data?.image_url ?? null;
-    setMonthImageMap(prev => {
-      if (prev[currentMonth] !== undefined) return prev;
-      return { ...prev, [currentMonth]: serverPath };
-    });
-  }, [monthImage?.data?.image_url, currentMonth]);
+  const { data: monthImage, isLoading: monthImageLoading, isFetching: monthImageFetching, refetch: refetchMonthImage } = useMonthImage(currentMonth);
 
   const today = new Date().toISOString().split('T')[0];
-  const monthImagePath = monthImageMap[currentMonth];
-  const isLoadingMonthImage = !(currentMonth in monthImageMap);
+  const allMonthImages: Record<string, string> | null = monthImage?.success ? (monthImage?.data as any) ?? null : null;
+  const monthImagePath = allMonthImages?.[currentMonth] ?? null;
+  // 최초 로딩(데이터 없음+패칭 중)일 때만 로딩 표시, 백그라운드 리패치 시엔 기존 이미지 유지
+  const isLoadingMonthImage = monthImageLoading && monthImageFetching;
 
   // API 데이터를 정규화된 날짜 키로 변환
-  const normalizedMealsData = mealsCalendar?.data.calendar_list ? Object.keys(mealsCalendar.data.calendar_list).reduce((acc, date) => {
+  const normalizedMealsData = mealsCalendar?.data?.calendar_list ? Object.keys(mealsCalendar.data.calendar_list).reduce((acc, date) => {
     const normalizedDate = normalizeDate(date);
     acc[normalizedDate] = mealsCalendar.data.calendar_list[date];
     return acc;
@@ -110,6 +100,11 @@ export default function MealPlanScreen({ navigation }: any) {
   markedDates[today].todayTextColor = '#FF9AA2';
 
   const handleEditMeal = (meal: MealItem) => {
+    if (meal.refer_feed_id) {
+      toastInfo('복사된 식단은 수정할 수 없습니다.');
+      return;
+    }
+
     setMenuVisible(null);
     setMenuPosition(null);
     navigation.getParent()?.navigate('MealRegist', { meal, selectedDate });
@@ -247,14 +242,9 @@ export default function MealPlanScreen({ navigation }: any) {
         uploadMonthImageMutation.mutate(buildFormData(), {
           onSuccess: (response) => {
             if (response?.success) {
-              const imageUrl = (response as any)?.data?.image_url;
-              if (imageUrl) {
-                // 업로드 성공 즉시 해당 월 캐시 갱신
-                setMonthImageMap(prev => ({ ...prev, [monthSnapshot]: imageUrl }));
-              }
               setIsMonthImageUpdating(false);
               toastSuccess('월 메인 이미지가 등록되었습니다.');
-              refetch();
+              refetchMonthImage();
             } else {
               setIsMonthImageUpdating(false);
               toastError((response as any)?.error || '월 메인 이미지 등록에 실패했습니다.');
@@ -303,11 +293,10 @@ export default function MealPlanScreen({ navigation }: any) {
           ) : monthImagePath ? (
             <View style={styles.monthImageContainer}>
               <Image
-                key={monthImagePath}
+                key={currentMonth}   // 월 바뀌면 무조건 새로 그림
                 source={{ uri: getStaticImage('small', monthImagePath) }}
                 style={styles.monthImage}
                 resizeMode="cover"
-                fadeDuration={0}
               />
               <TouchableOpacity
                 style={styles.monthImageUploadButton}

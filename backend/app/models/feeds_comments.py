@@ -32,11 +32,14 @@ class FeedsComments(Base):
         return session.query(FeedsComments).filter(FeedsComments.view_hash == view_hash).first()
 
     @staticmethod
-    def delete_by_id(session, comment_id: int):
+    def delete_by_id(session, comment_id: int, is_commit=True):
         comment = session.query(FeedsComments).filter(FeedsComments.id == comment_id).first()
         comment.deleted_at = datetime.datetime.now(pytz.timezone("Asia/Seoul"))
         try:
-            session.commit()
+            if is_commit:
+                session.commit()
+            else:
+                session.flush()  # 변경사항을 DB에 반영하지만 커밋하지는 않음
             return True
         except Exception as e:
             session.rollback()

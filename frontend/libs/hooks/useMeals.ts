@@ -68,13 +68,14 @@ export const useMeals = (params?: MealCalendarParams) => {
 ========================================================= */
 export const useMonthImage = (month: string) => {
   return useQuery({
-    queryKey: mealKeys.monthImage(month),
-    queryFn: () => getCalendarMonthImage(month),
+    queryKey: ['monthImage'],
+    queryFn: () => getCalendarMonthImage(''),
     enabled: !!month,
-
-    // ⭐ 핵심
-    staleTime: Infinity,      // 절대 자동 refetch 안함
-    gcTime: 1000 * 60 * 60,   // 1시간 캐시
+    staleTime: 1000 * 60 * 5,   // 5분 내 재진입 시 리패치 안 함
+    gcTime: 1000 * 60 * 10,     // 10분간 캐시 유지
+    refetchOnMount: 'always',   // 화면 진입 시 항상 최신 데이터 확인 (백그라운드)
+    refetchOnReconnect: false,  // 재연결 시 리패치 하지 않음 (이미지 깜박임 방지)
+    refetchOnWindowFocus: false,
     retry: 1,
   });
 };
@@ -95,7 +96,6 @@ export const useMealsByDate = (
     staleTime: 1000 * 60 * 5,
   });
 };
-
 
 
 /* =========================================================

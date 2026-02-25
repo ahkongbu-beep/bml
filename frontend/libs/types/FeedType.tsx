@@ -58,6 +58,8 @@ export interface FeedItemProps {
   onAiSummary?: (userHash: string, feedId: number, imageId: string) => void;
   onAddToMealCalendar?: (userHash: string, feedId: number) => void;
   userHash?: string;
+  isMine?: boolean;
+  onEditFeed?: (feed: Feed) => void;
 }
 
 export interface CopyFeedRequest {
@@ -66,5 +68,5 @@ export interface CopyFeedRequest {
   targetUserHash: string;
   inputDate: string;
   memo: string;
-  title: string
+  title: string;
 }

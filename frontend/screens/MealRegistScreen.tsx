@@ -24,15 +24,18 @@ import { MEAL_CATEGORIES } from '../libs/utils/codes/MealCalendarCode';
 import { useCategoryCodes } from '../libs/hooks/useCategories';
 import { useSearchTags } from '../libs/hooks/useFeeds';
 import { getStaticImage } from '../libs/utils/common';
-import { useCreateMealWithImage, useUpdateMealWithImage } from '../libs/hooks/useMeals';
+import { useCreateMealWithImage, useUpdateMealWithImage, useUpdateMeal } from '../libs/hooks/useMeals';
 import { MEAL_CONDITION } from '../libs/utils/codes/FeedMealCondition';
+import { toastError, toastInfo, toastSuccess } from '@/libs/utils/toast';
 
 export default function MealRegistScreen({ route, navigation }: any) {
   const { selectedDate, meal } = route.params || {};
+
   const { user } = useAuth();
   const { data: categoryCodes } = useCategoryCodes('MEALS_GROUP');
   const createMealWithImageMutation = useCreateMealWithImage();
   const updateMealWithImageMutation = useUpdateMealWithImage();
+  const updateMealMutation = useUpdateMeal();
   const isPending = createMealWithImageMutation.isPending || updateMealWithImageMutation.isPending;
   const isEditMode = !!meal;
 
@@ -70,8 +73,6 @@ export default function MealRegistScreen({ route, navigation }: any) {
   const searchTerm = ingredientInput.trim();
   const { data: tagSuggestions = [] } = useSearchTags(searchTerm);
   const showTagSuggestions = searchTerm.length > 0 && tagSuggestions.length > 0;
-
-
   // 수정 모드일 때 초기값 설정
   useEffect(() => {
     if (meal) {
@@ -80,17 +81,17 @@ export default function MealRegistScreen({ route, navigation }: any) {
       setMealCondition(meal.meal_condition || '0');
       setIsPreMade(meal.is_pre_made || 'N');
       setIsPublic(meal.is_public || 'Y');
-      setIngredients(meal.ingredients || []);
+      setIngredients(meal.mapped_tags || []);
 
       // 기존 이미지 URL 설정
       if (meal.image_url) {
         setExistingImageUrl(getStaticImage('medium', meal.image_url));
+        setSelectedImage(getStaticImage('medium', meal.image_url));
       }
     }
   }, [meal]);
 
   const handleAddIngredient = (suggestion?: string) => {
-    console.log('재료 추가 시도:', suggestion || ingredientInput);
     const clean = (suggestion || ingredientInput).replace('#', '').trim();
     if (clean && !ingredients.includes(clean)) {
       setIngredients([...ingredients, clean]);
@@ -106,7 +107,7 @@ export default function MealRegistScreen({ route, navigation }: any) {
     // 권한 요청
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('권한 필요', '갤러리 접근 권한이 필요합니다.');
+      toastError('갤러리 접근 권한이 필요합니다.');
       return;
     }
 
@@ -127,7 +128,7 @@ export default function MealRegistScreen({ route, navigation }: any) {
     // 카메라 권한 요청
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('권한 필요', '카메라 접근 권한이 필요합니다.');
+      toastError('카메라 접근 권한이 필요합니다.');
       return;
     }
 
@@ -205,14 +206,13 @@ export default function MealRegistScreen({ route, navigation }: any) {
                 Alert.alert('오류', response.error || response.message || '식단 수정에 실패했습니다.');
                 return;
               }
-              Alert.alert('성공', '식단이 수정되었습니다.', [{
-                text: '확인',
+              toastSuccess('식단이 수정되었습니다.', {
                 onPress: () => navigation.goBack(),
-              }]);
+                onHide: () => navigation.goBack(),
+              });
             },
             onError: (error) => {
-              console.error('식단 수정 오류:', error);
-              Alert.alert('오류', '식단 수정에 실패했습니다.');
+              toastError('식단 수정에 실패했습니다.');
             },
           }
         );
@@ -221,17 +221,16 @@ export default function MealRegistScreen({ route, navigation }: any) {
         createMealWithImageMutation.mutate(formData, {
           onSuccess: (response) => {
             if (!response.success) {
-              Alert.alert('오류', response.error || response.message || '식단 등록에 실패했습니다.');
+              toastError(response.error || response.message || '식단 등록에 실패했습니다.');
               return;
             }
-            Alert.alert('성공', '식단이 등록되었습니다.', [{
-              text: '확인',
+            toastSuccess('식단이 등록되었습니다.', {
               onPress: () => navigation.goBack(),
-            }]);
+              onHide: () => navigation.goBack(),
+            });
           },
           onError: (error) => {
-            console.error('식단 등록 오류:', error);
-            Alert.alert('오류', '식단 등록에 실패했습니다.');
+            toastError('식단 등록에 실패했습니다.');
           },
         });
       }
@@ -244,38 +243,20 @@ export default function MealRegistScreen({ route, navigation }: any) {
           {
             onSuccess: (response) => {
               if (!response.success) {
-                Alert.alert('오류', response.error || response.message || '식단 수정에 실패했습니다.');
+                toastError(response.error || response.message || '식단 수정에 실패했습니다.');
                 return;
               }
-              Alert.alert('성공', '식단이 수정되었습니다.', [{
-                text: '확인',
-                onPress: () => navigation.goBack(),
-              }]);
+              toastSuccess('식단이 수정되었습니다.', {
+                onHide: () => navigation.goBack(),
+              });
             },
             onError: (error) => {
-              console.error('식단 수정 오류:', error);
-              Alert.alert('오류', '식단 수정에 실패했습니다.');
+              toastError('식단 수정에 실패했습니다.');
             },
           }
         );
       } else {
-        // 등록 모드
-        createMealMutation.mutate(mealData, {
-          onSuccess: (response) => {
-            if (!response.success) {
-              Alert.alert('오류', response.error || response.message || '식단 등록에 실패했습니다.');
-              return;
-            }
-            Alert.alert('성공', '식단이 등록되었습니다.', [{
-              text: '확인',
-              onPress: () => navigation.goBack(),
-            }]);
-          },
-          onError: (error) => {
-            console.error('식단 등록 오류:', error);
-            Alert.alert('오류', '식단 등록에 실패했습니다.');
-          },
-        });
+        toastInfo('이미지 없이 식단을 등록할수 없습니다.');
       }
     }
   };
@@ -335,6 +316,7 @@ export default function MealRegistScreen({ route, navigation }: any) {
                   source={{ uri: selectedImage || existingImageUrl || '' }}
                   style={styles.imagePreview}
                 />
+
                 <TouchableOpacity
                   style={styles.imageRemoveButton}
                   onPress={handleRemoveImage}

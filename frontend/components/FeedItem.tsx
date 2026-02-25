@@ -34,6 +34,8 @@ const FeedItem = React.memo(({
   onAiSummary,
   onAddToMealCalendar,
   userHash,
+  isMine,
+  onEditFeed
 }: FeedItemProps) => {
   // URL에서 iid 추출하는 함수
   const extractImageId = (imageUrl: string): string => {
@@ -199,13 +201,24 @@ const FeedItem = React.memo(({
             <Text style={styles.bottomActionButtonText}>AI 요약</Text>
           </TouchableOpacity>
         )}
-        {onAddToMealCalendar && (
+        {/* 내 피드일때 식단 공유버튼 노출 */}
+        {!isMine && onAddToMealCalendar && (
           <TouchableOpacity
             style={styles.bottomActionButton}
             onPress={() => onAddToMealCalendar(item.user.user_hash, item.id)}
           >
             <Ionicons name="calendar-outline" size={18} color="#FF9AA2" />
             <Text style={styles.bottomActionButtonText}>식단 캘린더에 추가</Text>
+          </TouchableOpacity>
+        )}
+        {/* 내 피드일때 수정보튼을 노출 */}
+        {isMine && onEditFeed && (
+          <TouchableOpacity
+            style={styles.bottomActionButton}
+            onPress={() => onEditFeed(item)}
+          >
+            <Ionicons name="pencil-outline" size={18} color="#FF9AA2" />
+            <Text style={styles.bottomActionButtonText}>수정</Text>
           </TouchableOpacity>
         )}
       </View>

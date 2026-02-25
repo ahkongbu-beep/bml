@@ -85,6 +85,8 @@ class MealsCalendars(Base):
             session.add(meal_calendar)
             if is_commit:
                 session.commit()
+            else:
+                session.flush()  # 변경사항을 DB에 반영하지만 커밋하지는 않음
             return meal_calendar
         except Exception as e:
             session.rollback()
@@ -96,6 +98,8 @@ class MealsCalendars(Base):
             session.query(MealsCalendars).filter_by(**where_clause).update(params)
             if is_commit:
                 session.commit()
+            else:
+                session.flush()  # 변경사항을 DB에 반영하지만 커밋하지는 않음
             return True
         except Exception as e:
             session.rollback()

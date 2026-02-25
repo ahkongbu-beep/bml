@@ -31,6 +31,8 @@ export interface FeedListParams {
   is_public?: 'Y' | 'N';
   type?: string;
   cursor?: number;
+  view_type?: 'all' | 'mine';
+  user_hash?: string;
 }
 
 export interface CreateFeedCommentRequest {

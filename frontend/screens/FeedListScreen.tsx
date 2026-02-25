@@ -36,7 +36,6 @@ import {
 } from '../libs/hooks/useFeeds';
 import { toastError, toastSuccess, toastInfo } from '@/libs/utils/toast';
 
-
 export default function FeedListScreen() {
   const appName = process.env.EXPO_PUBLIC_APP_NAME || "";
   const navigation = useNavigation();
@@ -47,6 +46,7 @@ export default function FeedListScreen() {
   const [aiSummaryModalVisible, setAiSummaryModalVisible] = useState(false);
   const [userPrompt, setUserPrompt] = useState<string>('');
   const [aiAnswerModalVisible, setAiAnswerModalVisible] = useState(false);
+  const [viewType, setViewType] = useState<"all" | "mine">('all');
 
   const [aiSummaryParams, setAiSummaryParams] = useState<{
     userHash: string;
@@ -80,7 +80,12 @@ export default function FeedListScreen() {
     hasNextPage,
     isFetchingNextPage,
     refetch
-  } = useInfiniteFeeds({ limit: 20, type: 'list' });
+  } = useInfiniteFeeds({
+    limit: 20,
+    type: 'list',
+    view_type: viewType,
+    user_hash: viewType === 'mine' ? user?.view_hash : undefined,
+  });
 
   // 모든 페이지의 피드를 평탄화
   const feeds = data?.pages.flatMap(page => page.data) ?? [];
@@ -145,7 +150,6 @@ export default function FeedListScreen() {
     navigation.navigate('MealCopyByFeed', { feedId, userHash });
   }
 
-
   // 사용자 차단 or 해제
   const handleBlock = useCallback((deny_user_hash: string, nickname: string) => {
     setMenuVisible(null);
@@ -181,6 +185,10 @@ export default function FeedListScreen() {
     navigation.navigate('FeedComment', { feedId });
   }, [navigation]);
 
+  const handleEditFeed = useCallback((feed: Feed) => {
+    navigation.navigate('FeedSave', { feed });
+  }, [navigation]);
+
   const handleAiSummary = useCallback((userHash: string, feedId: number, imageId: string) => {
     setAiSummaryParams({ userHash, feedId, imageId });
     setAiSummaryModalVisible(true);
@@ -200,7 +208,6 @@ export default function FeedListScreen() {
       toastError('AI 요약 중 오류가 발생했습니다.');
     },
   });
-
 
   const handleProfileView = useCallback((userHash: string) => {
     setMenuVisible(null); // 해쉬정보가 같은 경우 내 프로필로 이동
@@ -244,6 +251,10 @@ export default function FeedListScreen() {
     }
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
+  const handleViewTypeChange = (newType: "all" | "mine") => {
+    setViewType(newType);
+  }
+
   const renderFeed = useCallback(({ item }: { item: Feed }) => {
     // 낙관적 업데이트가 있으면 그것을 우선 사용
     const optimisticState = optimisticLikes[item.id];
@@ -252,6 +263,8 @@ export default function FeedListScreen() {
       is_liked: optimisticState.is_liked,
       like_count: optimisticState.like_count,
     } : item;
+
+    const isMine = user?.view_hash === item.user.user_hash;
 
     return (
       <FeedItem
@@ -268,13 +281,15 @@ export default function FeedListScreen() {
         onAiSummary={handleAiSummary}
         onAddToMealCalendar={handleAddToMealCalendar}
         userHash={user?.view_hash}
+        isMine={isMine}
+        onEditFeed={handleEditFeed}
       />
     );
   }, [menuVisible, currentImageIndex, likingFeedId, optimisticLikes, handleMenuToggle, handleImageScroll, handleProfileView, handleBlock, handleLike, handleCommentPress, handleAiSummary, user?.view_hash]);
 
   const renderListHeader = () => (
     <View>
-      <UserHeader user={user} />
+      <UserHeader user={user} viewType={viewType} onChangeViewType={handleViewTypeChange} />
       <View style={styles.feedDivider} />
     </View>
   );

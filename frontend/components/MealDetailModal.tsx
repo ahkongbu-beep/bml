@@ -38,7 +38,6 @@ const MealDetailModal: React.FC<MealDetailModalProps> = ({
 }) => {
   const category = MEAL_CATEGORIES.find((c) => c.name === meal?.category_name);
   if (!meal) return null;
-  console.log("MealDetailModal rendered with meal:", meal);
   return (
     <Modal
       visible={visible}
@@ -155,6 +154,15 @@ const MealDetailModal: React.FC<MealDetailModalProps> = ({
                     <Text style={styles.infoValue}>{meal.month || ''}</Text>
                   </View>
                 </View>
+                <View style={styles.infoItem}>
+                  <View style={styles.infoIconContainer}>
+                    <Ionicons name="document-text" size={20} color="#FF9AA2" />
+                  </View>
+                  <View style={styles.infoContent}>
+                    <Text style={styles.infoLabel}>상세내용</Text>
+                    <Text style={styles.contentsText}>{meal.contents || ''}</Text>
+                  </View>
+                </View>
 
                 {meal.refer_feed_id > 0 && (
                   <View style={styles.infoItem}>
@@ -167,19 +175,6 @@ const MealDetailModal: React.FC<MealDetailModalProps> = ({
                     </View>
                   </View>
                 )}
-              </View>
-            </View>
-
-            {/* 내용 */}
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <Ionicons name="document-text" size={20} color="#FF9AA2" />
-                <Text style={styles.sectionTitle}>상세 내용</Text>
-              </View>
-
-              <View style={styles.contents}>
-                {/* 상세내용 입력받음 */}
-                <Text style={styles.contentsText}>{meal.contents || ''}</Text>
               </View>
             </View>
 
@@ -200,16 +195,8 @@ const MealDetailModal: React.FC<MealDetailModalProps> = ({
 
           {/* 하단 버튼 */}
           <View style={styles.modalFooter}>
-            {onDelete && (
-              <TouchableOpacity
-                style={styles.deleteButton}
-                onPress={onDelete}
-              >
-                <Ionicons name="trash-outline" size={22} color="#FF6B6B" />
-                <Text style={styles.deleteButtonText}>삭제</Text>
-              </TouchableOpacity>
-            )}
-            {onEdit && (
+
+            {onEdit && meal && meal.refer_feed_id === 0 && (
               <LinearGradient
                 colors={['#FF9AA2', '#FFB7B2']}
                 start={{ x: 0, y: 0 }}
@@ -224,6 +211,16 @@ const MealDetailModal: React.FC<MealDetailModalProps> = ({
                   <Text style={styles.editButtonText}>수정하기</Text>
                 </TouchableOpacity>
               </LinearGradient>
+            )}
+
+            {onDelete && (
+              <TouchableOpacity
+                style={styles.deleteButton}
+                onPress={onDelete}
+              >
+                <Ionicons name="trash-outline" size={22} color="#FF6B6B" />
+                <Text style={styles.deleteButtonText}>삭제</Text>
+              </TouchableOpacity>
             )}
           </View>
         </View>
@@ -260,7 +257,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 1,
   },
   categoryBadge: {
     flexDirection: 'row',
@@ -447,7 +444,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingHorizontal: 20,
     paddingVertical: 16,
-    paddingBottom: 24,
+    paddingBottom: 48,
     gap: 12,
     borderTopWidth: 1,
     borderTopColor: '#F0F0F0',
@@ -458,7 +455,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#FFF0F0',
-    paddingVertical: 16,
+    paddingVertical: 8,
     paddingHorizontal: 24,
     borderRadius: 12,
     gap: 8,
@@ -484,7 +481,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
+    paddingVertical: 8,
     gap: 8,
   },
   editButtonText: {
