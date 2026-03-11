@@ -13,22 +13,3 @@ class FeedsTags(Base):
         back_populates="tag",
         cascade="all, delete-orphan"
     )
-
-    """
-    태그 이름으로 태그 조회, 없으면 생성
-    """
-    @staticmethod
-    def get_or_create_tag(session, tag_name: str, is_commit=True):
-
-        tag_name = tag_name.replace("#", "").strip()
-        tag = session.query(FeedsTags).filter(FeedsTags.name == tag_name).first()
-
-        if not tag:
-            tag = FeedsTags(name=tag_name)
-            session.add(tag)
-            if is_commit:
-                session.commit()
-                session.refresh(tag)
-            else:
-                session.flush()  # flush로 ID 생성
-        return tag

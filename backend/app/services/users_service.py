@@ -5,36 +5,30 @@
 """
 import os
 from sqlalchemy import func
-from app.models.users import Users
-from app.models.feeds import Feeds
-from app.models.feeds_likes import FeedsLikes
-from app.models.meals_calendar import MealsCalendars
-from app.models.meals_mappers import MealsMappers
-from app.models.categories_codes import CategoriesCodes
-from app.models.denies_users import DeniesUsers
-from app.models.users_childs import UsersChilds
-from app.models.users_childs_allergies import UserChildAllergy
-from app.models.foods_items import FoodItem
+from app.repository.user_repository import UserRepository
+from app.repository.meals_mappers_repository import MealsMappersRepository
+from app.repository.categories_codes_repository import CategoriesCodesRepository
+from app.repository.denies_users_repository import DeniesUsersRepository
+from app.repository.users_childs_repository import UsersChildsRepository
+from app.repository.users_childs_allergies_repository import UsersChildsAllergiesRepository
+from app.repository.food_item_repository import FoodItemRepository
+from app.repository.meals_comments_repository import MealsCommentsRepository
 
 from app.schemas.users_schemas import UserResponseSchema
 from app.schemas.common_schemas import CommonResponse
 from app.libs.password_utils import hash_password
 from app.core.config import settings
-from app.models.feeds_comments import FeedsComments
 from app.libs.file_utils import get_file_url
 
 def validate_user(db, user_hash):
-    user = Users.find_by_view_hash(db, user_hash)
+    user = UserRepository.find_by_view_hash(db, user_hash)
     if not user:
         raise Exception("회원 정보를 찾을 수 없습니다.")
     return user
 
 """ 비밀번호 찾기 """
 async def find_password(db, data) -> CommonResponse:
-    user = db.query(Users).filter(
-        Users.email == data.get("email"),
-        Users.name == data.get("name")
-    ).first()
+    user = UserRepository.get_user_by_email_and_name(db, data.get("email"), data.get("name"))
 
     if not user:
         return CommonResponse(success=False, error="일치하는 회원 정보를 찾을 수 없습니다.", data=None)
@@ -73,7 +67,7 @@ async def confirm_password_reset(db, data) -> CommonResponse:
     if valid_token.expires_at < datetime.utcnow():
         return CommonResponse(success=False, error="토큰이 만료되었습니다.", data=None)
 
-    user = db.query(Users).filter(Users.id == valid_token.user_id).first()
+    user = UserRepository.findById(db, valid_token.user_id)
     if not user:
         return CommonResponse(success=False, error="토큰에 연결된 회원 정보를 찾을 수 없습니다.", data=None)
 
@@ -90,8 +84,11 @@ async def confirm_password_reset(db, data) -> CommonResponse:
     return CommonResponse(success=True, message="비밀번호가 성공적으로 초기화되었습니다.", data=None)
 
 def get_my_info(db, data) -> CommonResponse:
+    from app.models.feeds import Feeds
+    from app.models.feeds_likes import FeedsLikes
+    from app.models.meals_calendar import MealsCalendars
 
-    user = Users.find_by_view_hash(db, data.get("user_hash"))
+    user = UserRepository.find_by_view_hash(db, data.get("user_hash"))
     if not user:
         return CommonResponse(success=False, error="회원 정보를 찾을 수 없습니다.", data=None)
 
@@ -113,7 +110,7 @@ async def create_user(db, user_data) -> CommonResponse:
 
     if user_data.get("email"):
         # 이메일 중복 체크
-        existing_user = db.query(Users).filter(Users.email == user_data.get("email")).first()
+        existing_user = UserRepository.get_user_by_email(db, user_data.get("email"))
         if existing_user:
             return CommonResponse(success=False, error="이미 존재하는 이메일입니다.", data=None)
 
@@ -121,19 +118,13 @@ async def create_user(db, user_data) -> CommonResponse:
         user_data["sns_id"] = user_data.get("email").split("@")[0]
 
     if user_data.get("sns_id"):
-        existing_sns = db.query(Users).filter(
-            Users.sns_login_type == user_data.get("sns_login_type"),
-            Users.sns_id == user_data.get("sns_id")
-        ).first()
+        existing_sns = UserRepository.get_user_by_sns_account(db, user_data.get("sns_login_type"), user_data.get("sns_id"))
 
         if existing_sns:
             return CommonResponse(success=False, error="이미 존재하는 SNS 계정입니다.", data=None)
 
     # 이미지 등록
     if user_data.get("profile_image"):
-        print(f"🖼️ profile_image 있음: {user_data.get('profile_image')}")
-        print(f"🖼️ profile_image 타입: {type(user_data.get('profile_image'))}")
-
         upload_dir = f"attaches/users/temp"
         os.makedirs(upload_dir, exist_ok=True)
 
@@ -161,7 +152,7 @@ async def create_user(db, user_data) -> CommonResponse:
         "profile_image": user_data.get("profile_image"),
         "role": "USER",
     }
-    new_user = Users.create(db, user_param, is_commit=False)
+    new_user = UserRepository.create(db, user_param, is_commit=False)
     db.flush()
 
     print("new_user:", new_user)
@@ -172,7 +163,7 @@ async def create_user(db, user_data) -> CommonResponse:
     # 2) 자녀등록
     if user_data.get("children"):
         for child in user_data.get("children"):
-            user_child = UsersChilds.create(
+            user_child = UsersChildsRepository.create(
                 db,
                 user_id=new_user.id,
                 child_name=child.get("child_name"),
@@ -186,7 +177,7 @@ async def create_user(db, user_data) -> CommonResponse:
             if child.get("allergies"):
                 allergy_data = []
                 for allergy in child.get("allergies"):
-                    alllergy_info = FoodItem.find_by_code(db, allergy)
+                    alllergy_info = FoodItemRepository.find_by_code(db, allergy)
                     if alllergy_info:
                         allergy_data.append({
                             "allergy_code": alllergy_info.food_code,
@@ -194,7 +185,7 @@ async def create_user(db, user_data) -> CommonResponse:
                         })
 
                 if allergy_data:
-                    UserChildAllergy.bulk_create(db, new_user.id, user_child.id, allergy_data, is_commit=False)
+                    UsersChildsAllergiesRepository.bulk_create(db, new_user.id, user_child.id, allergy_data, is_commit=False)
 
     db.commit()
     db.refresh(new_user)
@@ -209,7 +200,7 @@ async def update_user(db, data):
 
     try:
         """ 등록된 user 를 검색 """
-        user = db.query(Users).filter(Users.view_hash == data["view_hash"]).first()
+        user = UserRepository.find_by_view_hash(db, data["view_hash"])
 
         if not user:
             return CommonResponse(success=False, error="회원 정보를 찾을 수 없습니다.", data=None)
@@ -257,19 +248,19 @@ async def update_user(db, data):
                 meal_groups = data["meal_group"]
 
             # 기존 식단 선호도 삭제
-            existing_meals = db.query(MealsMappers).filter(MealsMappers.user_id == user.id).all()
+            existing_meals = MealsMappersRepository.list_by_user_ids(db, user.id)
             for meal in existing_meals:
                 db.delete(meal)
 
             # 새로운 식단 선호도 저장
             for category_id in meal_groups:
-                category = CategoriesCodes.findById(db, category_id)
+                category = CategoriesCodesRepository.findById(db, category_id)
 
                 if not category or category.type != "MEALS_GROUP":
                     db.rollback()
                     return CommonResponse(success=False, error=f"유효하지 않은 선호 식습관 정보가 포함되어 있습니다. (ID: {category_id})", data=None)
 
-                MealsMappers.create(db, {
+                MealsMappersRepository.create(db, {
                     "user_id": user.id,
                     "category_id": category.id
                 }, is_commit=False)
@@ -278,7 +269,7 @@ async def update_user(db, data):
             data.pop("meal_group", None)
 
         # 사용자 정보 업데이트
-        updated_user = Users.update(db, user, data)
+        updated_user = UserRepository.update(db, user, data)
         db.commit()
         db.refresh(updated_user)
 
@@ -287,7 +278,7 @@ async def update_user(db, data):
         return CommonResponse(success=False, error=f"회원 정보 수정 중 오류가 발생했습니다: {str(e)}", data=None)
 
     # 식단 선호도 조회하여 응답에 포함
-    meals_mapper = MealsMappers.get_list(db, updated_user.id).serialize()
+    meals_mapper = MealsMappersRepository.get_list(db, updated_user.id).serialize()
     meal_group_ids = [mapper.category_id for mapper in meals_mapper]
 
     user_response = UserResponseSchema.model_validate(updated_user)
@@ -305,7 +296,7 @@ async def create_user_child(db, user_hash, children):
     from app.models.foods_items import FoodItem
     from app.libs.file_utils import save_upload_file_with_resize
 
-    user = Users.find_by_view_hash(db, user_hash)
+    user = UserRepository.find_by_view_hash(db, user_hash)
 
     if not user:
         return CommonResponse(success=False, error="회원 정보를 찾을 수 없습니다.", data=None)
@@ -324,7 +315,7 @@ async def create_user_child(db, user_hash, children):
             allergies = child.get("allergies", []) if isinstance(child, dict) else getattr(child, "allergies", [])
 
             if child_id:
-                exist_child = UsersChilds.findByChildId(db, child_id)
+                exist_child = UsersChildsRepository.get_child_by_id(db, child_id)
 
                 if exist_child:
                     params = {
@@ -334,7 +325,7 @@ async def create_user_child(db, user_hash, children):
                         "is_agent": is_agent if is_agent else "N"
                     }
 
-                    UsersChilds.update(
+                    UsersChildsRepository.update(
                         db,
                         exist_child,
                         params,
@@ -343,12 +334,12 @@ async def create_user_child(db, user_hash, children):
 
                     # 알레르기 정보 업데이트
                     if allergies:
-                        UserChildAllergy.bulk_delete(db, user.id, exist_child.id)
+                        UsersChildsAllergiesRepository.bulk_delete(db, user.id, exist_child.id)
 
                         # 알레르기 코드를 name과 함께 변환
                         allergy_data = []
                         for allergy_code in allergies:
-                            allergy_info = FoodItem.find_by_code(db, allergy_code)
+                            allergy_info = FoodItemRepository.find_by_code(db, allergy_code)
                             if allergy_info:
                                 allergy_data.append({
                                     "allergy_code": allergy_info.food_code,
@@ -356,14 +347,14 @@ async def create_user_child(db, user_hash, children):
                                 })
 
                         if allergy_data:
-                            UserChildAllergy.bulk_create(db, user.id, exist_child.id, allergy_data, is_commit=False)
+                            UsersChildsAllergiesRepository.bulk_create(db, user.id, exist_child.id, allergy_data, is_commit=False)
             else:
-                exist_child = UsersChilds.findByUserName(db, user.id, child_name)
+                exist_child = UsersChildsRepository.findByUserName(db, user.id, child_name)
                 if exist_child:
                     db.rollback()
                     return CommonResponse(success=False, error=f"이미 등록된 자녀명입니다: {child_name}", data=None)
 
-                user_child = UsersChilds.create(
+                user_child = UsersChildsRepository.create(
                     db,
                     user_id=user.id,
                     child_name=child_name,
@@ -381,7 +372,7 @@ async def create_user_child(db, user_hash, children):
                     # 알레르기 코드를 name과 함께 변환
                     allergy_data = []
                     for allergy_code in allergies:
-                        allergy_info = FoodItem.find_by_code(db, allergy_code)
+                        allergy_info = FoodItemRepository.find_by_code(db, allergy_code)
                         if allergy_info:
                             allergy_data.append({
                                 "allergy_code": allergy_info.food_code,
@@ -389,7 +380,7 @@ async def create_user_child(db, user_hash, children):
                             })
 
                     if allergy_data:
-                        UserChildAllergy.bulk_create(db, user.id, user_child.id, allergy_data, is_commit=False)
+                        UsersChildsAllergiesRepository.bulk_create(db, user.id, user_child.id, allergy_data, is_commit=False)
 
         db.commit()
     except Exception as e:
@@ -400,16 +391,16 @@ async def create_user_child(db, user_hash, children):
 
 """ 자녀 정보 삭제 """
 async def delete_user_child(db, user_hash: str, child_id: int) -> CommonResponse:
-    user = Users.find_by_view_hash(db, user_hash)
+    user = UserRepository.find_by_view_hash(db, user_hash)
     if not user:
         return CommonResponse(success=False, error="회원 정보를 찾을 수 없습니다.", data=None)
 
-    user_child = UsersChilds.findByChildId(db, child_id)
+    user_child = UsersChildsRepository.get_child_by_id(db, child_id)
     if not user_child or user_child.user_id != user.id:
         return CommonResponse(success=False, error="삭제할 자녀 정보를 찾을 수 없습니다.", data=None)
 
     try:
-        db.delete(user_child)
+        UsersChildsRepository.delete_child_user(db, user_child)
         db.commit()
     except Exception as e:
         db.rollback()
@@ -421,23 +412,23 @@ async def delete_user_child(db, user_hash: str, child_id: int) -> CommonResponse
 # 회원차단
 async def deny_usre_profile(db, user_hash, deny_user_hash):
 
-    user = Users.find_by_view_hash(db, user_hash)
+    user = UserRepository.find_by_view_hash(db, user_hash)
 
     if not user:
         raise Exception("회원 정보를 찾을 수 없습니다.")
 
-    deny_user = Users.find_by_view_hash(db, deny_user_hash)
+    deny_user = UserRepository.find_by_view_hash(db, deny_user_hash)
     if not deny_user:
         raise Exception("차단할 회원 정보를 찾을 수 없습니다.")
 
     # 차단 처리
-    exist_deny_user = DeniesUsers.findByUserIdAndDenyUserId(db, user.id, deny_user.id)
+    exist_deny_user = DeniesUsersRepository.findByUserIdAndDenyUserId(db, user.id, deny_user.id)
 
     try:
         if exist_deny_user:
-            DeniesUsers.deleteByUserIdAndDenyUserId(db, user.id, deny_user.id)
+            DeniesUsersRepository.deleteByUserIdAndDenyUserId(db, user.id, deny_user.id)
         else:
-            result = DeniesUsers.create(db, {
+            result = DeniesUsersRepository.create(db, {
                 "user_id": user.id,
                 "deny_user_id": deny_user.id
             })
@@ -452,21 +443,24 @@ async def deny_usre_profile(db, user_hash, deny_user_hash):
 
 # 회원차단 list
 def get_deny_users_list(db, user_hash):
-    user = Users.find_by_view_hash(db, user_hash)
+    user = UserRepository.find_by_view_hash(db, user_hash)
 
     if not user:
         return CommonResponse(success=False, error="회원 정보를 찾을 수 없습니다.", data=None)
 
-    deny_users = DeniesUsers.findDenyUsersByUserId(db, user.id).serialize()
+    deny_users = DeniesUsersRepository.findDenyUsersByUserId(db, user.id).serialize()
     return CommonResponse(success=True, message="", data=deny_users)
 
 # 회원 프로필 조회
 def get_user_profile(db, user_hash, user_id):
+    from app.models.feeds import Feeds
+    from app.models.feeds_likes import FeedsLikes
+    from app.models.meals_calendar import MealsCalendars
 
     if user_id:
-        user = Users.findById(db, user_id)
+        user = UserRepository.findById(db, user_id)
     else:
-        user = Users.find_by_view_hash(db, user_hash)
+        user = UserRepository.find_by_view_hash(db, user_hash)
 
     if not user:
         return CommonResponse(success=False, error="회원 정보를 찾을 수 없습니다.", data=None)
@@ -477,11 +471,11 @@ def get_user_profile(db, user_hash, user_id):
     meal_count = db.query(MealsCalendars).filter(MealsCalendars.user_id == user.id).count()
 
     # 식단 선호도 조회
-    meals_mapper = MealsMappers.get_list(db, user.id).serialize()
+    meals_mapper = MealsMappersRepository.get_list(db, user.id).serialize()
     meal_group_ids = [mapper.category_id for mapper in meals_mapper]
 
     # 자녀 정보 조회 s
-    user_childs = UsersChilds.getListWithAllergies(db, user.id).to_list()
+    user_childs = UsersChildsRepository.getListWithAllergies(db, user.id).to_list()
 
     # user_childs.allergy_names, allergy_codes 는 문자열로 반환되므로 리스트로 변환
     for child in user_childs:
@@ -511,6 +505,7 @@ def get_user_profile(db, user_hash, user_id):
 
 """ 회원 검증 email or phone """
 def confirm_user(db, search_type, user_email: str = None, user_phone: str = None) -> CommonResponse:
+    from app.models.users import Users
     query = db.query(Users)
 
     if search_type == 'email':
@@ -528,8 +523,7 @@ def confirm_user(db, search_type, user_email: str = None, user_phone: str = None
 
 """ 비밀번호 초기화 """
 def reset_password(db, data):
-
-    user = db.query(Users).filter(Users.view_hash == data.get("view_hash")).first()
+    user = UserRepository.find_by_view_hash(db, data.get("view_hash"))
 
     if not user:
         return CommonResponse(success=False, error="일치하는 회원 정보를 찾을 수 없습니다.", data=None)
@@ -566,10 +560,7 @@ def reset_password(db, data):
 """ 회원 로그인 """
 def user_login(db, data):
 
-    user = db.query(Users).filter(
-        Users.email == data.get("email")
-    ).first()
-
+    user = UserRepository.get_user_by_email(db, data.get("email"))
     if not user:
         return CommonResponse(success=False, error="일치하는 회원 정보를 찾을 수 없습니다.", data=None)
 
@@ -590,10 +581,10 @@ def user_login(db, data):
     access_token = create_access_token(token_data)
 
     # 마지막 로그인 시간 업데이트
-    Users.update_last_login(db, user.id)
+    UserRepository.update_last_login(db, user.id)
 
     # 식단 선호도 조회
-    meals_mapper = MealsMappers.get_list(db, user.id).serialize()
+    meals_mapper = MealsMappersRepository.get_list(db, user.id).serialize()
     meal_group_ids = [mapper.category_id for mapper in meals_mapper]
 
     user_response = UserResponseSchema.model_validate(user)
@@ -610,7 +601,7 @@ def user_login(db, data):
     )
 
 async def change_password(db, user_hash, data) -> CommonResponse:
-    user = Users.find_by_view_hash(db, user_hash)
+    user = UserRepository.find_by_view_hash(db, user_hash)
 
     if not user:
         return CommonResponse(success=False, error="회원 정보를 찾을 수 없습니다.", data=None)
@@ -646,13 +637,14 @@ async def user_logout(db, user_hash):
     """
 
     # 사용자 존재 여부만 확인
-    user = Users.find_by_view_hash(db, user_hash)
+    user = UserRepository.find_by_view_hash(db, user_hash)
 
     # JWT 토큰은 프론트엔드에서 삭제하므로 서버에서는 추가 작업 불필요
     return CommonResponse(success=True, message="로그아웃에 성공했습니다.", data=None)
 
 # [관리자] 회원 목록 조회 (검색 포함)
 def list_users(db, sns_id: str = None, name: str = None, nickname: str = None, page: int = 1, limit: int = 20):
+    from app.models.users import Users
     try:
         query = db.query(Users).filter(Users.deleted_at == None)
 
@@ -697,10 +689,7 @@ def list_users(db, sns_id: str = None, name: str = None, nickname: str = None, p
 
 """ 사용자 이메일 계정 찾기 user_name and user_phone """
 def confirm_email(db, user_name: str, user_phone: str) -> CommonResponse:
-    user = db.query(Users).filter(
-        Users.name == user_name,
-        Users.phone == user_phone.replace("-", "")
-    ).first()
+    user = UserRepository.get_user_by_name_and_phone(db, user_name, user_phone)
 
     if not user:
         return CommonResponse(success=False, error="일치하는 회원 정보를 찾을 수 없습니다.", data=None)
@@ -710,11 +699,11 @@ def confirm_email(db, user_name: str, user_phone: str) -> CommonResponse:
 
 """ [관리자] 회원 상세 프로필 """
 def get_user_admin_profile(db, user_hash: str):
-    user = Users.find_by_view_hash(db, user_hash)
+    user = UserRepository.find_by_view_hash(db, user_hash)
     if not user:
         return CommonResponse(success=False, error="회원 정보를 찾을 수 없습니다.", data=None)
 
-    comments = db.query(FeedsComments).filter(FeedsComments.user_id == user.id).all()
+    comments = MealsCommentsRepository.list_by_user_id(db, user.id)
 
     comments_response = []
     for comment in comments:
@@ -740,4 +729,4 @@ def get_user_admin_profile(db, user_hash: str):
         "feeds": feeds
     }
 
-    return data
+    return CommonResponse(success=True, message="", data=data)

@@ -1,5 +1,5 @@
-from app.models.categories_codes import CategoriesCodes
-from app.models.foods_items import FoodItem
+from app.repository.categories_codes_repository import CategoriesCodesRepository
+from app.repository.food_item_repository import FoodItemRepository
 from app.schemas.categories_codes_schemas import CategoryCodeResponse
 from app.schemas.common_schemas import CommonResponse
 
@@ -9,7 +9,7 @@ def list_categories_codes(db, cc_type: str = None):
     if cc_type:
         params["type"] = cc_type
 
-    categories_codes = CategoriesCodes.get_list(db, params).serialize()
+    categories_codes = CategoriesCodesRepository.get_list(db, params).serialize()
 
     # type별로 그룹화
     grouped_data = {}
@@ -25,16 +25,16 @@ def save_categories_code(db, data):
 
     if data.get("id"):
         # 기존 코드 업데이트
-        category_code = db.query(CategoriesCodes).filter(CategoriesCodes.id == data["id"]).first()
+        category_code = CategoriesCodesRepository.get_one_data(db, data["id"])
         if not category_code:
             return CommonResponse(success=False, error="카테고리 정보가 조회되지않습니다.", data=None)
 
         try:
-            exist_category_code = CategoriesCodes.findByTypeAndSort(db, data["type"], data["sort"])
+            exist_category_code = CategoriesCodesRepository.findByTypeAndSort(db, data["type"], data["sort"])
             if category_code.id != exist_category_code.id and exist_category_code:
                 raise Exception("동일한 타입과 정렬순서의 카테고리 코드가 이미 존재합니다.")
 
-            updated_category_code = CategoriesCodes.update(db, category_code.id, data)
+            updated_category_code = CategoriesCodesRepository.update(db, category_code.id, data)
 
             # SQLAlchemy 객체를 딕셔너리로 변환
             response_data = CategoryCodeResponse(
@@ -61,15 +61,15 @@ def save_categories_code(db, data):
                 "sort": data.get("sort", 1),
             }
 
-            exist_category_code = CategoriesCodes.findByTypeAndSort(db, params["type"], params["sort"])
+            exist_category_code = CategoriesCodesRepository.findByTypeAndSort(db, params["type"], params["sort"])
             if exist_category_code:
                 raise Exception("동일한 타입과 정렬순서의 카테고리 코드가 이미 존재합니다.")
 
-            exist_category_code = CategoriesCodes.findByTypeAndValue(db, params["type"], params["value"])
+            exist_category_code = CategoriesCodesRepository.findByTypeAndValue(db, params["type"], params["value"])
             if exist_category_code:
                 raise Exception("동일한 타입과 값의 카테고리 코드가 이미 존재합니다.")
 
-            new_category_code = CategoriesCodes.create(db, params)
+            new_category_code = CategoriesCodesRepository.create(db, params)
 
             # SQLAlchemy 객체를 딕셔너리로 변환
             response_data = CategoryCodeResponse(
@@ -88,12 +88,12 @@ def save_categories_code(db, data):
         return CommonResponse(success=True, message="카테고리 정보가 성공적으로 생성되었습니다.", data=response_data)
 
 def delete_categories_code(db, category_id: int):
-    category_code = db.query(CategoriesCodes).filter(CategoriesCodes.id == category_id).first()
+    category_code = CategoriesCodesRepository.get_one_data(db, category_id)
     if not category_code:
         return CommonResponse(success=False, error="카테고리 정보가 조회되지않습니다.", data=None)
 
     try:
-        CategoriesCodes.update(db, category_code.id, {"is_active": "N"})
+        CategoriesCodesRepository.update(db, category_code.id, {"is_active": "N"})
 
     except Exception as e:
         db.rollback()
@@ -104,13 +104,13 @@ def delete_categories_code(db, category_id: int):
 """ 음식 리스트 조회 서비스 함수 """
 def list_food_items(db, food_type: str, food_name: str = None):
 
-    result_data = FoodItem.get_list(db, food_type, food_name).to_list()
+    result_data = FoodItemRepository.get_list(db, food_type, food_name).to_list()
     return CommonResponse(success=True, message="", data=result_data)
 
 """ 음식 검색 서비스 함수 (이름으로) """
 def search_food_items(db, food_name: str):
 
-    food_items = FoodItem.search_by_name(db, food_name).to_list()
+    food_items = FoodItemRepository.search_by_name(db, food_name).to_list()
 
     result_data = []
     for item in food_items:
@@ -127,11 +127,7 @@ def search_food_items(db, food_name: str):
 def add_food_item(db, data):
 
     # 동일한 item 이 있는지 확인
-    exist_food_item = db.query(FoodItem).filter(
-        FoodItem.food_type == data.get("food_type", "food"),
-        FoodItem.food_name == data["food_name"]
-    ).first()
-
+    exist_food_item = FoodItemRepository.get_by_type_and_code(db, data.get("food_type", "food"), data["food_code"])
     if exist_food_item:
         return CommonResponse(success=False, error="동일한 이름의 음식 아이템이 이미 존재합니다.", data=None)
 
@@ -140,7 +136,7 @@ def add_food_item(db, data):
             "food_type": data.get("food_type", "food"),
             "food_name": data["food_name"],
         }
-        new_food_item = FoodItem.create(db, params)
+        new_food_item = FoodItemRepository.create(db, params)
 
         if not new_food_item:
             raise Exception("음식 아이템 생성에 실패했습니다.")
@@ -160,13 +156,12 @@ def add_food_item(db, data):
 
 """ 음식 수정 서비스 함수 """
 def modify_food_item(db, food_id: int, data):
-
-    food_item = db.query(FoodItem).filter(FoodItem.id == food_id).first()
+    food_item = FoodItemRepository.get_one_data(db, food_id)
     if not food_item:
         return CommonResponse(success=False, error="음식 아이템 정보가 조회되지않습니다.", data=None)
 
     try:
-        updated_food_item = FoodItem.update(db, food_item.id, data)
+        updated_food_item = FoodItemRepository.update(db, food_item.id, data)
 
         # SQLAlchemy 객체를 딕셔너리로 변환
         response_data = {

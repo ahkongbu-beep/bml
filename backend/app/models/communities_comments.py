@@ -81,13 +81,15 @@ class CommunitiesComments(Base):
             raise e
 
     @staticmethod
-    def update(session, comment: 'CommunitiesComments', params: dict):
+    def update(session, comment: 'CommunitiesComments', params: dict, is_commit: bool = True):
         try:
             comment.comment = params.get("comment", comment.comment)
             comment.updated_at = datetime.datetime.now(pytz.timezone("Asia/Seoul"))
 
-            session.commit()
-            session.refresh(comment)
+            if is_commit:
+                session.commit()
+            else:
+                session.flush()  # 변경사항을 DB에 반영하여 ID를 생성하기 위해 flush
             return comment
         except Exception as e:
             session.rollback()
@@ -129,23 +131,6 @@ class CommunitiesComments(Base):
 
         result = query.all()
         return QueryResult(result)
-
-    @staticmethod
-    def build_comment_tree(comments):
-        """댓글 트리 구조 생성 - Pydantic 모델용"""
-        comment_dict = {comment.view_hash: comment for comment in comments}
-        root_comments = []
-
-        for comment in comments:
-            if comment.parent_hash:
-                parent_comment = comment_dict.get(comment.parent_hash)
-                if parent_comment:
-                    # Pydantic 모델의 children 리스트에 추가
-                    parent_comment.children.append(comment)
-            else:
-                root_comments.append(comment)
-
-        return root_comments
 
 class QueryResult:
     """쿼리 결과를 감싸는 래퍼 클래스 - 체이닝 패턴 지원"""

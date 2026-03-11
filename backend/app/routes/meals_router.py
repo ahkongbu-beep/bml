@@ -5,14 +5,25 @@ from app.services import meals_service
 from app.core.database import get_db
 from sqlalchemy.orm import Session
 from app.schemas.common_schemas import CommonResponse
-from app.schemas.meals_schemas import MealsCalendarCreateRequest, CalendarCopyRequest
+from app.schemas.meals_schemas import CalendarCopyRequest, FeedListRequest
 router = APIRouter()
 
+@router.get("/feed/list")
+def list_calendar_by_feed(
+    request: Request,
+    db: Session = Depends(get_db),
+    filters: FeedListRequest = Depends()
+):
+    user_hash = getattr(request.state, "user_hash", None)
+
+    return meals_service.get_feed_type_calendar(db, user_hash, filters)
+
 @router.get("/calendar")
-def list_calendar(request: Request, month: str = Query(...), db: Session = Depends(get_db)):
+def list_calendar(request: Request, month: str = Query(...), child_id: Optional[int] = Query(None), db: Session = Depends(get_db)):
 
     params = {
         "month": month if month else "",
+        "child_id": child_id,
         "user_hash": getattr(request.state, "user_hash", None)
     }
 
@@ -29,6 +40,9 @@ async def create_meal(
     ingredients: str = Form("[]"),
     is_public: str = Form("N"),
     meal_condition: int = Form(0),
+    child_id: Optional[int] = Form(None),
+    meal_stage: Optional[int] = Form(0),
+    meal_stage_detail: Optional[str] = Form(None),
     attaches: Optional[UploadFile] = File(None),
     db: Session = Depends(get_db)
 ):
@@ -51,7 +65,10 @@ async def create_meal(
         'is_pre_made': isPreMade,
         'is_public': is_public,
         'meal_condition': meal_condition,
-        'attaches': attaches
+        'attaches': attaches,
+        'meal_stage': meal_stage,
+        'meal_stage_detail': meal_stage_detail,
+        'child_id': child_id
     }
 
     return await meals_service.create_meal(db, body)
@@ -96,6 +113,8 @@ async def update_meal(
     ingredients: Optional[str] = Form(None),
     isPreMade: Optional[str] = Form(None),
     is_public: Optional[str] = Form(None),
+    meal_stage: Optional[int] = Form(None),
+    meal_stage_detail: Optional[str] = Form(None),
     attaches: Optional[UploadFile] = File(None),
     db: Session = Depends(get_db)
 ):
@@ -114,7 +133,9 @@ async def update_meal(
     body = {
         'meal_hash': meal_hash,
         'user_hash': user_hash,
-        'attaches': attaches
+        'attaches': attaches,
+        'meal_stage': meal_stage,
+        'meal_stage_detail': meal_stage_detail
     }
 
     # None이 아닌 값만 추가
@@ -147,7 +168,7 @@ async def delete_meal(request: Request, meal_hash: str, db: Session = Depends(ge
     return await meals_service.delete_meal(db, params)
 
 @router.get("/check/daily")
-def check_daily_meal(request: Request, date: str = Query(...), db: Session = Depends(get_db)):
+def check_daily_meal(request: Request, feed_id: str = Query(...), date: str = Query(...), db: Session = Depends(get_db)):
     user_hash = getattr(request.state, "user_hash", None)
 
     if not user_hash:
@@ -155,6 +176,7 @@ def check_daily_meal(request: Request, date: str = Query(...), db: Session = Dep
 
     params = {
         "user_hash": user_hash,
+        "feed_id": feed_id,
         "date": date
     }
     return meals_service.check_daily_meal(db, params)

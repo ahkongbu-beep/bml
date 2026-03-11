@@ -1,15 +1,16 @@
 
-from app.models.users import Users
-from app.models.communities import Community
-from app.models.users_childs import UsersChilds
-from app.models.communities_images import CommunitiesImages
+from app.repository.communities_repository import CommunitiesRepository
+from app.repository.user_repository import UserRepository
+from app.repository.users_childs_repository import UsersChildsRepository
+from app.repository.communities_images_repository import CommunitiesImagesRepository
+from app.repository.communities_comments_repository import CommunitiesCommentsRepository
 from app.schemas.common_schemas import CommonResponse
-from app.models.communities_comments import CommunitiesComments
 from app.core.config import settings
+from app.services.meals_comments_service import build_comment_tree
 
 def get_community_list(db, user_hash, params) -> CommonResponse:
     """커뮤니티 리스트 조회 서비스 함수"""
-    user = Users.find_by_view_hash(db, user_hash)
+    user = UserRepository.find_by_view_hash(db, user_hash)
     if not user:
         return CommonResponse(success=False, message="유효하지 않은 사용자입니다.")
 
@@ -29,11 +30,11 @@ def get_community_list(db, user_hash, params) -> CommonResponse:
         "limit": params.get("limit", 20),
     }
 
-    community_list = [item._data for item in Community.get_list(db, user.id, db_params).serialize()]
+    community_list = [item._data for item in CommunitiesRepository.get_list(db, user.id, db_params).serialize()]
     for community in community_list:
         community['profile_image'] = community['profile_image'] if community.get('profile_image') else None
 
-    total_count = Community.get_list_count(db, user.id, db_params)
+    total_count = CommunitiesRepository.get_list_count(db, user.id, db_params)
 
     data = {
         "communities": community_list,
@@ -46,7 +47,7 @@ def get_community_list(db, user_hash, params) -> CommonResponse:
 
 async def create_community(db, user_hash, client_ip, title, contents, category_code, is_secret, files) -> CommonResponse:
     """커뮤니티 글 작성 서비스 함수"""
-    user = Users.find_by_view_hash(db, user_hash)
+    user = UserRepository.find_by_view_hash(db, user_hash)
     if not user:
         return CommonResponse(success=False, message="유효하지 않은 사용자입니다.")
 
@@ -61,19 +62,19 @@ async def create_community(db, user_hash, client_ip, title, contents, category_c
             "user_ip": client_ip,
         }
 
-        new_community = Community.create(db, params)
+        new_community = CommunitiesRepository.create(db, params)
 
         # 이미지 업로드 처리 (최대 3장)
         if files and len(files) > 0:
             for idx, file in enumerate(files[:3]):  # 최대 3장
                 if file and file.filename:
                     ext = file.filename.split('.')[-1]
-                    await CommunitiesImages.upload(db, new_community.id, file, ext, sort_order=idx)
+                    await CommunitiesImagesRepository.upload(db, new_community.id, file, ext, sort_order=idx)
 
-        user_child = UsersChilds.getAgentChild(db, user.id)
+        user_child = UsersChildsRepository.getAgentChild(db, user.id)
 
         # 이미지 목록 조회
-        images = CommunitiesImages.findImagesByCommunityId(db, new_community.id)
+        images = CommunitiesImagesRepository.findImagesByCommunityId(db, new_community.id)
 
         return_data = {
             "title": new_community.title,
@@ -99,18 +100,18 @@ async def create_community(db, user_hash, client_ip, title, contents, category_c
 
 def get_community_detail(db, user_hash, community_hash) -> CommonResponse:
     """커뮤니티 글 상세 조회 서비스 함수"""
-    user = Users.find_by_view_hash(db, user_hash)
+    user = UserRepository.find_by_view_hash(db, user_hash)
     if not user:
         return CommonResponse(success=False, error="유효하지 않은 사용자입니다.")
 
-    community = Community.find_by_view_hash(db, community_hash)
+    community = CommunitiesRepository.find_by_view_hash(db, community_hash)
     if not community:
         return CommonResponse(success=False, error="존재하지 않는 커뮤니티 글입니다.")
 
     if community.is_active != 'Y':
         return CommonResponse(success=False, error="삭제된 커뮤니티 글입니다.")
 
-    commnity_user = Users.findById(db, community.user_id)
+    commnity_user = UserRepository.findById(db, community.user_id)
     if not commnity_user:
         return CommonResponse(success=False, error="커뮤니티 글 작성자가 존재하지 않습니다.")
 
@@ -120,10 +121,10 @@ def get_community_detail(db, user_hash, community_hash) -> CommonResponse:
         db.commit()
         db.refresh(community)
 
-        user_child = UsersChilds.getAgentChild(db, community.user_id)
+        user_child = UsersChildsRepository.getAgentChild(db, community.user_id)
 
         # 이미지 목록 조회
-        images = CommunitiesImages.findImagesByCommunityId(db, community.id)
+        images = CommunitiesImagesRepository.findImagesByCommunityId(db, community.id)
 
         return_data = {
             "title": community.title,
@@ -150,11 +151,11 @@ def get_community_detail(db, user_hash, community_hash) -> CommonResponse:
 
 def delete_community(db, user_hash, community_hash) -> CommonResponse:
     """커뮤니티 글 삭제 서비스 함수"""
-    user = Users.find_by_view_hash(db, user_hash)
+    user = UserRepository.find_by_view_hash(db, user_hash)
     if not user:
         return CommonResponse(success=False, error="유효하지 않은 사용자입니다.")
 
-    community = Community.find_by_view_hash(db, community_hash)
+    community = CommunitiesRepository.find_by_view_hash(db, community_hash)
     if not community:
         return CommonResponse(success=False, error="존재하지 않는 커뮤니티 글입니다.")
 
@@ -165,7 +166,7 @@ def delete_community(db, user_hash, community_hash) -> CommonResponse:
         return CommonResponse(success=False, error="본인이 작성한 글만 삭제할 수 있습니다.")
 
     try:
-        result = Community.soft_delete(db, community)
+        result = CommunitiesRepository.soft_delete(db, community)
 
         if not result:
             return CommonResponse(success=False, error="커뮤니티 글 삭제에 실패했습니다.")
@@ -180,11 +181,11 @@ def delete_community(db, user_hash, community_hash) -> CommonResponse:
 
 async def update_community(db, user_hash, community_hash, title, contents, is_secret, files) -> CommonResponse:
     """커뮤니티 글 수정 서비스 함수"""
-    user = Users.find_by_view_hash(db, user_hash)
+    user = UserRepository.find_by_view_hash(db, user_hash)
     if not user:
         return CommonResponse(success=False, message="유효하지 않은 사용자입니다.")
 
-    community = Community.find_by_view_hash(db, community_hash)
+    community = CommunitiesRepository.find_by_view_hash(db, community_hash)
     if not community:
         return CommonResponse(success=False, message="존재하지 않는 커뮤니티 글입니다.")
 
@@ -196,14 +197,14 @@ async def update_community(db, user_hash, community_hash, title, contents, is_se
 
     try:
         # 기존 이미지 모두 삭제
-        CommunitiesImages.deleteByCommunityId(db, community.id, is_commit=False)
+        CommunitiesImagesRepository.deleteByCommunityId(db, community.id, is_commit=False)
 
         # 새 이미지 업로드 (최대 3장)
         if files and len(files) > 0:
             for idx, file in enumerate(files[:3]):  # 최대 3장
                 if file and file.filename:
                     ext = file.filename.split('.')[-1]
-                    await CommunitiesImages.upload(db, community.id, file, ext, sort_order=idx)
+                    await CommunitiesImagesRepository.upload(db, community.id, file, ext, sort_order=idx)
 
         community.title = title
         community.contents = contents
@@ -212,10 +213,10 @@ async def update_community(db, user_hash, community_hash, title, contents, is_se
         db.commit()
         db.refresh(community)
 
-        user_child = UsersChilds.getAgentChild(db, user.id)
+        user_child = UsersChildsRepository.getAgentChild(db, user.id)
 
         # 이미지 목록 조회
-        images = CommunitiesImages.findImagesByCommunityId(db, community.id)
+        images = CommunitiesImagesRepository.findImagesByCommunityId(db, community.id)
 
         return_data = {
             "title": community.title,
@@ -241,11 +242,11 @@ async def update_community(db, user_hash, community_hash, title, contents, is_se
 
 def like_community(db, user_hash, community_hash) -> CommonResponse:
     """커뮤니티 글 좋아요 서비스 함수"""
-    user = Users.find_by_view_hash(db, user_hash)
+    user = UserRepository.find_by_view_hash(db, user_hash)
     if not user:
         return CommonResponse(success=False, message="유효하지 않은 사용자입니다.")
 
-    community = Community.find_by_view_hash(db, community_hash)
+    community = CommunitiesRepository.find_by_view_hash(db, community_hash)
     if not community:
         return CommonResponse(success=False, message="존재하지 않는 커뮤니티 글입니다.")
 
@@ -283,11 +284,11 @@ def like_community(db, user_hash, community_hash) -> CommonResponse:
 
 """ 커뮤니티 댓글 등록 서비스 함수 """
 def create_community_comment(db, user_hash, community_hash, params) -> CommonResponse:
-    user = Users.find_by_view_hash(db, user_hash)
+    user = UserRepository.find_by_view_hash(db, user_hash)
     if not user:
         return CommonResponse(success=False, message="유효하지 않은 사용자입니다.")
 
-    community = Community.find_by_view_hash(db, community_hash)
+    community = CommunitiesRepository.find_by_view_hash(db, community_hash)
     if not community:
         return CommonResponse(success=False, message="존재하지 않는 커뮤니티 글입니다.")
 
@@ -298,7 +299,7 @@ def create_community_comment(db, user_hash, community_hash, params) -> CommonRes
         # parent_hash가 있으면 parent_id 찾기
         parent_id = None
         if params.parent_hash:
-            parent_comment = CommunitiesComments.find_by_view_hash(db, params.parent_hash)
+            parent_comment = CommunitiesCommentsRepository.find_by_view_hash(db, params.parent_hash)
             if parent_comment:
                 parent_id = parent_comment.id
 
@@ -310,7 +311,7 @@ def create_community_comment(db, user_hash, community_hash, params) -> CommonRes
             "parent_hash": params.parent_hash if params.parent_hash else "",
         }
 
-        new_comment = CommunitiesComments.create(db, comment_params)
+        new_comment = CommunitiesCommentsRepository.create(db, comment_params)
 
         return_data = {
             "community_id": new_comment.community_id,
@@ -332,11 +333,11 @@ def create_community_comment(db, user_hash, community_hash, params) -> CommonRes
 
 """ 커뮤니티 댓글 삭제 서비스 함수 """
 def delete_community_comment(db, user_hash, comment_hash) -> CommonResponse:
-    user = Users.find_by_view_hash(db, user_hash)
+    user = UserRepository.find_by_view_hash(db, user_hash)
     if not user:
         return CommonResponse(success=False, message="유효하지 않은 사용자입니다.")
 
-    exist_comment = CommunitiesComments.find_by_view_hash(db, comment_hash)
+    exist_comment = CommunitiesCommentsRepository.find_by_view_hash(db, comment_hash)
     if not exist_comment:
         return CommonResponse(success=False, message="존재하지 않는 커뮤니티 댓글입니다.")
 
@@ -345,7 +346,7 @@ def delete_community_comment(db, user_hash, comment_hash) -> CommonResponse:
 
     try:
         # 댓글 삭제처리 (soft delete)
-        success_bool = CommunitiesComments.soft_delete(db, exist_comment)
+        success_bool = CommunitiesCommentsRepository.soft_delete(db, exist_comment)
         if not success_bool:
             return CommonResponse(success=False, message="커뮤니티 댓글 삭제에 실패했습니다.")
 
@@ -356,11 +357,11 @@ def delete_community_comment(db, user_hash, comment_hash) -> CommonResponse:
 
 """ 커뮤니티 댓글 수정 서비스 함수 """
 def update_community_comment(db, user_hash, comment_hash, params) -> CommonResponse:
-    user = Users.find_by_view_hash(db, user_hash)
+    user = UserRepository.find_by_view_hash(db, user_hash)
     if not user:
         return CommonResponse(success=False, message="유효하지 않은 사용자입니다.")
 
-    exist_comment = CommunitiesComments.find_by_view_hash(db, comment_hash)
+    exist_comment = CommunitiesCommentsRepository.find_by_view_hash(db, comment_hash)
     if not exist_comment:
         return CommonResponse(success=False, message="존재하지 않는 커뮤니티 댓글입니다.")
 
@@ -369,9 +370,9 @@ def update_community_comment(db, user_hash, comment_hash, params) -> CommonRespo
 
     try:
         # 댓글 수정처리
-        CommunitiesComments.update(db, exist_comment, {
+        CommunitiesCommentsRepository.update(db, exist_comment, {
             "comment": params.comment
-        })
+        }, is_commit=True)
     except Exception as e:
         return CommonResponse(success=False, message="커뮤니티 댓글 수정 중 오류가 발생했습니다." + str(e))
 
@@ -380,11 +381,11 @@ def update_community_comment(db, user_hash, comment_hash, params) -> CommonRespo
 """커뮤니티 댓글 리스트 조회 서비스 함수"""
 def get_community_comments(db, user_hash, params) -> CommonResponse:
 
-    user = Users.find_by_view_hash(db, user_hash)
+    user = UserRepository.find_by_view_hash(db, user_hash)
     if not user:
         return CommonResponse(success=False, message="유효하지 않은 사용자입니다.")
 
-    community = Community.find_by_view_hash(db, params.get("community_hash"))
+    community = CommunitiesRepository.find_by_view_hash(db, params.get("community_hash"))
     if not community:
         return CommonResponse(success=False, message="존재하지 않는 커뮤니티 글입니다.")
 
@@ -395,8 +396,8 @@ def get_community_comments(db, user_hash, params) -> CommonResponse:
         "limit": params.get("limit", 100),
     }
 
-    comment_list = CommunitiesComments.get_list(db, params, extra).getData()
-    tree_data = CommunitiesComments.build_comment_tree(comment_list)
+    comment_list = CommunitiesCommentsRepository.get_list(db, params, extra).getData()
+    tree_data = build_comment_tree(comment_list)
 
     data = {
         "comments": tree_data,

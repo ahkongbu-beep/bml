@@ -6,22 +6,24 @@
 """
 from sqlalchemy import func
 from sqlalchemy.orm import Session
+from app.repository.user_repository import UserRepository
+from app.repository.meals_mappers_repository import MealsMappersRepository
+
 from app.models.users import Users
-from app.models.meals_mappers import MealsMappers
+
 from app.schemas.users_schemas import UserResponseSchema
 from app.schemas.common_schemas import CommonResponse
 from app.schemas.auth_schemas import SocialUserInfo
 from app.libs.password_utils import verify_password
 from app.libs.jwt_utils import create_access_token, create_refresh_token, verify_token
 import httpx
-import os
 from app.core.config import settings
 from typing import Optional
 
 
 def email_login(db: Session, email: str, password: str) -> CommonResponse:
     """이메일 로그인"""
-    user = db.query(Users).filter(Users.email == email).first()
+    user = UserRepository.get_user_by_email(db, email)
 
     if not user:
         return CommonResponse(success=False, message="일치하는 회원 정보를 찾을 수 없습니다.", data=None)
@@ -46,12 +48,9 @@ async def google_login(db: Session, id_token: str, access_token: Optional[str] =
         GOOGLE_SECRET_KEY = settings.GOOGLE_SECRET_KEY
         GOOGLE_REDIRECT_URI = settings.GOOGLE_REDIRECT_URI
 
-        print(f"[Google Login] Client ID: {GOOGLE_CLIENT_ID[:20]}..." if GOOGLE_CLIENT_ID else "None")
-
         if not GOOGLE_CLIENT_ID:
             return CommonResponse(success=False, message="서버 설정 오류: Google Client ID가 설정되지 않았습니다.", data=None)
 
-        print(f"[Google Login] Verifying token...")
         # ID 토큰 검증 및 사용자 정보 추출
         idinfo = google_id_token.verify_oauth2_token(
             id_token,
@@ -59,13 +58,9 @@ async def google_login(db: Session, id_token: str, access_token: Optional[str] =
             GOOGLE_CLIENT_ID
         )
 
-        print(f"[Google Login] Token verified. User: {idinfo.get('email')}")
-
         # serverAuthCode를 refresh_token으로 교환
         actual_refresh_token = None
         if refresh_token:
-            print(f"[Google Login] Exchanging serverAuthCode for refresh_token...")
-            print(f"[Google Login] serverAuthCode : {refresh_token}")
             try:
                 async with httpx.AsyncClient() as client:
                     data = {
@@ -80,9 +75,6 @@ async def google_login(db: Session, id_token: str, access_token: Optional[str] =
                         'https://oauth2.googleapis.com/token',
                         data=data
                     )
-                    print(f"[Google Login] param : {data}")
-                    print(f"[Google Login] Token exchange response status: {token_response.status_code}")
-                    print(f"[Google Login] Token exchange response body: {token_response.text}")
 
                     if token_response.status_code == 200:
                         token_data = token_response.json()
@@ -105,7 +97,6 @@ async def google_login(db: Session, id_token: str, access_token: Optional[str] =
             profile_image=idinfo.get('picture'),
             provider='GOOGLE'
         )
-        print(f"[Google Login] Social user info extracted: {actual_refresh_token}")
         return _handle_social_login(db, social_user_info, actual_refresh_token)
 
     except ValueError as e:
@@ -189,10 +180,7 @@ def _handle_social_login(db: Session, social_info: SocialUserInfo, refresh_token
     from app.libs.hash_utils import generate_sha256_hash
 
     # DB에서 사용자 검색
-    user = db.query(Users).filter(
-        Users.sns_id == social_info.social_id,
-        Users.sns_login_type == social_info.provider
-    ).first()
+    user = UserRepository.get_user_by_sns_account(db, social_info.provider, social_info.social_id)
 
     # 신규 사용자인 경우 자동 회원가입
     if not user:
@@ -219,7 +207,7 @@ def _handle_social_login(db: Session, social_info: SocialUserInfo, refresh_token
             created_at=func.now(),
         )
         db.add(user)
-        db.commit()
+        db.flush()  # ID 생성 위해 flush
         db.refresh(user)
     else:
         # 기존 사용자: view_hash가 없다면 생성
@@ -233,18 +221,15 @@ def _handle_social_login(db: Session, social_info: SocialUserInfo, refresh_token
             )
 
             user.view_hash = view_hash
-            db.commit()
+            db.flush()  # ID 생성 위해 flush
 
     # refresh_token 업데이트 (있을 경우)
     if refresh_token and user.referer_token != refresh_token:
-        print(f"[Social Login] 💾 Updating refresh_token for user {user.email}")
         user.referer_token = refresh_token
-        db.commit()
+        db.flush()  # ID 생성 위해 flush
     elif refresh_token:
-
         print(f"[Social Login] ℹ️ Refresh_token unchanged for user {user.email}")
     else:
-        print(f"[Social Login] ⚠️ No refresh_token to save for user {user.email}")
         if user.referer_token:
             print(f"[Social Login] ✅ User already has refresh_token in DB")
         else:
@@ -253,12 +238,14 @@ def _handle_social_login(db: Session, social_info: SocialUserInfo, refresh_token
     user.deleted_at = None
     user.is_active = 1
     user.updated_at = func.now()
-    db.commit()
+    db.flush()
 
     # 프로필 이미지 업데이트 (소셜 로그인 시 최신 이미지로)
     if social_info.profile_image and user.profile_image != social_info.profile_image:
         user.profile_image = social_info.profile_image
-        db.commit()
+        db.flush()
+
+    db.commit()
 
     return _generate_login_response(db, user)
 
@@ -277,10 +264,10 @@ def _generate_login_response(db: Session, user: Users) -> CommonResponse:
     refresh_token = create_refresh_token(token_data)
 
     # 마지막 로그인 시간 업데이트
-    Users.update_last_login(db, user.id)
+    UserRepository.update_last_login(db, user.id)
 
     # 식단 선호도 조회
-    meals_mapper = MealsMappers.get_list(db, user.id).serialize()
+    meals_mapper = MealsMappersRepository.get_list(db, user.id).serialize()
     meal_group_ids = [mapper.category_id for mapper in meals_mapper]
 
     # 자녀 정보 조회
@@ -312,7 +299,6 @@ def _generate_login_response(db: Session, user: Users) -> CommonResponse:
         }
     )
 
-
 async def logout(db: Session, user_hash: str) -> CommonResponse:
     """
     로그아웃
@@ -330,11 +316,9 @@ async def remove_deny_user(db: Session, user_hash: str) -> CommonResponse:
     """
     회원 탈퇴
     """
-    user = Users.find_by_view_hash(db, user_hash)
+    user = UserRepository.find_by_view_hash(db, user_hash)
     if not user:
         return CommonResponse(success=False, message="회원 정보를 찾을 수 없습니다.", data=None)
-
-    print(f"Processing withdrawal for user ID: {user.id}, SNS Type: {user.sns_login_type}")
 
     # 구글 revoke 처리
     if user.sns_login_type == 'GOOGLE':
@@ -392,7 +376,7 @@ def refresh_access_token(db: Session, refresh_token: str) -> CommonResponse:
             data=None
         )
 
-    user = db.query(Users).filter(Users.view_hash == user_hash).first()
+    user = UserRepository.find_by_view_hash(db, user_hash)
     if not user:
         return CommonResponse(
             success=False,

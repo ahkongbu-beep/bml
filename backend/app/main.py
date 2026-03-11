@@ -8,7 +8,6 @@ from fastapi.exceptions import RequestValidationError
 from app.schemas.common_schemas import CommonResponse
 import os
 
-
 app = FastAPI(title="BML Backend API", version="1.0.0")
 
 # CORS 설정

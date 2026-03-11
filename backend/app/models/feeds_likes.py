@@ -1,9 +1,5 @@
 from sqlalchemy import Column, Integer, DateTime, ForeignKey, func, UniqueConstraint
-from sqlalchemy.orm import declarative_base
 from app.core.database import Base
-from app.models.users import Users
-from app.models.feeds import Feeds
-from app.models.feeds_images import FeedsImages
 
 class FeedsLikes(Base):
     __tablename__ = "feeds_likes"
@@ -16,42 +12,3 @@ class FeedsLikes(Base):
     __table_args__ = (
         UniqueConstraint('feed_id', 'user_id', name='unique_feed_user'),
     )
-
-    @staticmethod
-    def create(session, feed_id: int, user_id: int):
-        like = FeedsLikes(
-            feed_id=feed_id,
-            user_id=user_id,
-            created_at=func.now()
-        )
-        session.add(like)
-        session.commit()
-        session.refresh(like)
-        return like
-
-    @staticmethod
-    def get_like_user_id(session, user_id: int, limit=30, offset=0):
-        feed_image_subq = (
-            session.query(FeedsImages.image_url)
-            .filter(FeedsImages.img_model == "Feeds")
-            .filter(FeedsImages.img_model_id == Feeds.id)
-            .order_by(FeedsImages.id.asc())
-            .limit(1)
-            .correlate(Feeds)
-            .scalar_subquery()
-        )
-
-        query = (
-            session.query(
-                FeedsLikes.feed_id,
-                FeedsLikes.created_at.label("liked_at"),
-                Feeds.title,
-                Feeds.content,
-                feed_image_subq.label("feed_image_url"),
-            )
-            .join(Feeds, FeedsLikes.feed_id == Feeds.id)
-            .filter(FeedsLikes.user_id == user_id)
-            .order_by(FeedsLikes.created_at.desc())
-        )
-
-        return query.all()

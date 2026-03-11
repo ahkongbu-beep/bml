@@ -4,6 +4,17 @@ import os
 import shutil
 from app.libs.hash_utils import generate_sha256_hash
 from datetime import datetime
+from app.repository.meals_calendars_images_repository import MealsCalendarsImagesRepository
+
+async def create_meal_image(db, params):
+    new_image = await MealsCalendarsImagesRepository.create(db, {
+        "user_id": params['user_id'],
+        "month": params['month'],
+        "image": params['image'],
+        "is_active": params['is_active']
+    }, is_commit=False)
+
+    return new_image
 
 # source_image: Meals 모델의 이미지 복사 서비스
 def copy_image(db, origin_model: str, origin_model_instance, target_model: str, target_model_instance):

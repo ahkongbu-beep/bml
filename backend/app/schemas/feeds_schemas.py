@@ -1,7 +1,24 @@
 from datetime import datetime
 from typing import Optional, List
-from pydantic import BaseModel
+from fastapi.params import Query
+from pydantic import BaseModel, Field
 from app.schemas.users_schemas import UserChildItemSchema
+
+class FeedListRequest(BaseModel):
+    type: str = "list"
+    view_type: str = "all"
+    limit: int = Field(10, ge=1)
+    offset: int = Field(0, ge=0)
+    cursor: Optional[int] = None
+    title: Optional[str] = None
+    nickname: Optional[str] = None
+    sort_by: str = "created_at"
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    target_user_hash: Optional[str] = None
+    # 앞으로 계속 추가하면 됨
+    meal_stage: Optional[int] = None
+    meal_stage_detail: Optional[str] = None
 
 class FeedLikeToggleRequest(BaseModel):
     user_hash: str
@@ -18,7 +35,7 @@ class FeedCopyRequest(BaseModel):
     target_user_hash: str
 
 class FeedLikeResponseData(BaseModel):
-    feed_id: int
+    meal_id: int
     like_count: int
     is_liked: bool
 
@@ -26,7 +43,7 @@ class FeedDeleteRequest(BaseModel):
     user_hash: str
 
 class FeedCreateCommentRequest(BaseModel):
-    feed_id: int
+    meal_id: int
     comment: str
     parent_hash: Optional[str] = None
 
@@ -37,7 +54,7 @@ class FeedsUserResponse(BaseModel):
     user_hash: Optional[str] = None
 
 class FeedsCommentResponse(BaseModel):
-    feed_id: int
+    meal_id: int
     parent_id: Optional[int] = None
     comment: str
     created_at: datetime
@@ -64,6 +81,8 @@ class FeedsResponse(BaseModel):
     like_count: int
     created_at: datetime
     updated_at: datetime
+    meal_stage: Optional[int] = 0
+    meal_stage_detail: Optional[str] = ""
     category_id: Optional[int] = 0
     category_name: Optional[str] = None
     is_share_meal_plan: Optional[str] = None

@@ -3,16 +3,22 @@
 - sns_login_type 이 EMAIL 인 경우 password는 필수
 - 그 외 sns_login_type 인 경우 sns_id 는 필수
 """
+import hashlib
 from pathlib import Path
-from sqlalchemy import func
-from app.models.users import Users
-from app.models.feeds import Feeds
-from app.models.feeds_images import FeedsImages
-from app.models.summaries_agents import SummariesAgents
+
+from fastapi import params
+from app.repository.user_repository import UserRepository
+from app.repository.feed_repository import FeedRepository
+from app.repository.feeds_tags_mappers_repository import FeedsTagsMappersRepository
+from app.repository.meals_calendars_repository import MealsCalendarsRepository
+from app.repository.summaries_agents_repository import SummariesAgentsRepository
+from app.repository.users_childs_repository import UsersChildsRepository
 from app.schemas.common_schemas import CommonResponse
-from app.libs.password_utils import hash_password
 from app.core.config import settings
 from app.libs.open_ai import openai_call
+from app.libs.age_utils import format_child_age
+
+import json
 
 """
 나의 요약 검색 내역 조회
@@ -22,7 +28,7 @@ async def search_summary(db, user_hash: str, model: str, model_id: int, query: s
     if model is None:
         return CommonResponse(success=False, message="조회를 위한 필수 파라미터가 없습니다.", data=[])
 
-    user = Users.find_by_view_hash(db, user_hash)
+    user = UserRepository.find_by_view_hash(db, user_hash)
     if not user:
         return CommonResponse(success=False, message="존재하지 않는 회원입니다.", data=[])
 
@@ -39,7 +45,7 @@ async def search_summary(db, user_hash: str, model: str, model_id: int, query: s
 
     total = 0
     if model == "FeedsImages":
-        rows, total = SummariesAgents.getListByFeedImages(db, params, offset=offset, limit=limit)
+        rows, total = SummariesAgentsRepository.getListByFeedImages(db, params, offset=offset, limit=limit)
 
     if total == 0:
         return CommonResponse(success=True, message="요약 검색 성공", data={"summaries": [], "total": 0})
@@ -75,7 +81,7 @@ async def list_summaries(db, user_hash: str, model: str, model_id: int, search_t
 
     params = {}
     if user_hash is not None:
-        user = Users.find_by_view_hash(db, user_hash)
+        user = UserRepository.find_by_view_hash(db, user_hash)
         if not user:
             return CommonResponse(success=False, message="존재하지 않는 회원입니다.", data=[])
         params['user_id'] = user.id
@@ -90,15 +96,28 @@ async def list_summaries(db, user_hash: str, model: str, model_id: int, search_t
         params['search_type'] = search_type
         params['search_value'] = search_value.strip()
 
-    summary_list = SummariesAgents.get_list(db, params, offset=offset, limit=limit).getData()
+    summary_list = SummariesAgentsRepository.get_list(db, params, offset=offset, limit=limit).getData()
 
     return CommonResponse(success=True, message="요약 리스트 조회 성공", data=summary_list)
 
+@staticmethod
+def getAiPromptQuestion(prompt: str, recipe: list, desc: str, child_birth: str = None) -> str:
+    f_prompt = f"사용자가 다음과 같이 질문했습니다: {prompt}\n\n"
+    f_prompt += f"이 음식에 대한 간단한 정보를 참고하여 도움이 될만한 답변을 하세요\n"
+
+    if child_birth is not None:
+        f_prompt += f"아이는 {format_child_age(child_birth)}입니다.\n\n"
+
+    f_prompt += f"음식 재료: {', '.join(recipe)}\n\n"
+
+
+    if desc:
+        f_prompt += f"음식 설명: {desc}\n\n"
+    return f_prompt
 
 """
-이미지 기반 피드 요약 생성
-- openai_call 함수를 사용하여 OpenAI API 호출
-- 상현 요청에 의해 같은 피드ID + 같은 질의 시 같은 응답을 반환하도록 수정
+피드요약
+- 재료, 상세설명을 참고하여 영양성분을 분석하여 요약을 생성
 """
 async def feed_summary(db, data) -> CommonResponse:
 
@@ -108,35 +127,37 @@ async def feed_summary(db, data) -> CommonResponse:
     if data['prompt'].strip() == "":
         return CommonResponse(success=False, message="프롬프트를 입력해주세요.", data=[])
 
-    user = Users.find_by_view_hash(db, data["user_hash"])
+    user = UserRepository.find_by_view_hash(db, data["user_hash"])
     if not user:
         return CommonResponse(success=False, message="존재하지 않는 회원입니다.", data=[])
 
-    used_count = SummariesAgents.findUsedCountByUserId(db, user.id)
-    if used_count >= settings.FREE_SUMMARY_AGENT_COUNT:
-        return CommonResponse(success=False, message="무료 요약 생성 횟수를 초과했습니다.", data=[])
+    # used_count = SummariesAgentsRepository.findUsedCountByUserId(db, user.id)
+    # if used_count >= settings.FREE_SUMMARY_AGENT_COUNT:
+    #     return CommonResponse(success=False, message="무료 요약 생성 횟수를 초과했습니다.", data=[])
 
-    feed = Feeds.findById(db, data["feed_id"])
+    feed = FeedRepository.findById(db, data["feed_id"])
     if not feed:
         return CommonResponse(success=False, message="존재하지 않는 피드입니다.", data=[])
 
-    feed_image = db.query(FeedsImages).filter(
-        FeedsImages.sort_order == data["image_id"],
-        FeedsImages.img_model == "Feeds",
-        FeedsImages.img_model_id == data["feed_id"]
-    ).first()
+    meal_calendar = MealsCalendarsRepository.get_calendar_by_id(db, feed.ref_meal)
+    child_id = meal_calendar.child_id if meal_calendar else None
 
-    if not feed_image:
-        return CommonResponse(success=False, message="존재하지 않는 피드 이미지입니다.", data=[])
+    child_birth = None
+    if child_id is not None:
+        child_data = UsersChildsRepository.get_child_by_id(db, child_id)
+        if child_data and child_data.child_birth:
+            child_birth = child_data.child_birth
 
-    # 동일한 요약이 있는 경우 재사용
-    exist_summary = SummariesAgents.findByModelIdAndQuestion(db, "FeedsImages", feed_image.id, data["prompt"].strip())
+    # recipe_list : ["고구마", "브로콜리"]
+    recipe_list = sorted(FeedsTagsMappersRepository.get_tags_mapper_by_model_and_model_id(db, "Feeds", feed.id))
+
+    # # 동일한 요약이 있는 경우 재사용
+    exist_summary = SummariesAgentsRepository.get_summary_by_model_recipe_data(db, "Feeds", feed.id, recipe_list)
     if exist_summary:
         return CommonResponse(success=True, message="요약 검색 성공", data=exist_summary.answer)
 
-
     system_prompt = load_prompt_template("system.md").strip()
-    final_prompt  = SummariesAgents.setAiPromptQuestion(prompt, feed.content)
+    final_prompt  = getAiPromptQuestion(prompt, recipe_list, feed.content, child_birth)
 
     messages = [
         {
@@ -149,13 +170,7 @@ async def feed_summary(db, data) -> CommonResponse:
                 {
                     "type": "text",
                     "text": final_prompt
-                },
-                # {
-                #     "type": "image_url",
-                #     "image_url": {
-                #         "url": settings.STATIC_BASE_URL + feed_image.image_url
-                #     }
-                # }
+                }
             ]
         }
     ]
@@ -176,13 +191,14 @@ async def feed_summary(db, data) -> CommonResponse:
 
         summary_params = {
             "user_id": user.id,
-            "model": "FeedsImages",
-            "model_id": feed_image.id,
+            "model": "Feeds",
+            "model_id": feed.id,
+            "recipe_json": recipe_list,
             "question": prompt,
             "answer": output_text,
         }
 
-        summary_agent = SummariesAgents.create(db, summary_params, is_commit=True)
+        summary_agent = SummariesAgentsRepository.create(db, summary_params, is_commit=True)
         if not summary_agent:
             return CommonResponse(
                 success=False,

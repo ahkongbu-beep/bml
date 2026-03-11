@@ -1,19 +1,20 @@
-from app.models.notices import Notices
+from app.repository.notices_repository import NoticesRepository
+from app.repository.categories_codes_repository import CategoriesCodesRepository
+
 from app.schemas.notices_schemas import NoticesCreateRequest, NoticesDetailResponseData, NoticesUpdateRequest
-from app.models.categories_codes import CategoriesCodes
 from app.schemas.common_schemas import CommonResponse
 
 def list_notices(db):
-    notice_list = Notices.get_list(db, params={}).getData()
+    notice_list = NoticesRepository.get_list(db, params={}).getData()
     return CommonResponse(success=True, message="", data=notice_list)
 
 def notice_detail(db, view_hash: str):
-    notice = Notices.find_by_view_hash(db, view_hash)
+    notice = NoticesRepository.find_by_view_hash(db, view_hash)
 
     if not notice:
         return CommonResponse(success=False, error="존재하지 않는 공지사항입니다.", data=None)
 
-    category_code = CategoriesCodes.findById(db, notice.category_id)
+    category_code = CategoriesCodesRepository.findById(db, notice.category_id)
 
     data = NoticesDetailResponseData(
         view_hash=notice.view_hash,
@@ -33,7 +34,7 @@ def notice_detail(db, view_hash: str):
 # 공지 등록
 def create_notice(notice: NoticesCreateRequest, client_ip: str, db):
 
-    category_code = CategoriesCodes.findById(db, notice.category_id)
+    category_code = CategoriesCodesRepository.findById(db, notice.category_id)
     if not category_code or category_code.type != "NOTICES_GROUP":
         return CommonResponse(success=False, error="유효하지 않은 카테고리입니다.", data=None)
 
@@ -48,7 +49,7 @@ def create_notice(notice: NoticesCreateRequest, client_ip: str, db):
     }
 
     try:
-        new_notice = Notices.create(db, params)
+        new_notice = NoticesRepository.create(db, params)
 
         if not new_notice:
             raise Exception("공지사항 등록 실패했습니다.")
@@ -74,12 +75,12 @@ def create_notice(notice: NoticesCreateRequest, client_ip: str, db):
 """ 공지 수정"""
 def update_notice(notice: NoticesUpdateRequest, view_hash: str, db):
 
-    existing_notice = Notices.find_by_view_hash(db, view_hash)
+    existing_notice = NoticesRepository.find_by_view_hash(db, view_hash)
 
     if not existing_notice:
         return CommonResponse(success=False, error="존재하지 않는 공지사항입니다.", data=None)
 
-    category_code = CategoriesCodes.findById(db, notice.category_id)
+    category_code = CategoriesCodesRepository.findById(db, notice.category_id)
 
     if not category_code or category_code.type != "NOTICES_GROUP":
         return CommonResponse(success=False, error="유효하지 않은 카테고리입니다.", data=None)
@@ -92,7 +93,7 @@ def update_notice(notice: NoticesUpdateRequest, view_hash: str, db):
     }
 
     try:
-        updated_notice = Notices.update(db, existing_notice, params)
+        updated_notice = NoticesRepository.update(db, existing_notice, params)
 
         if not updated_notice:
             raise Exception("공지사항 수정에 실패했습니다.")
@@ -117,7 +118,7 @@ def update_notice(notice: NoticesUpdateRequest, view_hash: str, db):
 
 def toggle_notice(view_hash: str, db):
 
-    existing_notice = Notices.find_by_view_hash(db, view_hash)
+    existing_notice = NoticesRepository.find_by_view_hash(db, view_hash)
 
     if not existing_notice:
         return CommonResponse(success=False, error="존재하지 않는 공지사항입니다.", data=None)
