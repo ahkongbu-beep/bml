@@ -3,6 +3,9 @@ from app.libs.serializers.query import SerializerQueryResult
 from app.models.categories_codes import CategoriesCodes
 
 class CategoriesCodesRepository:
+    @staticmethod
+    def get_category_codes_by_id(session, category_id: int):
+        return session.query(CategoriesCodes).filter(CategoriesCodes.id == category_id).first()
 
     @staticmethod
     def get_one_data(session, category_id: int):

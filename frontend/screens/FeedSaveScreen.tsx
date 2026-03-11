@@ -16,7 +16,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useCreateFeed, useUpdateFeed, useSearchTags } from '../libs/hooks/useFeeds';
 import { useAuth } from '../libs/contexts/AuthContext';
 import { useCategoryCodes } from '../libs/hooks/useCategories';
-import { useMealsByDate } from '../libs/hooks/useMeals';
 
 import { getToday, getStaticImage } from '../libs/utils/common';
 import { toastInfo, toastSuccess, toastError } from '../libs/utils/toast';
@@ -31,10 +30,6 @@ export default function FeedSaveScreen({ route, navigation }: any) {
   const updateFeedMutation = useUpdateFeed();
   const { data: categoryCodes } = useCategoryCodes('MEALS_GROUP');
   const nowDate = getToday('YYYY-MM-DD');
-
-  // 이미 등록된 카테고리 ID 배열 추출
-  const { data: existCategoriesData} = useMealsByDate(user?.view_hash || '', feed?.input_date || nowDate);
-  const existCategoryIds = existCategoriesData?.exist_categories || [];
 
   const [content, setContent] = useState('');
   const [images, setImages] = useState<string[]>([]);
@@ -71,7 +66,6 @@ export default function FeedSaveScreen({ route, navigation }: any) {
   const searchTerm = tagInput.trim();
   const { data: tagSuggestions = [] } = useSearchTags(searchTerm);
   const showTagSuggestions = searchTerm.length > 0 && tagSuggestions.length > 0;
-  console.log('태그 자동완성 검색어:', tagSuggestions);
   const handleImagePick = async () => {
     if (images.length >= 1) {
       toastError('사진은 최대 1장까지 업로드할 수 있습니다.');
@@ -341,9 +335,6 @@ export default function FeedSaveScreen({ route, navigation }: any) {
                   style={styles.categoryScroll}
                 >
                   {categoryCodes?.map((category) => {
-                    if (!isEditMode && existCategoryIds.length > 0 && existCategoryIds.includes(category.id)) {
-                        return null;
-                    }
                     return (
                       <TouchableOpacity
                         key={category.id}

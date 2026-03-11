@@ -63,7 +63,7 @@ export default function RegistChildScreen({ navigation, route }: any) {
   // 나중에 등록하기 (건너뛰기)
   const handleSkip = () => {
     toastInfo('자녀 정보는 마이페이지에서 등록할 수 있습니다.');
-    navigation.navigate('Tabs', { screen: 'MyPage' });
+    navigation.navigate('Tabs', { screen: 'MealPlan' });
   };
 
   // 등록 완료
@@ -112,7 +112,7 @@ export default function RegistChildScreen({ navigation, route }: any) {
       setIsLoading(false);
 
       toastSuccess('자녀 정보가 등록되었습니다!');
-      navigation.navigate('Tabs', { screen: 'MyPage' });
+      navigation.navigate('Tabs', { screen: 'MealPlan' });
     } catch (error: any) {
       setIsLoading(false);
       toastError(error?.message || '자녀 정보 등록 중 오류가 발생했습니다.');

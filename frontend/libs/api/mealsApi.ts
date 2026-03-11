@@ -56,6 +56,6 @@ export const deleteMeal = async (mealHash: string): Promise<ApiResponse> => {
   return fetchDelete<ApiResponse>(`/meals/delete/${mealHash}`);
 }
 
-export const getDailyMeals = async (params: { user_hash: string; date: string }): Promise<ApiResponse<DailyMealsCategory>> => {
+export const getDailyMeals = async (params: { feed_id: string; date: string }): Promise<ApiResponse<DailyMealsCategory>> => {
   return fetchGet<ApiResponse<DailyMealsCategory>>('/meals/check/daily', params);
 }

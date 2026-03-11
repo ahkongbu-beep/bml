@@ -1,5 +1,5 @@
 
-from app.models.communities import Community
+from app.models.communities import Communities
 from app.models.users_childs import UsersChilds
 from app.libs.serializers.query import SerializerQueryResult
 from app.libs.hash_utils import generate_sha256_hash
@@ -10,7 +10,7 @@ class CommunitiesRepository:
 
     @staticmethod
     def find_by_view_hash(db, view_hash):
-        return db.query(Community).filter(Community.view_hash == view_hash, Community.deleted_at.is_(None)).first()
+        return db.query(Communities).filter(Communities.view_hash == view_hash, Communities.deleted_at.is_(None)).first()
 
     @staticmethod
     def create(db, params, is_commit=True):
@@ -27,7 +27,7 @@ class CommunitiesRepository:
         params['created_at'] = now
         params['updated_at'] = now
 
-        community = Community(**params)
+        community = Communities(**params)
 
         db.add(community)
         if is_commit:
@@ -83,21 +83,21 @@ class CommunitiesRepository:
         # 메인 쿼리
         query = (
             db.query(
-                Community.id,
-                Community.category_code,
-                Community.user_id,
-                Community.title,
-                Community.contents,
-                Community.user_nickname,
-                Community.like_count,
-                Community.view_count,
-                Community.is_secret,
-                Community.is_active,
-                Community.is_notice,
-                Community.created_at,
-                Community.updated_at,
-                Community.pinned_at,
-                Community.view_hash,
+                Communities.id,
+                Communities.category_code,
+                Communities.user_id,
+                Communities.title,
+                Communities.contents,
+                Communities.user_nickname,
+                Communities.like_count,
+                Communities.view_count,
+                Communities.is_secret,
+                Communities.is_active,
+                Communities.is_notice,
+                Communities.created_at,
+                Communities.updated_at,
+                Communities.pinned_at,
+                Communities.view_hash,
                 image_subquery.c.images,
                 Users.nickname,
                 Users.profile_image,
@@ -113,41 +113,41 @@ class CommunitiesRepository:
                 , (
                     db.query(sql_func.count(CommunitiesComments.id))
                     .filter(
-                        CommunitiesComments.community_id == Community.id,
+                        CommunitiesComments.community_id == Communities.id,
                         CommunitiesComments.deleted_at.is_(None)
                     )
-                    .correlate(Community)
+                    .correlate(Communities)
                     .as_scalar()
                 ).label("comment_count")
             )
-            .join(Users, Community.user_id == Users.id)
+            .join(Users, Communities.user_id == Users.id)
             .join(UsersChilds, and_(Users.id == UsersChilds.user_id, UsersChilds.is_agent == 'Y'), isouter=True)
-            .outerjoin(image_subquery, Community.id == image_subquery.c.community_id)
-            .filter(Community.deleted_at.is_(None))
-            .filter(Community.is_active == 'Y')
-            .outerjoin(CommunitiesLikes, and_(Community.id == CommunitiesLikes.community_id, CommunitiesLikes.user_id == user_id))
+            .outerjoin(image_subquery, Communities.id == image_subquery.c.community_id)
+            .filter(Communities.deleted_at.is_(None))
+            .filter(Communities.is_active == 'Y')
+            .outerjoin(CommunitiesLikes, and_(Communities.id == CommunitiesLikes.community_id, CommunitiesLikes.user_id == user_id))
         )
 
         # 분류코드 필터
         if params.get("category_code") is not None and params.get("category_code") != "all":
-            query = query.filter(Community.category_code == params["category_code"])
+            query = query.filter(Communities.category_code == params["category_code"])
 
         # 공지글 여부
         if params.get("is_notice") is not None:
-            query = query.filter(Community.is_notice == params["is_notice"])
+            query = query.filter(Communities.is_notice == params["is_notice"])
 
         # 비밀글 여부
         if params.get("is_secret") is not None:
-            query = query.filter(Community.is_secret == params["is_secret"])
+            query = query.filter(Communities.is_secret == params["is_secret"])
 
         # 검색 키워드
         if params.get("keyword"):
             keyword = params["keyword"]
             query = query.filter(
                 or_(
-                    Community.title.like(f"%{keyword}%"),
-                    Community.contents.like(f"%{keyword}%"),
-                    Community.user_nickname.like(f"%{keyword}%")
+                    Communities.title.like(f"%{keyword}%"),
+                    Communities.contents.like(f"%{keyword}%"),
+                    Communities.user_nickname.like(f"%{keyword}%")
                 )
             )
 
@@ -155,20 +155,20 @@ class CommunitiesRepository:
         if params.get("month"):
             month = params["month"]  # YYYY-MM 형식
             query = query.filter(
-                sql_func.date_format(Community.created_at, '%Y-%m') == month
+                sql_func.date_format(Communities.created_at, '%Y-%m') == month
             )
 
         # 날짜 범위 필터
         if params.get("start_date"):
             start_date = params["start_date"]  # YYYY-MM-DD 형식
             query = query.filter(
-                sql_func.date(Community.created_at) >= start_date
+                sql_func.date(Communities.created_at) >= start_date
             )
 
         if params.get("end_date"):
             end_date = params["end_date"]  # YYYY-MM-DD 형식
             query = query.filter(
-                sql_func.date(Community.created_at) <= end_date
+                sql_func.date(Communities.created_at) <= end_date
             )
 
         # 회원 닉네임 검색
@@ -178,33 +178,33 @@ class CommunitiesRepository:
 
         # 내 글만 보기
         if params.get("my_only") and params["my_only"]:
-            query = query.filter(Community.user_id == user_id)
+            query = query.filter(Communities.user_id == user_id)
 
         # 커서 기반 페이징
         if cursor:
-            query = query.filter(Community.id < cursor)
+            query = query.filter(Communities.id < cursor)
 
         # 정렬
         sort_by = params.get("sort_by", "latest")
         if sort_by == "likes":
             # TODO: 좋아요 수 필드 추가 후 구현
             query = query.order_by(
-                Community.is_notice.desc(),
-                Community.pinned_at.desc(),
-                Community.id.desc()
+                Communities.is_notice.desc(),
+                Communities.pinned_at.desc(),
+                Communities.id.desc()
             )
         elif sort_by == "views":
             query = query.order_by(
-                Community.is_notice.desc(),
-                Community.pinned_at.desc(),
-                Community.view_count.desc(),
-                Community.id.desc()
+                Communities.is_notice.desc(),
+                Communities.pinned_at.desc(),
+                Communities.view_count.desc(),
+                Communities.id.desc()
             )
         else:  # latest (기본값)
             query = query.order_by(
-                Community.is_notice.desc(),
-                Community.pinned_at.desc(),
-                Community.id.desc()
+                Communities.is_notice.desc(),
+                Communities.pinned_at.desc(),
+                Communities.id.desc()
             )
 
         # 결과 조회
@@ -218,32 +218,32 @@ class CommunitiesRepository:
         from app.models.users import Users
 
         query = (
-            db.query(Community.id)
-            .join(Users, Community.user_id == Users.id)
-            .filter(Community.deleted_at.is_(None))
-            .filter(Community.is_active == 'Y')
+            db.query(Communities.id)
+            .join(Users, Communities.user_id == Users.id)
+            .filter(Communities.deleted_at.is_(None))
+            .filter(Communities.is_active == 'Y')
         )
 
         # 분류코드 필터
         if params.get("category_code") is not None and params.get("category_code") != "all":
-            query = query.filter(Community.category_code == params["category_code"])
+            query = query.filter(Communities.category_code == params["category_code"])
 
         # 공지글 여부
         if params.get("is_notice") is not None:
-            query = query.filter(Community.is_notice == params["is_notice"])
+            query = query.filter(Communities.is_notice == params["is_notice"])
 
         # 비밀글 여부
         if params.get("is_secret") is not None:
-            query = query.filter(Community.is_secret == params["is_secret"])
+            query = query.filter(Communities.is_secret == params["is_secret"])
 
         # 검색 키워드
         if params.get("keyword"):
             keyword = params["keyword"]
             query = query.filter(
                 or_(
-                    Community.title.like(f"%{keyword}%"),
-                    Community.contents.like(f"%{keyword}%"),
-                    Community.user_nickname.like(f"%{keyword}%")
+                    Communities.title.like(f"%{keyword}%"),
+                    Communities.contents.like(f"%{keyword}%"),
+                    Users.nickname.like(f"%{keyword}%")
                 )
             )
 
@@ -252,7 +252,7 @@ class CommunitiesRepository:
             from sqlalchemy import func as sql_func
             month = params["month"]
             query = query.filter(
-                sql_func.date_format(Community.created_at, '%Y-%m') == month
+                sql_func.date_format(Communities.created_at, '%Y-%m') == month
             )
 
         # 날짜 범위 필터
@@ -260,14 +260,14 @@ class CommunitiesRepository:
             from sqlalchemy import func as sql_func
             start_date = params["start_date"]
             query = query.filter(
-                sql_func.date(Community.created_at) >= start_date
+                sql_func.date(Communities.created_at) >= start_date
             )
 
         if params.get("end_date"):
             from sqlalchemy import func as sql_func
             end_date = params["end_date"]
             query = query.filter(
-                sql_func.date(Community.created_at) <= end_date
+                sql_func.date(Communities.created_at) <= end_date
             )
 
         # 회원 닉네임 검색
@@ -277,6 +277,6 @@ class CommunitiesRepository:
 
         # 내 글만 보기
         if params.get("my_only") and params["my_only"]:
-            query = query.filter(Community.user_id == user_id)
+            query = query.filter(Communities.user_id == user_id)
 
         return query.count()

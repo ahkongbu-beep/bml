@@ -3,7 +3,7 @@ from sqlalchemy.orm import relationship
 from app.core.database import Base
 from app.models.feeds_tags import FeedsTags
 
-class FeedsTagsMapper(Base):
+class FeedsTagsMappers(Base):
     __tablename__ = "feeds_tags_mappers"
 
     feed_id = Column(BigInteger, ForeignKey("feeds.id"), primary_key=True)

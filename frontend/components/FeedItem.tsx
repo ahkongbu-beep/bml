@@ -90,9 +90,9 @@ const FeedItem = React.memo(({
     }
   };
 
-  const allergy_info = item.childs.allergies.map((allergy: any) => {
+  const allergy_info = item.childs?.allergies.map((allergy: any) => {
     return allergy.allergy_name;
-  });
+  }) || [];
 
   return (
     <View style={styles.feedContainer}>
@@ -133,15 +133,13 @@ const FeedItem = React.memo(({
       </View>
 
       {/* 피드 이미지 */}
-      {item.images.length > 0 ? (
+      {!!item.image_url ? (
         <View style={styles.imageCarouselContainer}>
-          {item.images.map((imageUri, index) => (
-              <Image
-              key={`${item.id}-image-${extractImageId(imageUri) || index}`}
-              source={{ uri: getStaticImage('medium', imageUri) }}
-              style={styles.feedImage}
-              />
-          ))}
+          <Image
+            key={`${item.id}-image-${extractImageId(item.image_url) || 0}`}
+            source={{ uri: getStaticImage('medium', item.image_url) }}
+            style={styles.feedImage}
+          />
         </View>
       ) : (
         <View style={[styles.feedImage, styles.noImageContainer]}>
@@ -153,14 +151,18 @@ const FeedItem = React.memo(({
       <View style={styles.contentContainer}>
         {/* 주 식재료 */}
         <View style={styles.tagsSection}>
-          {item.tags.length > 0 && item.tags.map((tag, idx) => (
+          {item.mapped_tags.length > 0 && item.mapped_tags.map((tag, idx) => (
             <View key={`${item.id}-tag-${idx}-${tag}`} style={styles.tag}>
-              <Text style={styles.tagText}>{tag} </Text>
+              <Text style={styles.tagText}>{tag}</Text>
             </View>
           ))}
         </View>
         <Text style={styles.content}>
-          {item.content}
+          {item.contents.split('\n').map((line, index) => (
+            <Text key={index}>
+              {line}
+            </Text>
+          ))}
         </Text>
       </View>
 

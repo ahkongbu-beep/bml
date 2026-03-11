@@ -141,9 +141,6 @@ export default function FeedLikeListScreen() {
         )}
 
         <View style={styles.feedContent}>
-          <Text style={styles.feedTitle} numberOfLines={1}>
-            {item.title}
-          </Text>
           <Text style={styles.feedDescription} numberOfLines={2}>
             {item.content}
           </Text>

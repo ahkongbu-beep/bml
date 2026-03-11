@@ -1,6 +1,6 @@
 
 from app.models.feeds_tags import FeedsTags
-from app.models.feeds_tags_mappers import FeedsTagsMapper
+from app.models.feeds_tags_mappers import FeedsTagsMappers
 
 class FeedsTagsMappersRepository:
 
@@ -12,18 +12,18 @@ class FeedsTagsMappersRepository:
 
         result = (
             session.query(FeedsTags.name).join(
-                FeedsTagsMapper, FeedsTagsMapper.tag_id == FeedsTags.id
+                FeedsTagsMappers, FeedsTagsMappers.tag_id == FeedsTags.id
             ).filter(
-                FeedsTagsMapper.model == model,
-                FeedsTagsMapper.feed_id == feed_id
-            ).order_by(FeedsTagsMapper.feed_id.asc()).all()
+                FeedsTagsMappers.model == model,
+                FeedsTagsMappers.feed_id == feed_id
+            ).order_by(FeedsTagsMappers.feed_id.asc()).all()
         )
 
         return [tag.name for tag in result]
 
     @staticmethod
     def create(session, params: dict, is_commit: bool = True):
-        mapper = FeedsTagsMapper(
+        mapper = FeedsTagsMappers(
             feed_id=params.get("feed_id"),
             tag_id=params.get("tag_id"),
             model=params.get("model")
@@ -41,9 +41,9 @@ class FeedsTagsMappersRepository:
         feed_id 로 매핑 삭제
         """
         try:
-            session.query(FeedsTagsMapper).filter(
-                FeedsTagsMapper.model == model,
-                FeedsTagsMapper.feed_id == feed_id
+            session.query(FeedsTagsMappers).filter(
+                FeedsTagsMappers.model == model,
+                FeedsTagsMappers.feed_id == feed_id
             ).delete()
         except Exception as e:
             session.rollback()

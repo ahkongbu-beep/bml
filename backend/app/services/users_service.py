@@ -139,7 +139,6 @@ async def create_user(db, user_data) -> CommonResponse:
     else:
         print(f"❌ profile_image 없음")
 
-    print("⭕⭕⭕⭕⭕⭕⭕⭕user_data:", user_data)
     # 1) 계정등록
     user_param = {
         "sns_login_type": user_data.get("sns_login_type"),
@@ -292,7 +291,7 @@ async def update_user(db, data):
 
 # 자녀등록
 async def create_user_child(db, user_hash, children):
-    from app.models.users_childs_allergies import UserChildAllergy
+    from app.models.users_childs_allergies import UsersChildsAllergies
     from app.models.foods_items import FoodItem
     from app.libs.file_utils import save_upload_file_with_resize
 

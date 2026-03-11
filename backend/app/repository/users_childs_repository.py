@@ -59,7 +59,7 @@ class UsersChildsRepository:
 
     @staticmethod
     def getListWithAllergies(session, user_id: int):
-        from app.models.users_childs_allergies import UserChildAllergy
+        from app.models.users_childs_allergies import UsersChildsAllergies
         from app.libs.serializers.query import SerializerQueryResult
 
         # 메인 쿼리
@@ -71,10 +71,10 @@ class UsersChildsRepository:
                 UsersChilds.child_birth,
                 UsersChilds.child_gender,
                 UsersChilds.is_agent,
-                func.GROUP_CONCAT(UserChildAllergy.allergy_name).label("allergy_names"),
-                func.GROUP_CONCAT(UserChildAllergy.allergy_code).label("allergy_codes")
+                func.GROUP_CONCAT(UsersChildsAllergies.allergy_name).label("allergy_names"),
+                func.GROUP_CONCAT(UsersChildsAllergies.allergy_code).label("allergy_codes")
             )
-            .outerjoin(UserChildAllergy, UserChildAllergy.child_id == UsersChilds.id)
+            .outerjoin(UsersChildsAllergies, UsersChildsAllergies.child_id == UsersChilds.id)
             .filter(UsersChilds.user_id == user_id)
             .group_by(
                 UsersChilds.id,

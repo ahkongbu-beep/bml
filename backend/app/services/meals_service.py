@@ -1,24 +1,22 @@
 """
 식단 캘린더 service 가이드
 """
-
-from app.repository.user_repository import UserRepository
 from app.repository.meals_calendars_repository import MealsCalendarsRepository
 from app.repository.categories_codes_repository import CategoriesCodesRepository
 from app.repository.feeds_images_repository import FeedsImagesRepository
-from app.repository.feeds_tags_mappers_repository import FeedsTagsMappersRepository
 from app.repository.meals_calendars_images_repository import MealsCalendarsImagesRepository
-from app.repository.users_childs_repository import UsersChildsRepository
 
 from app.schemas.common_schemas import CommonResponse
 from app.schemas.meals_schemas import FeedListRequest
 
 from app.libs.hash_utils import generate_sha256_hash
-from app.services.tag_services import create_tag_mapper, process_tags
-from app.services.feeds_service import create_meal_feed
+from app.services.ingredients_service import  process_tags
+from app.services.ingredients_mappers_service import create_ingredient_mapper, delete_ingredient_mapper
 from app.services.users_service import validate_user
 from app.services.feeds_images_service import create_meal_image
-from app.repository.denies_users_repository import DeniesUsersRepository
+from app.services.denies_users_service import get_denies_user_id_list
+from app.services.users_childs_service import get_agent_childs
+from app.services.categories_codes_service import get_category_code_by_id
 
 """
 식단 캘린더 view_hash 생성 로직
@@ -76,16 +74,22 @@ def validate_feed_params(db, filters: FeedListRequest, user_hash: str, type: str
 
     # target_user_hash가 있으면 해당 사용자의 피드만 조회
     if filters.target_user_hash is not None:
-        target_user = UserRepository.find_by_view_hash(db, filters.target_user_hash)
-        if not target_user:
-            return CommonResponse(success=False, error="존재하지 않는 사용자입니다.", data=None)
+        try:
+            target_user = validate_user(db, filters.target_user_hash)
+            if not target_user:
+                raise Exception("존재하지 않는 대상 회원입니다.")
+
+        except Exception as e:
+            return CommonResponse(success=False, error=str(e), data=None)
         params["target_user_id"] = target_user.id
 
     if user_hash is not None:
-        user = UserRepository.find_by_view_hash(db, user_hash)
-
-        if not user:
-            return CommonResponse(success=False, error="존재하지 않는 사용자입니다.", data=None)
+        try:
+            user = validate_user(db, user_hash)
+            if not user:
+                raise Exception("존재하지 않는 회원입니다.")
+        except Exception as e:
+            return CommonResponse(success=False, error=str(e), data=None)
 
         params["my_user_id"] = user.id  # is_liked 조회를 위해 항상 설정
         params['type'] = type
@@ -93,10 +97,7 @@ def validate_feed_params(db, filters: FeedListRequest, user_hash: str, type: str
 
         if type == "list":
             # 차단된 사용자 목록 조회
-            deny_users = DeniesUsersRepository.findByUserIds(db, user.id)
-            deny_users_ids = [du.deny_user_id for du in deny_users]
-
-            params["deny_user_ids"] = deny_users_ids
+            params["deny_user_ids"] = get_denies_user_id_list(db, user.id)
         else:
             params["user_id"] = user.id
 
@@ -171,7 +172,7 @@ def check_daily_meal(db, params: dict) -> CommonResponse:
         if not user:
             raise Exception("유효하지 않은 회원정보입니다.")
 
-        user_childs = UsersChildsRepository.getAgentChild(db, user.id)
+        user_childs = get_agent_childs(db, {"user_id": user.id})
         if not user_childs:
             raise Exception("대표 자녀 정보가 없습니다.")
 
@@ -192,7 +193,7 @@ def check_daily_meal(db, params: dict) -> CommonResponse:
 
 async def upload_calendar_month_image(db, user_hash: str, month: str, file) -> CommonResponse:
     try:
-        user = UserRepository.find_by_view_hash(db, user_hash)
+        user = validate_user(db, user_hash)
         if not user:
             return CommonResponse(success=False, error="유효하지 않은 회원정보입니다.", data=None)
 
@@ -281,12 +282,11 @@ async def create_meal(db, body: dict) -> CommonResponse:
         if not user:
             return CommonResponse(success=False, error="유효하지 않은 회원정보입니다.", data=None)
 
-        category_code = CategoriesCodesRepository.get_one_data(db, body['category_id'])
+        category_code = get_category_code_by_id(db, body['category_id'])
         if not category_code:
             return CommonResponse(success=False, error="유효하지 않은 카테고리 정보입니다.", data=None)
 
-        tags_ids = process_tags(db, body.get('ingredients', []))
-
+        # 동일 식단 여부 체크
         await validate_meal_calendar(db, user, category_code, body)
 
         view_hash = await generate_meal_calendar_hash(user.id, body['input_date'], category_code.id, body['child_id'])
@@ -302,7 +302,14 @@ async def create_meal(db, body: dict) -> CommonResponse:
         await upload_meal_image(db, meal_calendar, body)
 
         # 재료 Mapper 등록
-        create_tag_mapper(db, "Meals", meal_calendar.id, tags_ids)
+        ingredient_ids = process_tags(db, body.get('ingredients', []))
+
+        if body.get('ingredients'):
+            if len(body.get('ingredients')) != len(ingredient_ids):
+                raise Exception("재료 정보 중 확인되지 않는 재료가 있습니다.")
+
+            create_ingredient_mapper(db, "Meals", meal_calendar.id, ingredient_ids)  # meal_id는 캘린더 생성 후 업데이트
+
         # 최종 commit
         db.commit()
 
@@ -339,7 +346,7 @@ async def update_meal(db, body: dict) -> CommonResponse:
         # -------------------------
         category_code = None
         if body.get('category_id'):
-            category_code = CategoriesCodesRepository.get_one_data(db, body['category_id'])
+            category_code = get_category_code_by_id(db, body['category_id'])
             if not category_code:
                 return CommonResponse(success=False, error="유효하지 않은 카테고리 정보입니다.", data=None)
         # -------------------------
@@ -373,18 +380,24 @@ async def update_meal(db, body: dict) -> CommonResponse:
 
         if not success:
             db.rollback()
-            return CommonResponse(success=False, error="식단 캘린더 수정에 실패했습니다.", data=None)
+            raise Exception("식단 캘린더 업데이트에 실패했습니다.")
         # -------------------------
-        # 5. 태그 동기화 (replace 방식)
+        # 5. 재료 동기화 (replace 방식)
         # -------------------------
         if 'ingredients' in body:
             ingredients = body.get('ingredients', [])
 
-            FeedsTagsMappersRepository.deleteByFeedId(db, "Meals", meal_calendar.id, is_commit=False)
+            # 기존 재료 삭제
+            delete_ingredient_mapper(db, "Meals", meal_calendar.id)
 
             if ingredients:
-                tag_ids = process_tags(db, ingredients)
-                create_tag_mapper(db, "Meals", meal_calendar.id, tag_ids)
+                ingredient_ids = process_tags(db, ingredients)
+
+                if len(ingredients) != len(ingredient_ids):
+                    db.rollback()
+                    raise Exception("재료 정보 중 확인되지 않는 재료가 있습니다.")
+
+                create_ingredient_mapper(db, "Meals", meal_calendar.id, ingredient_ids)
 
         # -------------------------
         # 6. 이미지 처리 (완전 교체)
@@ -426,7 +439,7 @@ async def update_meal(db, body: dict) -> CommonResponse:
 
         return CommonResponse(
             success=False,
-            error="식단 캘린더 수정 중 오류가 발생했습니다.",
+            error=str(e),
             data=None
         )
 

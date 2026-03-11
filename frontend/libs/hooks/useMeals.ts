@@ -30,24 +30,22 @@ import { PaginationResponse } from '../types/ApiTypes';
 export const mealKeys = {
   all: ['meals'] as const,
   lists: () => [...mealKeys.all, 'list'] as const,
-  list: (month?: string) => [...mealKeys.lists(), month || ''] as const,
+  list: (month?: string, childId?: number | null) => [...mealKeys.lists(), month || '', childId ?? null] as const,
   monthImage: (month: string) => ['meals','month-image',month] as const,
-  daily: (userHash: string, inputDate: string) =>
-    [...mealKeys.all, 'daily', userHash, inputDate] as const,
+  daily: (feedId: number, inputDate: string) =>
+    [...mealKeys.all, 'daily', feedId, inputDate] as const,
 };
-
-
 
 /* =========================================================
    월 캘린더 조회 (⭐ 핵심 수정됨)
 ========================================================= */
-
 export const useMeals = (params?: MealCalendarParams) => {
   const month = params?.month || '';
+  const child_id = params?.child_id ?? null;
 
   return useQuery<PaginationResponse<MealCalendar>, Error>({
-    queryKey: mealKeys.list(month),
-    queryFn: () => getMealsCalendar({ month }),
+    queryKey: mealKeys.list(month, child_id),
+    queryFn: () => getMealsCalendar({ month, child_id }),
     enabled: !!month,
 
     // 이전 월 데이터 유지 (화면 깜빡임 방지)
@@ -83,25 +81,22 @@ export const useMonthImage = (month: string) => {
 /* =========================================================
    날짜별 식단 조회
 ========================================================= */
-
 export const useMealsByDate = (
-  userHash: string,
+  feedId: string,
   inputDate: string
 ): UseQueryResult<MealCalendar[], Error> => {
   return useQuery<MealCalendar[], Error>({
-    queryKey: mealKeys.daily(userHash, inputDate),
+    queryKey: mealKeys.daily(feedId, inputDate),
     queryFn: () =>
-      getDailyMeals({ user_hash: userHash, date: inputDate }).then(res => res.data),
-    enabled: !!userHash && !!inputDate,
+      getDailyMeals({ feed_id: feedId, date: inputDate }).then(res => res.data),
+    enabled: !!feedId && !!inputDate,
     staleTime: 1000 * 60 * 5,
   });
 };
 
-
 /* =========================================================
    식단 등록
 ========================================================= */
-
 export const useCreateMeal = () => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -113,12 +108,9 @@ export const useCreateMeal = () => {
   });
 };
 
-
-
 /* =========================================================
    식단 등록 (이미지 포함)
 ========================================================= */
-
 export const useCreateMealWithImage = () => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -129,12 +121,9 @@ export const useCreateMealWithImage = () => {
   });
 };
 
-
-
 /* =========================================================
    식단 수정
 ========================================================= */
-
 export const useUpdateMeal = () => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -146,12 +135,9 @@ export const useUpdateMeal = () => {
   });
 };
 
-
-
 /* =========================================================
    식단 수정 (이미지 포함)
 ========================================================= */
-
 export const useUpdateMealWithImage = () => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -163,12 +149,9 @@ export const useUpdateMealWithImage = () => {
   });
 };
 
-
-
 /* =========================================================
    식단 삭제
 ========================================================= */
-
 export const useDeleteMeal = () => {
   const queryClient = useQueryClient();
   return useMutation({

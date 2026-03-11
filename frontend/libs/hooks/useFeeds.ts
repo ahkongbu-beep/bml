@@ -10,7 +10,7 @@ import {
   blockUser,
   getMyFeeds,
   getUserFeeds,
-  searchTags,
+  searchIngredients,
   getFeedComments,
   createFeedComment,
   deleteFeedComment,
@@ -36,18 +36,18 @@ export const feedKeys = {
   detail: (id: number, user_hash?: string) => [...feedKeys.details(), id, user_hash] as const,
   myFeeds: () => [...feedKeys.all, 'my'] as const,
   userFeeds: (userId: number) => [...feedKeys.all, 'user', userId] as const,
-  tags: (query: string) => [...feedKeys.all, 'tags', query] as const,
+  ingredients: (query: string) => [...feedKeys.all, 'ingredients', query] as const,
   likedFeeds: (userHash: string, limit: number, offset: number) => [...feedKeys.all, 'liked', userHash, limit, offset] as const,
 };
 
 /**
  * 댓글 리스트 조회
  */
-export const useFeedComments = ({feedId, limit, offset}: {feedId: number, limit?: number, offset?: number}): UseQueryResult<any[], Error> => {
+export const useFeedComments = ({mealId, limit, offset}: {mealId: number, limit?: number, offset?: number}): UseQueryResult<any[], Error> => {
   return useQuery<any[], Error>({
-    queryKey: ['feedComments', feedId, limit, offset],
-    queryFn: () => getFeedComments(feedId, limit, offset),
-    enabled: !!feedId,
+    queryKey: ['feedComments', mealId, limit, offset],
+    queryFn: () => getFeedComments(mealId, limit, offset),
+    enabled: !!mealId,
     staleTime: 1000 * 60 * 5, // 5분
   });
 }
@@ -286,12 +286,12 @@ export const useBlockUser = () => {
 };
 
 /**
- * 태그 검색 Hook (자동완성용)
+ * 재료 검색 Hook (자동완성용)
  */
-export const useSearchTags = (query: string) => {
+export const useSearchIngredients = (query: string) => {
   return useQuery({
-    queryKey: feedKeys.tags(query),
-    queryFn: () => searchTags(query),
+    queryKey: feedKeys.ingredients(query),
+    queryFn: () => searchIngredients(query),
     enabled: query.length > 0,
     staleTime: 1000 * 60 * 5, // 5분
   });

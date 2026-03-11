@@ -3,7 +3,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from app.core.database import Base
 import os
 
-class MealsCalendarImage(Base):
+class MealsCalendarsImages(Base):
     __tablename__ = "meals_calendars_images"
 
     id = Column(Integer, primary_key=True, autoincrement=True)

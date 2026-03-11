@@ -1,5 +1,4 @@
 from app.repository.feed_repository import FeedRepository
-from app.repository.feeds_tags_repository import FeedsTagsRepository
 from app.repository.feeds_tags_mappers_repository import FeedsTagsMappersRepository
 from app.repository.user_repository import UserRepository
 from app.repository.feeds_images_repository import FeedsImagesRepository
@@ -39,74 +38,7 @@ def increase_view_count(db, feed, is_commit=True):
         db.commit()
     else:
         db.flush()  # 변경사항을 DB에 반영하지만 커밋하지는 않음
-
-async def create_meal_feed(db, meal_calendar: str, body, tags_ids):
-    try:
-        # 피드 생성
-        create_feed_response = _create_feed_internal(
-            db,
-            user_id=meal_calendar.user_id,
-            meal_id=meal_calendar.id,
-            content=meal_calendar.contents,
-            is_public=meal_calendar.is_public,
-            is_share_meal_plan='Y',
-            category_id=meal_calendar.category_code,
-            meal_condition=meal_calendar.meal_condition,
-            meal_stage=meal_calendar.meal_stage,
-            meal_stage_detail=meal_calendar.meal_stage_detail,
-            view_hash=body.get('view_hash')
-        )
-
-        # mapper 를 등록
-        create_tag_mapper(db, "Meals", create_feed_response.id, tags_ids)
-
-        # 이미지 복사
-        meal_image = FeedsImagesRepository.get_model_one_data(db, "Meals", meal_calendar.id)
-
-        if meal_image:
-            is_success = copy_image(
-                db,
-                origin_model="Meals",
-                origin_model_instance=meal_image,
-                target_model="Feeds",
-                target_model_instance=create_feed_response,
-            )
-
-            if is_success == False:
-                raise Exception("피드 이미지 복사에 실패했습니다.")
-
-        db.flush()
-
-    except Exception as e:
-        db.rollback()
-        return
-
-def _create_feed_internal(db, user_id: int, meal_id: int, content: str, is_public: str, is_share_meal_plan: str, category_id: int, meal_condition: str, view_hash: str = None, meal_stage: int = 0, meal_stage_detail: str = ""):
-    try:
-        """ feeds 생성 """
-        params = {
-            "user_id": user_id,
-            "meal_id": meal_id,
-            "content": content,
-            "is_public": is_public,
-            "category_id": category_id,
-            "meal_condition": meal_condition,
-            "is_share_meal_plan": is_share_meal_plan,
-            "view_hash": view_hash,
-            "meal_stage": meal_stage,
-            "meal_stage_detail": meal_stage_detail
-        }
-
-        new_feed = FeedRepository.create(db, params, is_commit=False)
-
-        if not new_feed:
-            raise Exception("피드 생성에 실패했습니다.")
-
-    except Exception as e:
-        db.rollback()
-        return CommonResponse(success=False, error=f"피드 생성 중 오류가 발생했습니다: {str(e)}", data=None)
-
-    return new_feed
+    return
 
 def increase_meal_like_count(db, meal_calendar):
     meal_calendar.like_count += 1
@@ -164,20 +96,20 @@ def get_child_and_allergies(db, user_id):
     allergies = UsersChildsAllergiesRepository.get_list_by_user_and_child(db, user_id, child.id) if child else []
     return child, allergies
 
-def feed_detail_response(feed, user, category, tags, images, child, allergies, comments, viewer_hash):
+def feed_detail_response(meal_calendar, user, category, tags, images, child, allergies, comments, viewer_hash):
     return FeedsResponse(
-        id=feed.id,
-        user_id=feed.user_id,
-        title=feed.title,
-        content=feed.content,
-        is_published=feed.is_public,
-        is_share_meal_plan=feed.is_share_meal_plan,
-        view_count=feed.view_count,
-        like_count=feed.like_count,
-        meal_condition=feed.meal_condition,
-        created_at=feed.created_at,
-        updated_at=feed.updated_at,
-        category_id=feed.category_id,
+        id=meal_calendar.id,
+        user_id=meal_calendar.user_id,
+        title=meal_calendar.title,
+        content=meal_calendar.content,
+        is_published=meal_calendar.is_public,
+        is_share_meal_plan=meal_calendar.is_share_meal_plan,
+        view_count=meal_calendar.view_count,
+        like_count=meal_calendar.like_count,
+        meal_condition=meal_calendar.meal_condition,
+        created_at=meal_calendar.created_at,
+        updated_at=meal_calendar.updated_at,
+        category_id=meal_calendar.category_code,
         category_name=getattr(category, "value", None),
         tags=tags,
         images=images,
@@ -203,38 +135,38 @@ def feed_detail_response(feed, user, category, tags, images, child, allergies, c
     )
 
 # 피드 상세보기
-def get_feed_detail(db, feed_id: int, user_hash: str):
+def get_feed_detail(db, meal_id: int, user_hash: str):
     try:
         user = validate_user(db, user_hash)  # 인증된 사용자만 접근 가능
         if not user:
             raise Exception("존재하지 않는 사용자입니다.")
 
-        feed = FeedRepository.findById(db, feed_id)
-        if not feed:
-            raise Exception("존재하지 않는 피드입니다.")
+        meal_calendar = MealsCalendarsRepository.get_calendar_by_id(db, meal_id)
+        if not meal_calendar:
+            raise Exception("존재하지 않는 식단입니다.")
 
     except Exception as e:
         return CommonResponse(success=False, error=str(e), data=None)
 
-    target_user = UserRepository.findById(db, feed.user_id)
+    target_user = UserRepository.findById(db, meal_calendar.user_id)
 
     # 조회수 증가
-    increase_view_count(db, feed, is_commit=True)
+    increase_view_count(db, meal_calendar, is_commit=True)
 
     # 태그 목록 조회
-    tags = FeedsTagsMappersRepository.get_tags_mapper_by_model_and_model_id(db, "Feed", feed.id)
+    tags = FeedsTagsMappersRepository.get_tags_mapper_by_model_and_model_id(db, "Feed", meal_calendar.id)
     # 이미지 목록 조회
-    images = FeedsImagesRepository.find_images_by_model_id(db, "Feeds", feed_id)
+    images = FeedsImagesRepository.find_images_by_model_id(db, "Feeds", meal_calendar.id)
     # 대표자녀 추출 및 알레르기 정보 조회
     child, allergies = get_child_and_allergies(db, target_user.id)
 
-    category = CategoriesCodesRepository.get_one_data(db, feed.category_id) if feed.category_id else None
+    category = CategoriesCodesRepository.get_one_data(db, meal_calendar.category_code) if meal_calendar.category_code else None
 
-    comment_list = MealsCommentsRepository.get_list(db, {"feed_id": feed.id}, extra={}).getData()
+    comment_list = MealsCommentsRepository.get_list(db, {"meal_id": meal_calendar.id}, extra={}).getData()
     comments = build_comment_tree(comment_list)
 
     feed_data = feed_detail_response(
-        feed, target_user, category, tags, images, child, allergies, comments, user_hash
+        meal_calendar, target_user, category, tags, images, child, allergies, comments, user_hash
     )
 
     return CommonResponse(success=True, message="", data=feed_data)

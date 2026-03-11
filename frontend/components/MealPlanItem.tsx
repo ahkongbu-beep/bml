@@ -53,9 +53,9 @@ const MealPlanItem = React.memo(({
           <Text style={styles.mealContents} numberOfLines={hasImage ? 2 : 3}>
             {meal.contents || ''}
           </Text>
-          {meal.tags && meal.tags.length > 0 && (
+          {meal.mapped_tags && meal.mapped_tags.length > 0 && (
             <View style={styles.mealTags}>
-              {meal.tags.map((tag, index) => (
+              {meal.mapped_tags.map((tag, index) => (
                 <View key={index} style={styles.tag}>
                   <Text style={styles.tagText}>#{tag || ''}</Text>
                 </View>

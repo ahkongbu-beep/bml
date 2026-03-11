@@ -12,7 +12,7 @@ from sqlalchemy import (
 from app.core.database import Base
 
 
-class Community(Base):
+class Communities(Base):
     __tablename__ = "communities"
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     category_code = Column(Integer, nullable=False, default=0, comment="분류코드")

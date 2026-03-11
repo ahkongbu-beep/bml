@@ -98,6 +98,8 @@ export const validateEmail = (email: string): boolean => {
 
   // 만 나이 계산
 export const calculateAge = (birthDate: string): number => {
+  birthDate = birthDate.replace(/-/g, ''); // YYYYMMDD 형식으로 변환
+
   if (birthDate.length !== 8) return 0;
 
     const year = parseInt(birthDate.substring(0, 4));

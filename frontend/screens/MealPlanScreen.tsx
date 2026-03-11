@@ -23,7 +23,7 @@ import { Dialog, Button, Portal } from 'react-native-paper';
 import { useAuth } from '../libs/contexts/AuthContext';
 import { useMeals, useDeleteMeal, useUploadCalendarMonthImage, useMonthImage } from '../libs/hooks/useMeals';
 import { MealItem } from '../libs/types/MealType';
-import { normalizeDate, getStaticImage } from '../libs/utils/common';
+import { normalizeDate, getStaticImage, calculateAge } from '../libs/utils/common';
 import { MEAL_CATEGORIES } from '../libs/utils/codes/MealCalendarCode';
 import MealPlanItem from '../components/MealPlanItem';
 import MealDetailModal from '../components/MealDetailModal';
@@ -47,6 +47,7 @@ LocaleConfig.defaultLocale = 'kr';
 
 export default function MealPlanScreen({ navigation }: any) {
   const [selectedDate, setSelectedDate] = useState('');
+  const [selectedChildId, setSelectedChildId] = useState<string | number | null>(null);
   const [currentMonth, setCurrentMonth] = useState(new Date().toISOString().slice(0, 7));
   // 월별 이미지 경로 캐시 (서버 타이밍과 UI 분리)
   const [isMonthImageUpdating, setIsMonthImageUpdating] = useState(false);
@@ -61,9 +62,9 @@ export default function MealPlanScreen({ navigation }: any) {
   const deleteMealMutation = useDeleteMeal();
   const uploadMonthImageMutation = useUploadCalendarMonthImage();
   const { user } = useAuth();
-  const { data: mealsCalendar, isLoading: mealsLoading, refetch } = useMeals({ month: currentMonth });
-  const { data: monthImage, isLoading: monthImageLoading, isFetching: monthImageFetching, refetch: refetchMonthImage } = useMonthImage(currentMonth);
 
+  const { data: mealsCalendar, isLoading: mealsLoading, refetch } = useMeals({ month: currentMonth, child_id: selectedChildId });
+  const { data: monthImage, isLoading: monthImageLoading, isFetching: monthImageFetching, refetch: refetchMonthImage } = useMonthImage(currentMonth);
   const today = new Date().toISOString().split('T')[0];
   const allMonthImages: Record<string, string> | null = monthImage?.success ? (monthImage?.data as any) ?? null : null;
   const monthImagePath = allMonthImages?.[currentMonth] ?? null;
@@ -181,6 +182,12 @@ export default function MealPlanScreen({ navigation }: any) {
     }
   };
 
+  const handleChildPress = (childId: string | number) => {
+    setSelectedChildId(childId);
+    setSelectedDate('');
+    setCurrentMonth(new Date().toISOString().slice(0, 7));
+  }
+
   const handleMenuPress = (meal: MealItem, event: any) => {
     if (menuVisible === meal.view_hash) {
       setMenuVisible(null);
@@ -202,7 +209,7 @@ export default function MealPlanScreen({ navigation }: any) {
 
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('권한 필요', '갤러리 접근 권한이 필요합니다.');
+        toastInfo('갤러리 접근 권한이 필요합니다.');
         return;
       }
 
@@ -263,12 +270,24 @@ export default function MealPlanScreen({ navigation }: any) {
           },
         });
       };
-
       requestUpload(0);
     } catch (error) {
       toastError('갤러리를 여는 중 오류가 발생했습니다.');
     }
   };
+
+  useEffect(() => {
+    const childs = user.user_childs ?? [];
+
+    if (childs.length === 0) {
+      setSelectedChildId(null);
+      return;
+    }
+
+    if (selectedChildId === null || !childs.some((child) => child.id === selectedChildId)) {
+      setSelectedChildId(childs[0].id);
+    }
+  }, [user.user_childs, selectedChildId]);
 
   // 서버 응답 직접 사용 금지 → 월별 캐시에서 읽기
   if (!mealsCalendar) {
@@ -323,6 +342,46 @@ export default function MealPlanScreen({ navigation }: any) {
             </View>
           )}
 
+          {/* 자녀 선택 라디오 박스 (자녀가 2명 이상일 때만 표시) */}
+          {(user.user_childs?.length ?? 0) > 1 && (
+            <View style={styles.childSelector}>
+              <Text style={styles.childSelectorLabel}>자녀 선택</Text>
+              <View style={styles.childSelectorOptions}>
+                {user.user_childs?.map((child) => (
+                  <TouchableOpacity
+                    key={child.id}
+                    style={[
+                      styles.childRadioOption,
+                      selectedChildId === child.id ? styles.childRadioOptionSelected : null,
+                    ]}
+                    onPress={() => handleChildPress(child.id)}
+                  >
+                    <View
+                      style={[
+                        styles.childRadioCircle,
+                        selectedChildId === child.id ? styles.childRadioCircleSelected : null,
+                      ]}
+                    >
+                      {selectedChildId === child.id && <View style={styles.childRadioCircleInner} />}
+                    </View>
+                    <Text
+                      style={[
+                        styles.childRadioOptionText,
+                        selectedChildId === child.id ? styles.childRadioOptionTextSelected : null,
+                      ]}
+                    >
+                      {/* 대표자녀 표시 */}
+                      {child.is_agent == 'Y' && (
+                        <Ionicons name="star" size={12} color="#FFD700" style={{ marginRight: 4 }} />
+                      )}
+                      {child.child_name} (만 {calculateAge(child.child_birth)}세)
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          )}
+
           {/* 캘린더 */}
           <Calendar
             current={`${currentMonth}-01`}
@@ -364,7 +423,7 @@ export default function MealPlanScreen({ navigation }: any) {
                 </Text>
                 <TouchableOpacity
                   style={styles.addButton}
-                  onPress={() => navigation.getParent()?.navigate('MealRegist', { selectedDate })}
+                  onPress={() => navigation.getParent()?.navigate('MealRegist', { selectedDate, selectedChildId })}
                 >
                   <Ionicons name="add-circle" size={24} color="#FF9AA2" />
                   <Text style={styles.addButtonText}>식단 추가</Text>

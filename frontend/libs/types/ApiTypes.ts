@@ -31,6 +31,8 @@ export interface FeedListParams {
   is_public?: 'Y' | 'N';
   type?: string;
   cursor?: number;
+  meal_stage?: number;
+  meal_stage_detail?: string;
   view_type?: 'all' | 'mine';
   user_hash?: string;
 }

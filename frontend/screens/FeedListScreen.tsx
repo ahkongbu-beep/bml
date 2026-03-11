@@ -14,7 +14,7 @@ import ConfirmPortal from '@/components/ConfirmPortal';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 
-import { Feed } from '../libs/types/FeedType';
+import { MealCalendar } from '../libs/types/MealCalendarType';
 import { useAuth } from '../libs/contexts/AuthContext';
 
 import Layout from '../components/Layout';
@@ -22,6 +22,7 @@ import Header from '../components/Header';
 import AiSummaryModal from '../components/AiSummaryModal';
 import AiSummaryAnswerModal from '../components/AiSummaryAnswerModal';
 import UserHeader from '../components/UserHeader';
+import SearchBar from '../components/SearchBar';
 import BannerCarousel from '../components/BannerCarousel';
 import FeedItem from '../components/FeedItem';
 import { LoadingPage } from '../components/Loading';
@@ -47,6 +48,10 @@ export default function FeedListScreen() {
   const [userPrompt, setUserPrompt] = useState<string>('');
   const [aiAnswerModalVisible, setAiAnswerModalVisible] = useState(false);
   const [viewType, setViewType] = useState<"all" | "mine">('all');
+  // SearchBar filter states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchMealStage, setSearchMealStage] = useState<number>(0);
+  const [searchMealStageDetail, setSearchMealStageDetail] = useState('');
 
   const [aiSummaryParams, setAiSummaryParams] = useState<{
     userHash: string;
@@ -85,10 +90,12 @@ export default function FeedListScreen() {
     type: 'list',
     view_type: viewType,
     user_hash: viewType === 'mine' ? user?.view_hash : undefined,
+    meal_stage: searchMealStage,
+    meal_stage_detail: searchMealStageDetail,
   });
 
   // 모든 페이지의 피드를 평탄화
-  const feeds = data?.pages.flatMap(page => page.data) ?? [];
+  const feeds = data?.pages.flatMap(page => page.data ?? []).filter(Boolean) ?? [];
 
   const summaryFeedImageMutation  = useSummaryFeedImage(); // 이미지 요약
 
@@ -181,12 +188,12 @@ export default function FeedListScreen() {
     setCurrentImageIndex(prev => ({ ...prev, [id]: index }));
   }, []);
 
-  const handleCommentPress = useCallback((feedId: number) => {
-    navigation.navigate('FeedComment', { feedId });
+  const handleCommentPress = useCallback((mealId: number) => {
+    navigation.navigate('FeedComment', { mealId });
   }, [navigation]);
 
-  const handleEditFeed = useCallback((feed: Feed) => {
-    navigation.navigate('FeedSave', { feed });
+  const handleEditFeed = useCallback((meal: MealCalendar) => {
+    navigation.getParent()?.navigate('MealRegist', { meal, "selectedDate": meal.input_date });
   }, [navigation]);
 
   const handleAiSummary = useCallback((userHash: string, feedId: number, imageId: string) => {
@@ -242,7 +249,7 @@ export default function FeedListScreen() {
     setUserPrompt('');
   }
 
-  const keyExtractor = useCallback((item: Feed) => item.id.toString(), []);
+  const keyExtractor = useCallback((item: MealCalendar) => item.id.toString(), []);
 
   // 리스트 끝에 도달했을 때 다음 페이지 로드
   const onEndReached = useCallback(() => {
@@ -255,7 +262,7 @@ export default function FeedListScreen() {
     setViewType(newType);
   }
 
-  const renderFeed = useCallback(({ item }: { item: Feed }) => {
+  const renderFeed = useCallback(({ item }: { item: MealCalendar }) => {
     // 낙관적 업데이트가 있으면 그것을 우선 사용
     const optimisticState = optimisticLikes[item.id];
     const feedItem = optimisticState ? {
@@ -294,7 +301,6 @@ export default function FeedListScreen() {
     </View>
   );
 
-
   // 에러 상태
   if (isError) {
     return (
@@ -309,6 +315,14 @@ export default function FeedListScreen() {
   return (
     <Layout>
       <Header title={appName} showMenu={true} />
+      {/* 검색 */}
+      <SearchBar
+        onSearch={(query, mealStage, mealStageDetail) => {
+          setSearchQuery(query);
+          setSearchMealStage(mealStage);
+          setSearchMealStageDetail(mealStageDetail || '');
+        }}
+      />
       <FlatList
         data={feeds}
         renderItem={renderFeed}
@@ -368,7 +382,6 @@ export default function FeedListScreen() {
         cancelText="취소"
         confirmColor="#FF6B6B"
       />
-
     </Layout>
   );
 }

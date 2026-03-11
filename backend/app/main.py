@@ -7,6 +7,7 @@ from app.middleware import JWTAuthMiddleware
 from fastapi.exceptions import RequestValidationError
 from app.schemas.common_schemas import CommonResponse
 import os
+import app.models  # noqa: F401 - 모델 관계 mapper 등록
 
 app = FastAPI(title="BML Backend API", version="1.0.0")
 

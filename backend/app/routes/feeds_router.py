@@ -8,7 +8,7 @@ router = APIRouter()
 
 """ 피드 해쉬태그 검색 """
 @router.get("/ingredients/search")
-def search_feed_tags(query_text: str = Query(..., min_length=1), db: Session = Depends(get_db)):
+def search_feed_tags(query_text: str = Query(...), db: Session = Depends(get_db)):
     return feeds_service.search_ingredients(db, query_text)
 
 """ 피드 좋아요 토글 """

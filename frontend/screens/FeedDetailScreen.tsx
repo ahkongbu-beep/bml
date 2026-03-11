@@ -6,6 +6,7 @@ import {
   ScrollView,
   Image,
   TouchableOpacity,
+  KeyboardAvoidingView,
   ActivityIndicator
 } from 'react-native';
 import Layout from '../components/Layout';
@@ -21,6 +22,7 @@ import { USER_CHILD_GENDER } from '../libs/utils/codes/UserChildCode';
 import { MEAL_CONDITION } from '../libs/utils/codes/FeedMealCondition';
 import { toastError, toastSuccess } from '@/libs/utils/toast';
 import { ErrorPage } from '../components/ErrorPage';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function FeedDetailScreen({ route, navigation }: any) {
   const { feedId } = route.params;
@@ -78,7 +80,7 @@ export default function FeedDetailScreen({ route, navigation }: any) {
   }
 
   const condition = MEAL_CONDITION.find(v => v.value === feed.meal_condition);
-  const isMyFeed = user?.view_hash === feed.user_hash;
+  const isMyFeed = user?.view_hash === feed.user.user_hash;
   const images = (feed.images || []).map((image: string) => getStaticImage('medium', image));
   const allergy_info = feed.childs.allergies.map((allergy: any) => {
     return allergy.allergy_name;
@@ -175,22 +177,24 @@ export default function FeedDetailScreen({ route, navigation }: any) {
 
         {/* 액션 버튼 */}
         {isMyFeed && (
-          <View style={styles.actionSection}>
-            <TouchableOpacity
-              style={styles.actionButtonFull}
-              onPress={handleEdit}
-            >
-              <Ionicons name="pencil" size={18} color="#FF9AA2" />
-              <Text style={styles.actionButtonText}>편집</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.actionButtonFull, styles.actionButtonDelete]}
-              onPress={() => handleDelete(feed.id)}
-            >
-              <Ionicons name="trash" size={18} color="#FF6B6B" />
-              <Text style={[styles.actionButtonText, styles.actionButtonDeleteText]}>삭제</Text>
-            </TouchableOpacity>
-          </View>
+          <SafeAreaView>
+            <View style={styles.actionSection}>
+              <TouchableOpacity
+                style={styles.actionButtonFull}
+                onPress={handleEdit}
+              >
+                <Ionicons name="pencil" size={18} color="#FF9AA2" />
+                <Text style={styles.actionButtonText}>편집</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.actionButtonFull, styles.actionButtonDelete]}
+                onPress={() => handleDelete(feed.id)}
+              >
+                <Ionicons name="trash" size={18} color="#FF6B6B" />
+                <Text style={[styles.actionButtonText, styles.actionButtonDeleteText]}>삭제</Text>
+              </TouchableOpacity>
+            </View>
+          </SafeAreaView>
         )}
       </View>
 

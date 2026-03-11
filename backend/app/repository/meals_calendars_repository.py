@@ -1,13 +1,13 @@
 from app.models.meals_calendar import MealsCalendars
 from app.models.categories_codes import CategoriesCodes
-from app.models.feeds_tags_mappers import FeedsTagsMapper
+from app.models.feeds_tags_mappers import FeedsTagsMappers
 from app.models.feeds_tags import FeedsTags
 from app.models.feeds_images import FeedsImages
 from app.models.meals_likes import MealsLikes
 from app.models.users import Users
 from sqlalchemy import func as sql_func
 from app.models.users_childs import UsersChilds
-from app.models.users_childs_allergies import UserChildAllergy
+from app.models.users_childs_allergies import UsersChildsAllergies
 
 class MealsCalendarsRepository:
 
@@ -133,13 +133,13 @@ class MealsCalendarsRepository:
                 sql_func.max(UsersChilds.child_gender).label('child_gender'),
                 sql_func.max(UsersChilds.is_agent).label('is_agent'),
                 sql_func.group_concat(
-                    distinct(UserChildAllergy.allergy_name)
+                    distinct(UsersChildsAllergies.allergy_name)
                 ).label("allergy_names"),
                 sql_func.group_concat(
-                    distinct(UserChildAllergy.allergy_code)
+                    distinct(UsersChildsAllergies.allergy_code)
                 ).label("allergy_codes")
             )
-            .outerjoin(UserChildAllergy, UserChildAllergy.child_id == UsersChilds.id)
+            .outerjoin(UsersChildsAllergies, UsersChildsAllergies.child_id == UsersChilds.id)
             .filter(UsersChilds.is_agent == 'Y')
             .group_by(UsersChilds.user_id)
             .subquery()
@@ -148,12 +148,12 @@ class MealsCalendarsRepository:
         # feeds_tags_mappers 테이블과 조인하여 태그 정보도 함께 조회
         tags_mappers_subquery = (
             session.query(
-                FeedsTagsMapper.feed_id,
+                FeedsTagsMappers.feed_id,
                 sql_func.group_concat(FeedsTags.name).label('tags')
             )
-            .join(FeedsTags, FeedsTagsMapper.tag_id == FeedsTags.id)
-            .filter(FeedsTagsMapper.model == "Meals")
-            .group_by(FeedsTagsMapper.feed_id)
+            .join(FeedsTags, FeedsTagsMappers.tag_id == FeedsTags.id)
+            .filter(FeedsTagsMappers.model == "Meals")
+            .group_by(FeedsTagsMappers.feed_id)
             .subquery()
         )
 

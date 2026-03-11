@@ -1,22 +1,22 @@
-from app.models.foods_items import FoodItem
+from app.models.foods_items import FoodsItems
 from app.libs.serializers.query import SerializerQueryResult
 
 class FoodItemRepository:
 
     @staticmethod
     def get_one_data(session, food_id: int):
-        return session.query(FoodItem).filter(FoodItem.id == food_id).first()
+        return session.query(FoodsItems).filter(FoodsItems.id == food_id).first()
 
     @staticmethod
     def find_by_code(session, food_code: str):
-        return session.query(FoodItem).filter(FoodItem.food_code == food_code).first()
+        return session.query(FoodsItems).filter(FoodsItems.food_code == food_code).first()
 
     @staticmethod
     def get_by_type_and_code(session, food_type, food_code):
         return(
-            session.query(FoodItem).filter(
-                FoodItem.food_type == food_type,
-                FoodItem.food_code == food_code
+            session.query(FoodsItems).filter(
+                FoodsItems.food_type == food_type,
+                FoodsItems.food_code == food_code
             ).first()
         )
 
@@ -24,7 +24,7 @@ class FoodItemRepository:
     def createCode(session, food_type: str):
         prefix = food_type.upper()
 
-        last_item = session.query(FoodItem).filter(FoodItem.food_type == food_type).order_by(FoodItem.id.desc()).first()
+        last_item = session.query(FoodsItems).filter(FoodsItems.food_type == food_type).order_by(FoodsItems.id.desc()).first()
 
         last_item_code = last_item.food_code.split('_')[-1] if last_item else None
         if last_item_code and last_item_code.isdigit():
@@ -36,19 +36,19 @@ class FoodItemRepository:
 
     @staticmethod
     def get_list(session, food_type: str = None, food_name: str = None):
-        query = session.query(FoodItem)
+        query = session.query(FoodsItems)
         if food_type:
-            query = query.filter(FoodItem.food_type == food_type)
+            query = query.filter(FoodsItems.food_type == food_type)
         if food_name:
-            query = query.filter(FoodItem.food_name.ilike(f"%{food_name}%"))
+            query = query.filter(FoodsItems.food_name.ilike(f"%{food_name}%"))
         return SerializerQueryResult(query.all())
 
     @staticmethod
     def create(session, data):
 
-        new_code = FoodItem.createCode(session, data["food_type"])
+        new_code = FoodsItems.createCode(session, data["food_type"])
 
-        food_item = FoodItem(
+        food_item = FoodsItems(
             food_code=new_code,
             food_type=data.get("food_type", "FOOD"),
             food_name=data["food_name"]
@@ -61,7 +61,7 @@ class FoodItemRepository:
 
     @staticmethod
     def update(session, food_id: int, data, is_commit=True):
-        food_item = session.query(FoodItem).filter(FoodItem.id == food_id).first()
+        food_item = session.query(FoodsItems).filter(FoodsItems.id == food_id).first()
         if not food_item:
             return None
 
@@ -78,7 +78,7 @@ class FoodItemRepository:
 
     @staticmethod
     def search_by_name(session, food_name: str):
-        query = session.query(FoodItem)
+        query = session.query(FoodsItems)
         if food_name:
-            query = query.filter(FoodItem.food_name.ilike(f"%{food_name}%"))
+            query = query.filter(FoodsItems.food_name.ilike(f"%{food_name}%"))
         return query.all()

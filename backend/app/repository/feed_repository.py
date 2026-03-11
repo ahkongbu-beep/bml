@@ -88,12 +88,12 @@ class FeedRepository:
     def get_list(session, params: dict, extra: dict = {}):
 
         from sqlalchemy import case, func as sql_func
-        from app.models.feeds_tags_mappers import FeedsTagsMapper
+        from app.models.feeds_tags_mappers import FeedsTagsMappers
         from app.models.feeds_tags import FeedsTags
         from app.models.feeds_images import FeedsImages
         from app.models.feeds_likes import FeedsLikes
         from app.models.users_childs import UsersChilds
-        from app.models.users_childs_allergies import UserChildAllergy
+        from app.models.users_childs_allergies import UsersChildsAllergies
         from app.models.users import Users
         from app.models.categories_codes import CategoriesCodes
 
@@ -110,12 +110,12 @@ class FeedRepository:
         # 서브쿼리: 각 피드의 태그들을 콤마로 연결
         subquery = (
             session.query(
-                FeedsTagsMapper.feed_id,
+                FeedsTagsMappers.feed_id,
                 sql_func.group_concat(FeedsTags.name).label('tags')
             )
-            .filter(FeedsTagsMapper.model == "Feed")
-            .join(FeedsTags, FeedsTagsMapper.tag_id == FeedsTags.id)
-            .group_by(FeedsTagsMapper.feed_id)
+            .filter(FeedsTagsMappers.model == "Feed")
+            .join(FeedsTags, FeedsTagsMappers.tag_id == FeedsTags.id)
+            .group_by(FeedsTagsMappers.feed_id)
             .subquery()
         )
 
@@ -138,13 +138,13 @@ class FeedRepository:
                 sql_func.max(UsersChilds.child_gender).label('child_gender'),
                 sql_func.max(UsersChilds.is_agent).label('is_agent'),
                 sql_func.group_concat(
-                    distinct(UserChildAllergy.allergy_name)
+                    distinct(UsersChildsAllergies.allergy_name)
                 ).label("allergy_names"),
                 sql_func.group_concat(
-                    distinct(UserChildAllergy.allergy_code)
+                    distinct(UsersChildsAllergies.allergy_code)
                 ).label("allergy_codes")
             )
-            .outerjoin(UserChildAllergy, UserChildAllergy.child_id == UsersChilds.id)
+            .outerjoin(UsersChildsAllergies, UsersChildsAllergies.child_id == UsersChilds.id)
             .filter(UsersChilds.is_agent == 'Y')
             .group_by(UsersChilds.user_id)
             .subquery()

@@ -1,4 +1,4 @@
-from app.models.meals_calendars_images import MealsCalendarImage
+from app.models.meals_calendars_images import MealsCalendarsImages
 import os
 
 class MealsCalendarsImagesRepository:
@@ -6,19 +6,19 @@ class MealsCalendarsImagesRepository:
     @staticmethod
     async def get_active_user(session, user_id: int, order_by=None):
 
-        query = session.query(MealsCalendarImage).filter(
-            MealsCalendarImage.user_id == user_id,
-            MealsCalendarImage.is_active == "Y"
+        query = session.query(MealsCalendarsImages).filter(
+            MealsCalendarsImages.user_id == user_id,
+            MealsCalendarsImages.is_active == "Y"
         )
 
         if order_by == "id desc":
-            query = query.order_by(MealsCalendarImage.id.desc())
+            query = query.order_by(MealsCalendarsImages.id.desc())
         elif order_by == "id asc":
-            query = query.order_by(MealsCalendarImage.id.asc())
+            query = query.order_by(MealsCalendarsImages.id.asc())
         elif order_by == "month desc":
-            query = query.order_by(MealsCalendarImage.month.desc())
+            query = query.order_by(MealsCalendarsImages.month.desc())
         elif order_by == "month asc":
-            query = query.order_by(MealsCalendarImage.month.asc())
+            query = query.order_by(MealsCalendarsImages.month.asc())
 
         return query.all()
 
@@ -75,7 +75,7 @@ class MealsCalendarsImagesRepository:
         is_active = params.get("is_active", "Y")
 
         # 새로운 이미지 생성
-        new_image = MealsCalendarImage(
+        new_image = MealsCalendarsImages(
             user_id=user_id,
             month=month,
             image="/" + image['path'],
@@ -92,10 +92,10 @@ class MealsCalendarsImagesRepository:
     @staticmethod
     def delete_active_calendar_images_by_month(session, user_id: int, month: str, is_commit=True) -> bool:
         # 기존 이미지 삭제
-        session.query(MealsCalendarImage).filter(
-            MealsCalendarImage.user_id == user_id,
-            MealsCalendarImage.month == month,
-            MealsCalendarImage.is_active == "Y"
+        session.query(MealsCalendarsImages).filter(
+            MealsCalendarsImages.user_id == user_id,
+            MealsCalendarsImages.month == month,
+            MealsCalendarsImages.is_active == "Y"
         ).delete(synchronize_session=False)
 
         if is_commit:

@@ -13,11 +13,11 @@ import { toastError, toastSuccess } from '@/libs/utils/toast';
 export default function FeedCommentScreen() {
   const route = useRoute();
   const navigation = useNavigation();
-  const { feedId } = route.params as { feedId: number };
+  const { mealId } = route.params as { mealId: number };
 
   // 댓글 목록 조회
   const { data: commentsData, refetch: refetchComments } = useFeedComments({
-    feedId: feedId || 0,
+    mealId: mealId || 0,
     limit: 50,
     offset: 0,
   });
@@ -27,13 +27,13 @@ export default function FeedCommentScreen() {
 
   // 댓글 등록
   const onHandleCommentSubmit = (content: string, parentHash?: string) => {
-    if (!feedId) {
+    if (!mealId) {
       toastError('피드 정보가 없습니다.');
       return;
     }
 
     const params = {
-      feed_id: feedId,
+      meal_id: mealId,
       comment: content,
       parent_hash: parentHash || '',
     };

@@ -9,7 +9,7 @@ class FeedsTags(Base):
     name = Column(String(100), nullable=False, unique=True)
 
     mappers = relationship(
-        "FeedsTagsMapper",          # ← 문자열이면 import 순서 문제 없어짐
+        "FeedsTagsMappers",          # ← 문자열이면 import 순서 문제 없어짐
         back_populates="tag",
         cascade="all, delete-orphan"
     )

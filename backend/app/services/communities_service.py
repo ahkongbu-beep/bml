@@ -1,12 +1,12 @@
 
 from app.repository.communities_repository import CommunitiesRepository
 from app.repository.user_repository import UserRepository
-from app.repository.users_childs_repository import UsersChildsRepository
 from app.repository.communities_images_repository import CommunitiesImagesRepository
 from app.repository.communities_comments_repository import CommunitiesCommentsRepository
 from app.schemas.common_schemas import CommonResponse
 from app.core.config import settings
 from app.services.meals_comments_service import build_comment_tree
+from app.services.users_childs_service import get_agent_childs
 
 def get_community_list(db, user_hash, params) -> CommonResponse:
     """커뮤니티 리스트 조회 서비스 함수"""
@@ -71,7 +71,7 @@ async def create_community(db, user_hash, client_ip, title, contents, category_c
                     ext = file.filename.split('.')[-1]
                     await CommunitiesImagesRepository.upload(db, new_community.id, file, ext, sort_order=idx)
 
-        user_child = UsersChildsRepository.getAgentChild(db, user.id)
+        user_child = get_agent_childs(db, {"user_id": user.id})
 
         # 이미지 목록 조회
         images = CommunitiesImagesRepository.findImagesByCommunityId(db, new_community.id)
@@ -121,7 +121,7 @@ def get_community_detail(db, user_hash, community_hash) -> CommonResponse:
         db.commit()
         db.refresh(community)
 
-        user_child = UsersChildsRepository.getAgentChild(db, community.user_id)
+        user_child = get_agent_childs(db, {"user_id": community.user_id})
 
         # 이미지 목록 조회
         images = CommunitiesImagesRepository.findImagesByCommunityId(db, community.id)
@@ -213,7 +213,7 @@ async def update_community(db, user_hash, community_hash, title, contents, is_se
         db.commit()
         db.refresh(community)
 
-        user_child = UsersChildsRepository.getAgentChild(db, user.id)
+        user_child = get_agent_childs(db, {"user_id": user.id})
 
         # 이미지 목록 조회
         images = CommunitiesImagesRepository.findImagesByCommunityId(db, community.id)

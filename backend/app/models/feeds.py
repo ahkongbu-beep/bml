@@ -25,7 +25,7 @@ class Feeds(Base):
 
     # 관계 정의
     tags = relationship(
-        "FeedsTagsMapper",
+        "FeedsTagsMappers",
         back_populates="feed",
         cascade="all, delete-orphan"
     )

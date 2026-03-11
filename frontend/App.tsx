@@ -40,7 +40,6 @@ import MenuListScreen from './screens/MenuListScreen';
 import { AuthProvider, useAuth } from './libs/contexts/AuthContext';
 import { getNeedChildRegistration, clearNeedChildRegistration } from './libs/utils/storage';
 
-
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
@@ -56,7 +55,7 @@ const queryClient = new QueryClient({
 });
 
 function TabNavigator() {
-  const [initialRoute, setInitialRoute] = useState<string>('MyPage');
+  const [initialRoute, setInitialRoute] = useState<string>('MealPlan');
   const [isChecking, setIsChecking] = useState(true);
 
   useEffect(() => {

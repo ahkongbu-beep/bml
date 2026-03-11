@@ -14,7 +14,7 @@ import {
  * 피드 목록 조회
  */
 export const getFeeds = async (params?: FeedListParams): Promise<PaginationResponse<Feed>> => {
-  return fetchGet<PaginationResponse<Feed>>('/feeds/list', params);
+  return fetchGet<PaginationResponse<Feed>>('/meals/feed/list', params);
 };
 
 /**
@@ -187,14 +187,14 @@ export const getUserFeeds = async (
  */
 export const createFeedComment = async (data: CreateFeedCommentRequest): Promise<any> => {
   console.log("createFeedComment data:", data);
-  const { feed_id, comment, parent_hash } = data;
+  const { meal_id, comment, parent_hash } = data;
 
-  const body: any = { feed_id, comment };
+  const body: any = { meal_id, comment };
   if (parent_hash !== undefined) {
     body.parent_hash = parent_hash;
   }
 
-  const response = await fetchPost<ApiResponse<any>>('/feeds/comments/create', body);
+  const response = await fetchPost<ApiResponse<any>>('/feeds/comment/create', body);
   console.log("createFeedComment response:", response);
   return response.data;
 }
@@ -204,7 +204,7 @@ export const createFeedComment = async (data: CreateFeedCommentRequest): Promise
  */
 export const deleteFeedComment = async (comment_hash: string): Promise<void> => {
   console.log("deleteFeedComment commentHash:", comment_hash);
-  const response = await fetchDelete<void>(`/feeds/comments/${comment_hash}`);
+  const response = await fetchDelete<void>(`/feeds/comment/${comment_hash}`);
   console.log("deleteFeedComment response:", response);
   return response;
 }
@@ -213,23 +213,23 @@ export const deleteFeedComment = async (comment_hash: string): Promise<void> => 
  * 댓글 리스트 조회
  */
 export const getFeedComments = async (
-  feedId: number,
+  mealId: number,
   limit?: number,
   offset?: number
 ): Promise<any[]> => {
-  const params: any = { feed_id: feedId };
+  const params: any = { meal_id: mealId };
   if (limit !== undefined) params.limit = limit;
   if (offset !== undefined) params.offset = offset;
 
-  const response = await fetchGet<ApiResponse<any[]>>('/feeds/comments/list', params);
+  const response = await fetchGet<ApiResponse<any[]>>('/feeds/comment/list', params);
   return response.data || [];
  };
 
 /**
- * 태그 검색 (자동완성용)
+ * 재료 검색 (자동완성용)
  */
-export const searchTags = async (query: string): Promise<string[]> => {
-  const response = await fetchGet<ApiResponse<string[]>>('/feeds/tags/search', { query_text: query });
+export const searchIngredients = async (query: string): Promise<string[]> => {
+  const response = await fetchGet<ApiResponse<string[]>>('/feeds/ingredients/search', { query_text: query });
   return response.data || [];
 };
 

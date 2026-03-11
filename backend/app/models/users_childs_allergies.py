@@ -8,7 +8,7 @@ from sqlalchemy import (
 from app.core.database import Base
 from sqlalchemy.orm import Mapped, mapped_column
 
-class UserChildAllergy(Base):
+class UsersChildsAllergies(Base):
     __tablename__ = "users_childs_allergies"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)

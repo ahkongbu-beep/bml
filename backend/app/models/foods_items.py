@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, UniqueConstraint
 from app.core.database import Base
 
-class FoodItem(Base):
+class FoodsItems(Base):
     __tablename__ = "foods_items"
 
     id = Column(Integer, primary_key=True, index=True)

@@ -22,14 +22,15 @@ import Layout from '@/components/Layout';
 import { useAuth } from '../libs/contexts/AuthContext';
 import { MEAL_CATEGORIES } from '../libs/utils/codes/MealCalendarCode';
 import { useCategoryCodes } from '../libs/hooks/useCategories';
-import { useSearchTags } from '../libs/hooks/useFeeds';
+import { MEAL_STAGE } from '../libs/utils/codes/MealState';
+import { useSearchIngredients } from '../libs/hooks/useFeeds';
 import { getStaticImage } from '../libs/utils/common';
 import { useCreateMealWithImage, useUpdateMealWithImage, useUpdateMeal } from '../libs/hooks/useMeals';
 import { MEAL_CONDITION } from '../libs/utils/codes/FeedMealCondition';
 import { toastError, toastInfo, toastSuccess } from '@/libs/utils/toast';
 
 export default function MealRegistScreen({ route, navigation }: any) {
-  const { selectedDate, meal } = route.params || {};
+  const { selectedDate, meal, selectedChildId } = route.params || {};
 
   const { user } = useAuth();
   const { data: categoryCodes } = useCategoryCodes('MEALS_GROUP');
@@ -45,9 +46,25 @@ export default function MealRegistScreen({ route, navigation }: any) {
   const [existingImageUrl, setExistingImageUrl] = useState<string | null>(null);
   const [mealCondition, setMealCondition] = useState<string>('0');
   const [isPreMade, setIsPreMade] = useState<'Y' | 'N'>('N');
+  const [mealStage, setMealStage] = useState<number>(0); // 1: 이유식, 2: 유아식, 3: 일반식
+  const [mealStageDetail, setMealStageDetail] = useState<string>(''); // 세부 단계 선택값
   const [isPublic, setIsPublic] = useState<'Y' | 'N'>('Y');
   const [ingredients, setIngredients] = useState<string[]>([]);
   const [ingredientInput, setIngredientInput] = useState('');
+  const [childId, setChildId] = useState<number | null>(selectedChildId || null);
+
+  const selectedStage = MEAL_STAGE.find(stage => stage.id === mealStage);
+  const [stageItems, setStageItems] = useState<{id:string;label:string;needCode:boolean}[]>([]);
+
+  useEffect(() => {
+    const stage = MEAL_STAGE.find(s => s.id === mealStage);
+
+    if (stage && Array.isArray(stage.items)) {
+      setStageItems(stage.items);
+    } else {
+      setStageItems([]);
+    }
+  }, [mealStage]);
 
   // 애니메이션 값
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -71,8 +88,9 @@ export default function MealRegistScreen({ route, navigation }: any) {
   }, []);
 
   const searchTerm = ingredientInput.trim();
-  const { data: tagSuggestions = [] } = useSearchTags(searchTerm);
-  const showTagSuggestions = searchTerm.length > 0 && tagSuggestions.length > 0;
+  const { data: ingredientSuggestions = [] } = useSearchIngredients(searchTerm);
+  const showIngredientSuggestions = searchTerm.length > 0 && ingredientSuggestions.length > 0;
+
   // 수정 모드일 때 초기값 설정
   useEffect(() => {
     if (meal) {
@@ -82,6 +100,8 @@ export default function MealRegistScreen({ route, navigation }: any) {
       setIsPreMade(meal.is_pre_made || 'N');
       setIsPublic(meal.is_public || 'Y');
       setIngredients(meal.mapped_tags || []);
+      setMealStage(meal.meal_stage || 0);
+      setMealStageDetail(meal.meal_stage_detail || '');
 
       // 기존 이미지 URL 설정
       if (meal.image_url) {
@@ -149,6 +169,12 @@ export default function MealRegistScreen({ route, navigation }: any) {
     setExistingImageUrl(null);
   };
 
+  const [showIngredientInput, setShowIngredientInput] = useState(false);
+  const handelMealStageDetailSelect = (item: { id: string; label: string; needCode: boolean }) => {
+    setShowIngredientInput(item.needCode);
+    setMealStageDetail(item.id);
+  }
+
   const handleSubmit = async () => {
     if (!contents.trim()) {
       Alert.alert('알림', '내용을 입력해주세요.');
@@ -169,8 +195,18 @@ export default function MealRegistScreen({ route, navigation }: any) {
       meal_condition: mealCondition,
       is_pre_made: isPreMade,
       is_public: isPublic,
+      child_id: childId,
+      meal_stage: mealStage,
+      meal_stage_detail: mealStageDetail,
       ingredients: isPreMade === 'N' ? ingredients : [],
     };
+
+    if (MEAL_STAGE.find(s => s.id === mealStage)?.items.some(i => i.id === mealStageDetail && i.needCode)) {
+      if (mealData.ingredients.length === 0) {
+        toastInfo('재료를 입력해주세요.');
+        return;
+      }
+    }
 
     // 이미지가 있는 경우 FormData 사용
     if (selectedImage) {
@@ -433,35 +469,53 @@ export default function MealRegistScreen({ route, navigation }: any) {
           </View>
           {/* 식사 섭취량 end */}
 
-          {/* 기성품 여부 Y/N | N 인 경우 재료 입력 start */}
+          {/* 식사 단계 */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>기성품 여부</Text>
+            <Text style={styles.sectionTitle}>식사 단계</Text>
             <View style={styles.buttonGroup}>
-              <TouchableOpacity
-                style={[styles.toggleButton, isPreMade === 'Y' && styles.toggleButtonActive]}
-                onPress={() => setIsPreMade('Y')}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.toggleButtonText, isPreMade === 'Y' && styles.toggleButtonTextActive]}>
-                  🏪 기성품
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.toggleButton, isPreMade === 'N' && styles.toggleButtonActive]}
-                onPress={() => setIsPreMade('N')}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.toggleButtonText, isPreMade === 'N' && styles.toggleButtonTextActive]}>
-                  🥣 직접 조리
-                </Text>
-              </TouchableOpacity>
+              {MEAL_STAGE.map((stage) => (
+                <TouchableOpacity
+                  key={stage.id}
+                  style={[styles.toggleButton, mealStage === stage.id && styles.toggleButtonActive]}
+                  onPress={() => setMealStage(stage.id)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.toggleButtonText, mealStage === stage.id && styles.toggleButtonTextActive]}>
+                    {stage.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </View>
-            <Text style={styles.descriptionText}>구매한 완제품이면 기성품을 선택해주세요.</Text>
           </View>
-          {/* 기성품 여부 Y/N | N 인 경우 재료 입력 end */}
+          {/* 식사 단계 end */}
 
+
+          {/* 식사 단계에 따른 selectbox 노출 */}
+          {stageItems.length > 0 && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>세부 단계 선택</Text>
+
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 8 }}>
+                {stageItems.map((item) => {
+                  const isSelected = mealStageDetail === item.id;
+                  return (
+                    <TouchableOpacity
+                      key={`${mealStage}_${item.id}`}
+                      onPress={() => handelMealStageDetailSelect(item)}
+                      activeOpacity={0.8}
+                      style={[styles.toggleButton, isSelected && styles.toggleButtonActive]}
+                    >
+                      <Text style={[styles.toggleButtonText, isSelected && styles.toggleButtonTextActive]}>
+                        {item.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+          )}
           {/* 재료입력(기성품 여부가 N 인 경우)start */}
-          {isPreMade === 'N' && (
+          {showIngredientInput && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>재료 입력</Text>
               <View style={styles.tagInputContainer}>
@@ -483,18 +537,18 @@ export default function MealRegistScreen({ route, navigation }: any) {
                 </View>
 
                 {/* 재료 자동완성 */}
-                {showTagSuggestions && tagSuggestions.length > 0 && (
+                {showIngredientSuggestions && ingredientSuggestions.length > 0 && (
                   <View style={styles.suggestionsContainer}>
                     <View style={styles.suggestionsHeader}>
                       <Ionicons name="search" size={13} color="#FF9AA2" />
                       <Text style={styles.suggestionsHeaderText}>추천 재료</Text>
                     </View>
-                    {tagSuggestions.map((suggestion, key) => (
+                    {ingredientSuggestions.map((suggestion, key) => (
                       <TouchableOpacity
                         key={key}
                         style={[
                           styles.suggestionItem,
-                          key === tagSuggestions.length - 1 && styles.suggestionItemLast,
+                          key === ingredientSuggestions.length - 1 && styles.suggestionItemLast,
                         ]}
                         onPress={() => handleAddIngredient(suggestion)}
                         activeOpacity={0.7}
@@ -526,6 +580,33 @@ export default function MealRegistScreen({ route, navigation }: any) {
             </View>
           )}
           {/* 재료입력 end */}
+
+          {/* 기성품 여부 Y/N | N 인 경우 재료 입력 start */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>기성품 여부</Text>
+            <View style={styles.buttonGroup}>
+              <TouchableOpacity
+                style={[styles.toggleButton, isPreMade === 'Y' && styles.toggleButtonActive]}
+                onPress={() => setIsPreMade('Y')}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.toggleButtonText, isPreMade === 'Y' && styles.toggleButtonTextActive]}>
+                  🏪 기성품
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.toggleButton, isPreMade === 'N' && styles.toggleButtonActive]}
+                onPress={() => setIsPreMade('N')}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.toggleButtonText, isPreMade === 'N' && styles.toggleButtonTextActive]}>
+                  🥣 직접 조리
+                </Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.descriptionText}>구매한 완제품이면 기성품을 선택해주세요.</Text>
+          </View>
+          {/* 기성품 여부 Y/N | N 인 경우 재료 입력 end */}
 
           {/* 공개여부 start */}
           <View style={styles.section}>

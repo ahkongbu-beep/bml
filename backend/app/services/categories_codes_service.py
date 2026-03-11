@@ -3,6 +3,9 @@ from app.repository.food_item_repository import FoodItemRepository
 from app.schemas.categories_codes_schemas import CategoryCodeResponse
 from app.schemas.common_schemas import CommonResponse
 
+def get_category_code_by_id(db, category_id: int):
+    return CategoriesCodesRepository.get_category_codes_by_id(db, category_id)
+
 def list_categories_codes(db, cc_type: str = None):
 
     params = {}
@@ -25,7 +28,7 @@ def save_categories_code(db, data):
 
     if data.get("id"):
         # 기존 코드 업데이트
-        category_code = CategoriesCodesRepository.get_one_data(db, data["id"])
+        category_code = CategoriesCodesRepository.get_category_codes_by_id(db, data["id"])
         if not category_code:
             return CommonResponse(success=False, error="카테고리 정보가 조회되지않습니다.", data=None)
 
@@ -88,7 +91,7 @@ def save_categories_code(db, data):
         return CommonResponse(success=True, message="카테고리 정보가 성공적으로 생성되었습니다.", data=response_data)
 
 def delete_categories_code(db, category_id: int):
-    category_code = CategoriesCodesRepository.get_one_data(db, category_id)
+    category_code = CategoriesCodesRepository.get_category_codes_by_id(db, category_id)
     if not category_code:
         return CommonResponse(success=False, error="카테고리 정보가 조회되지않습니다.", data=None)
 

@@ -25,6 +25,7 @@ export interface DailyMealsCategory {
 
 export interface MealCalendarParams {
   month: string; // 'YYYY-MM' 형식
+  child_id?: number | null; // 자녀 ID (선택적)
 }
 
 export interface MealItemProps {

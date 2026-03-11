@@ -1,12 +1,12 @@
 
-from app.models.users_childs_allergies import UserChildAllergy
+from app.models.users_childs_allergies import UsersChildsAllergies
 
 class UsersChildsAllergiesRepository:
 
     @staticmethod
     def get_list_by_user_and_child(session, user_id: int, child_id: int):
-        return session.query(UserChildAllergy).filter(
-            UserChildAllergy.child_id == child_id
+        return session.query(UsersChildsAllergies).filter(
+            UsersChildsAllergies.child_id == child_id
         ).all()
 
     @staticmethod
@@ -17,7 +17,7 @@ class UsersChildsAllergiesRepository:
             allergy_code = item["allergy_code"] if isinstance(item, dict) else item.allergy_code
             allergy_name = item["allergy_name"] if isinstance(item, dict) else item.allergy_name
 
-            child_allergy = UserChildAllergy(
+            child_allergy = UsersChildsAllergies(
                 allergy_code=allergy_code,
                 allergy_name=allergy_name,
                 user_id=user_id,
@@ -32,9 +32,9 @@ class UsersChildsAllergiesRepository:
 
     @staticmethod
     def bulk_delete(session, user_id: int, child_id: int, is_commit: bool = True):
-        session.query(UserChildAllergy).filter(
-            UserChildAllergy.user_id == user_id,
-            UserChildAllergy.child_id == child_id
+        session.query(UsersChildsAllergies).filter(
+            UsersChildsAllergies.user_id == user_id,
+            UsersChildsAllergies.child_id == child_id
         ).delete(synchronize_session=False)
 
         if is_commit:
