@@ -43,78 +43,10 @@ export const summaryFeedImage = async ({ feedId, imageId, prompt }: { feedId: nu
   return response.data;
 }
 
-/**
- * 피드 생성
- */
-export const createFeed = async (data: CreateFeedRequest): Promise<Feed> => {
-  const formData = new FormData();
-
-  formData.append('title', data.title);
-  formData.append('content', data.content);
-  formData.append('is_public', data.is_public || 'Y');
-  formData.append('is_share_meal_plan', data.is_share_meal_plan || 'N');
-  if (data.category_id !== undefined) {
-    formData.append('category_id', data.category_id.toString());
-  }
-
-  // 태그는 #으로 구분하여 전송
-  if (data.tags && data.tags.length > 0) {
-    formData.append('tags', '#' + data.tags.join('#'));
-  }
-
-  // 이미지 파일 추가 (여러 개)
-  if (data.images && data.images.length > 0) {
-    data.images.forEach((imageUri, index) => {
-      const uriParts = imageUri.split('.');
-      const fileType = uriParts[uriParts.length - 1];
-
-      formData.append('files', {
-        uri: imageUri,
-        name: `image_${index}.${fileType}`,
-        type: `image/${fileType}`,
-      } as any);
-    });
-  }
-
-  const response = await fetchPostFormData<ApiResponse<Feed>>('/feeds/create', formData);
-  return response.data;
-};
-
-/**
- * 피드 수정
- */
-export const updateFeed = async (id: number, data: UpdateFeedRequest): Promise<Feed> => {
-  const formData = new FormData();
-
-  formData.append('title', data.title);
-  formData.append('content', data.content);
-  formData.append('is_public', data.is_public || 'Y');
-  formData.append('category_id', data.category_id ? data.category_id.toString() : '0');
-  formData.append('is_share_meal_plan', data.is_share_meal_plan || 'N');
-
-  // 태그는 #으로 구분하여 전송
-  if (data.tags && data.tags.length > 0) {
-    formData.append('tags', '#' + data.tags.join('#'));
-  }
-
-
-  // 이미지 파일 추가 (여러 개)
-  if (data.images && data.images.length > 0) {
-    data.images.forEach((imageUri, index) => {
-      const uriParts = imageUri.split('.');
-      const fileType = uriParts[uriParts.length - 1];
-
-      formData.append('files', {
-        uri: imageUri,
-        name: `image_${index}.${fileType}`,
-        type: `image/${fileType}`,
-      } as any);
-    });
-  }
-
-  const response = await fetchPutFormData<ApiResponse<Feed>>(`/feeds/update/${id}`, formData);
-  return response.data;
-};
+export const getIngredientsList = async (query: string): Promise<string[]> => {
+  const response = await fetchGet<ApiResponse<string[]>>('/feeds/ingredients/list', { query_text: query });
+  return response.data || [];
+}
 
 /**
  * 피드 삭제

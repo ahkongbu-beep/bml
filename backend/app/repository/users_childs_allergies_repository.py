@@ -14,8 +14,8 @@ class UsersChildsAllergiesRepository:
         child_allergies = []
         for item in items:
             # 딕셔너리와 객체 모두 지원
-            allergy_code = item["allergy_code"] if isinstance(item, dict) else item.allergy_code
-            allergy_name = item["allergy_name"] if isinstance(item, dict) else item.allergy_name
+            allergy_code = item.get("food_code")
+            allergy_name = item.get("food_name")
 
             child_allergy = UsersChildsAllergies(
                 allergy_code=allergy_code,

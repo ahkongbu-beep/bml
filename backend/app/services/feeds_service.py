@@ -11,7 +11,7 @@ from app.services.meals_comments_service import build_comment_tree, get_comment_
 from app.services.users_service import validate_user, validate_user_id
 from app.services.meals_likes_service import get_list_of_likes_by_user, get_meal_like_by_calendar_and_user, create_meal_like, delete_meal_like
 from app.services.meals_service import validate_meal_calendar_id, get_meal_calendar_by_id, get_user_meal_calendar, create_meal_calendar
-from app.services.ingredients_service import get_ingredient_by_similar_keyword
+from app.services.ingredients_service import get_ingredient_by_similar_keyword, get_ingredient_list
 from app.services.users_childs_service import get_agent_childs, validate_agent_childs
 from app.services.denies_users_service import get_denies_user_id_list
 from app.services.attaches_files_service import copy_attache_file, get_attache_files_by_model_id, save_upload_file
@@ -291,7 +291,39 @@ def list_feeds(db, user_hash: str, filters: FeedListRequest):
     return CommonResponse(success=True, message="", data=feeds_list)
 
 """
-feed 태그 검색
+재료 리스트
+"""
+def list_ingredients(db, user_hash: str, category: str):
+    try:
+        user = validate_user(db, user_hash) if user_hash else None
+        ingredients = get_ingredient_list(db, {"category": category})
+
+        # category 별로 묶음
+        tree_build_ingredients = []
+        for ingredient in ingredients:
+            category_name = ingredient.category
+            existing_category = next((item for item in tree_build_ingredients if item["category"] == category_name), None)
+
+            ingredient_data = {
+                "id": ingredient.id,
+                "name": ingredient.name,
+                "allergy_risk": ingredient.allergy_risk
+            }
+
+            if existing_category:
+                existing_category["ingredients"].append(ingredient_data)
+            else:
+                tree_build_ingredients.append({
+                    "category": category_name,
+                    "ingredients": [ingredient_data]
+                })
+
+
+        return CommonResponse(success=True, message="", data=tree_build_ingredients)
+    except Exception as e:
+        return CommonResponse(success=False, error=f"재료 검색 중 오류가 발생했습니다: {str(e)}", data=None)
+"""
+재료 검색
 """
 def search_ingredients(db, query_text: str):
 

@@ -65,6 +65,8 @@ export default function FeedListScreen() {
   } | null>(null);
 
   const [blockDialogVisible, setBlockDialogVisible] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const flatListRef = useRef<FlatList>(null);
   const [userToBlock, setUserToBlock] = useState<{
     userHash: string;
     nickname: string;
@@ -94,14 +96,11 @@ export default function FeedListScreen() {
     meal_stage_detail: searchMealStageDetail,
   });
 
-
-
   // 모든 페이지의 피드를 평탄화 (id 기준 중복 제거)
   const feeds = data?.pages
     .flatMap(page => page.data ?? [])
     .filter(Boolean)
     .filter((item, index, self) => self.findIndex(f => f.id === item.id) === index) ?? [];
-  console.log("feeds", JSON.stringify(feeds));
 
   const summaryFeedImageMutation  = useSummaryFeedImage(); // 이미지 요약
 
@@ -327,9 +326,11 @@ export default function FeedListScreen() {
           setSearchQuery(query);
           setSearchMealStage(mealStage);
           setSearchMealStageDetail(mealStageDetail || '');
+          flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
         }}
       />
       <FlatList
+        ref={flatListRef}
         data={feeds}
         renderItem={renderFeed}
         keyExtractor={keyExtractor}
@@ -351,8 +352,12 @@ export default function FeedListScreen() {
         }
         refreshControl={
           <RefreshControl
-            refreshing={isLoading}
-            onRefresh={refetch}
+            refreshing={isRefreshing}
+            onRefresh={async () => {
+              setIsRefreshing(true);
+              await refetch();
+              setIsRefreshing(false);
+            }}
             colors={['#FF9AA2']}
             tintColor="#FF9AA2"
           />

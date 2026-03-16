@@ -270,7 +270,7 @@ async def create_user_child(db, user_hash, children):
         user = validate_user(db, user_hash)
 
         if not children:
-            return CommonResponse(success=False, error="등록할 자녀 정보가 없습니다.", data=None)
+            raise Exception("등록할 자녀 정보가 없습니다.")
 
         for child in children:
             # 딕셔너리와 객체 모두 지원
@@ -326,6 +326,7 @@ async def create_user_child(db, user_hash, children):
         db.commit()
     except Exception as e:
         db.rollback()
+        print(f"⭕⭕⭕Error in create_user_child: {str(e)}")
         return CommonResponse(success=False, error=f"자녀 정보 등록 중 오류가 발생했습니다: {str(e)}", data=None)
 
     return CommonResponse(success=True, message="자녀 정보가 성공적으로 등록되었습니다.", data=None)
@@ -398,22 +399,11 @@ def get_user_profile(db, user_hash, user_id):
     meal_count = db.query(MealsCalendars).filter(MealsCalendars.user_id == user.id).count()
 
     # 식단 선호도 조회
-    meals_mapper = meal_mapper_list_by_id(db, user.id).serialize()
+    meals_mapper = meal_mapper_list_by_id(db, user.id)
     meal_group_ids = [mapper.category_id for mapper in meals_mapper]
 
     # 자녀 정보 조회 s
     user_childs = get_list_with_allergies(db, user.id)
-
-    # user_childs.allergy_names, allergy_codes 는 문자열로 반환되므로 리스트로 변환
-    for child in user_childs:
-        if child.get("allergy_names"):
-            child["allergy_names"] = child["allergy_names"].split(',')
-        else:
-            child["allergy_names"] = []
-        if child.get("allergy_codes"):
-            child["allergy_codes"] = child["allergy_codes"].split(',')
-        else:
-            child["allergy_codes"] = []
     # 자녀 정보 조회 e
 
     user_response = UserResponseSchema.model_validate(user)

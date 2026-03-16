@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   Modal,
   Pressable,
+  RefreshControl,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import Header from '../components/Header';
@@ -59,6 +60,7 @@ export default function MealPlanScreen({ navigation }: any) {
   const [mealToDelete, setMealToDelete] = useState<MealItem | null>(null);
   const [selectedMeal, setSelectedMeal] = useState<MealItem | null>(null);
   const [detailModalVisible, setDetailModalVisible] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const deleteMealMutation = useDeleteMeal();
   const uploadMonthImageMutation = useUploadCalendarMonthImage();
   const { user } = useAuth();
@@ -229,9 +231,7 @@ export default function MealPlanScreen({ navigation }: any) {
 
       const selectedAsset = result.assets[0];
       const monthSnapshot = currentMonth;
-      const fileName = selectedAsset.fileName
-        || selectedAsset.uri.split('/').pop()
-        || `meal-month-${Date.now()}.jpg`;
+      const fileName = selectedAsset.fileName || selectedAsset.uri.split('/').pop() || `meal-month-${Date.now()}.jpg`;
       const extMatch = /\.(\w+)$/.exec(fileName);
       const mimeType = extMatch ? `image/${extMatch[1]}` : (selectedAsset.mimeType || 'image/jpeg');
 
@@ -289,6 +289,19 @@ export default function MealPlanScreen({ navigation }: any) {
     }
   }, [user.user_childs, selectedChildId]);
 
+  // 화면 포커스 시 자동 새로고침 (식단 등록/수정 후 복귀 포함)
+  useFocusEffect(
+    useCallback(() => {
+      refetch();
+    }, [refetch])
+  );
+
+  const onRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    await Promise.all([refetch(), refetchMonthImage()]);
+    setIsRefreshing(false);
+  }, [refetch, refetchMonthImage]);
+
   // 서버 응답 직접 사용 금지 → 월별 캐시에서 읽기
   if (!mealsCalendar) {
     return <LoadingPage title="식단 정보를 불러오는 중" />;
@@ -298,7 +311,17 @@ export default function MealPlanScreen({ navigation }: any) {
     <Layout>
       <View style={styles.container}>
         <Header title="식단 관리" />
-        <ScrollView style={styles.content}>
+        <ScrollView
+          style={styles.content}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={onRefresh}
+              tintColor="#FF9AA2"
+              colors={['#FF9AA2']}
+            />
+          }
+        >
           {/* 메인 이미지 */}
           <View style={styles.monthImageHeader}>
             <Text style={styles.monthImageHeaderText}>{currentMonth.replace('-', '년 ')}월의 식단 이미지</Text>

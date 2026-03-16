@@ -143,18 +143,12 @@ async def update_user(
 @router.post("/children/create")
 async def create_user_child(request: Request, db: Session = Depends(get_db)):
     user_hash = getattr(request.state, "user_hash", None)
-    print("user_hash:", user_hash)
 
     if not user_hash:
         return CommonResponse(success=False, message="사용자 인증이 필요합니다.", data=None)
 
     # FormData로 받은 데이터 파싱
     form_data = await request.form()
-
-    # 디버깅: 받은 모든 키 출력
-    print("📥 Received form_data keys:", list(form_data.keys()))
-    for key in form_data.keys():
-        print(f"  {key}: {form_data.get(key)}")
 
     # JSON 데이터 파싱
     import json
@@ -163,7 +157,6 @@ async def create_user_child(request: Request, db: Session = Depends(get_db)):
         return CommonResponse(success=False, message="요청 데이터가 없습니다. 받은 키들: " + str(list(form_data.keys())), data=None)
 
     children_data = json.loads(data_json)
-
     return await users_service.create_user_child(db, user_hash, children_data)
 
 """ 자녀 정보 삭제 """

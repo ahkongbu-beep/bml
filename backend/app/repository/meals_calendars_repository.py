@@ -112,7 +112,7 @@ class MealsCalendarsRepository:
         elif extra.get("order_by") == "created_at_desc":
             order_by = MealsCalendars.created_at.desc()
         else:
-            order_by = sql_func.concat(MealsCalendars.input_date, MealsCalendars.category_code).asc()
+            order_by = MealsCalendars.id.desc()
 
         # 서브쿼리: category_code 정보
         category_subquery = (

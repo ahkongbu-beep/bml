@@ -45,7 +45,7 @@ export default function MyFeedGrid({
 
 
 
-  if (feeds.length === 0) {
+  if (!feeds || feeds.length === 0) {
     return (
       <View style={styles.emptyFeedContainer}>
         <Ionicons name="camera-outline" size={48} color="#DDD" />

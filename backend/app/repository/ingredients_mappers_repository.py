@@ -11,7 +11,7 @@ class IngredientsMappersRepository:
         return ingredient_mapper
 
     @staticmethod
-    def delete_mapper(db, model:str, meal_id: int, is_commit=True):
+    def delete_mapper(db, meal_id: int, is_commit=True):
         try:
             db.query(IngredientsMappers).filter(
                 IngredientsMappers.meal_id == meal_id

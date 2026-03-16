@@ -38,6 +38,24 @@ def serialize_community(community) -> CommunityData:
         } if community.child_name else None,
     })
 
+def build_community_detail_response(community, user, child, images):
+    return {
+        "title": community.title,
+        "contents": community.contents,
+        "category_code": community.category_code,
+        "is_secret": community.is_secret,
+        "images": images,
+        "user_hash": user.view_hash,
+        "user_profile_image": user.profile_image,
+        "user_nickname": community.user_nickname,
+        "view_hash": community.view_hash,
+        "user_child_name": child.child_name if child else None,
+        "user_child_birth": child.child_birth.isoformat() if child and child.child_birth else None,
+        "user_child_gender": child.child_gender if child else None,
+        "view_count": community.view_count,
+        "created_at": community.created_at.isoformat() if community.created_at else None,
+        "updated_at": community.updated_at.isoformat() if community.updated_at else None,
+    }
 
 def serialize_communities_list(community_list):
     return [serialize_community(community) for community in community_list]

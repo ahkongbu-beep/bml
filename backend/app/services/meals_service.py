@@ -255,6 +255,13 @@ async def create_meal_calendar(db, user, category_code, body):
         "meal_stage_detail": body.get('meal_stage_detail', "")
     }
 
+    if not body.get("child_id"):
+        user_child = get_agent_childs(db, {"user_id": user.id})
+        if not user_child:
+            raise Exception("대표 자녀 정보가 없습니다.")
+        meal_data["child_id"] = user_child.id
+
+
     meal_calendar = MealsCalendarsRepository.create(db, meal_data, is_commit=False)
     db.flush()  # meal_calendar.id를 얻기 위해 flush로 먼저 DB에 반영
     return meal_calendar
@@ -303,11 +310,6 @@ async def create_meal(db, body: dict) -> CommonResponse:
 
         meal_calendar = await create_meal_calendar(db, user, category_code, body)
 
-        print("⭕⭕⭕⭕")
-        print("식단 캘린더 생성 완료, ID:", meal_calendar.id)
-        print("식단 캘린더 해시:", body)
-        print("⭕⭕⭕⭕")
-
         # 이미지 파일 업로드
         await upload_meal_image(db, meal_calendar, body)
 
@@ -339,7 +341,7 @@ async def create_meal(db, body: dict) -> CommonResponse:
 
 """ 식단 캘린더 수정 """
 async def update_meal(db, body: dict) -> CommonResponse:
-
+    print("⭕⭕", body)
     try:
         # -------------------------
         # 1. 사용자 & 대상 조회
@@ -417,7 +419,7 @@ async def update_meal(db, body: dict) -> CommonResponse:
             # 기존 이미지 삭제
             soft_delete_file_by_model_id(db, "Meals", meal_calendar.id)
             # 업로드 실패하면 전체 rollback 됨
-            upload_meal_image(db, meal_calendar, body)
+            await upload_meal_image(db, meal_calendar, body)
 
         # -------------------------
         # 7. 최종 commit
@@ -432,9 +434,6 @@ async def update_meal(db, body: dict) -> CommonResponse:
 
     except Exception as e:
         db.rollback()
-        import traceback
-        traceback.print_exc()
-
         return CommonResponse(
             success=False,
             error=str(e),

@@ -16,7 +16,8 @@ import {
   deleteFeedComment,
   getLikedFeeds,
   summaryFeedImage,
-  copyFeed
+  copyFeed,
+  getIngredientsList
 } from '../api/feedsApi';
 import { Feed, CopyFeedRequest } from '../types/FeedType';
 import {
@@ -190,6 +191,14 @@ export const useCopyFeed = () => {
   });
 };
 
+export const useIngredientList = (query: string) => {
+  return useQuery({
+    queryKey: feedKeys.ingredients(query),
+    queryFn: () => getIngredientsList(query),
+
+    staleTime: 1000 * 60 * 5, // 5분
+  });
+}
 
 /**
  * 피드 댓글 삭제

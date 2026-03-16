@@ -23,6 +23,11 @@ export default function MyPageScreen({ navigation }: any) {
   const { user, isLoading } = useAuth();
   const [viewType, setViewType] = useState<'grid' | 'list'>('grid');
 
+  // 훅은 항상 최상단에서 조건 없이 호출해야 함 (Rules of Hooks)
+  const { data: myFeedsData, isLoading: feedsLoading } = useMyFeeds();
+  const { data: myInfoData, isLoading: myInfoLoading } = useGetMyInfo(user?.view_hash || '');
+  const myFeeds = Array.isArray(myFeedsData?.data) ? myFeedsData.data : [];
+
   if (isLoading) {
     return (
       <LoadingPage title="화면을 구성하는 중" />
@@ -41,10 +46,6 @@ export default function MyPageScreen({ navigation }: any) {
       </Layout>
     );
   }
-
-  const { data: myFeedsData, isLoading: feedsLoading } = useMyFeeds();
-  const { data: myInfoData, isLoading: myInfoLoading } = useGetMyInfo(user?.view_hash || '');
-  const myFeeds = myFeedsData?.data || [];
 
   return (
     <Layout>
@@ -98,10 +99,10 @@ export default function MyPageScreen({ navigation }: any) {
             {/* 피드 작성 버튼 */}
             <TouchableOpacity
               style={styles.createFeedButton}
-              onPress={() => navigation.navigate('FeedSave')}
+              onPress={() => navigation.navigate('MealRegist')}
             >
               <Ionicons name="add-circle" size={20} color="#fff" />
-              <Text style={styles.createFeedButtonText}>피드 작성하기</Text>
+              <Text style={styles.createFeedButtonText}>식단캘린더 작성하기</Text>
             </TouchableOpacity>
           </View>
 

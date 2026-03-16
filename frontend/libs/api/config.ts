@@ -296,9 +296,7 @@ export const fetchPostFormData = async <T>(endpoint: string, formData: FormData)
     });
 
     console.log("POST Response Status:", response.status);
-    console.log("POST Response Headers:", response.headers);
     console.log("POST Response Body:", await response.clone().text());
-
 
     return handleResponse(response, endpoint, makeRequest);
   };
@@ -313,15 +311,9 @@ export const fetchPostFormData = async <T>(endpoint: string, formData: FormData)
 
 // Fetch wrapper - PUT with FormData (for file uploads)
 export const fetchPutFormData = async <T>(endpoint: string, formData: FormData): Promise<T> => {
-  const makeRequest = async (): Promise<T> => {
+  return new Promise(async (resolve, reject) => {
     const url = `${API_BASE_URL}${endpoint}`;
-
-    // FormData 요청에도 JWT 토큰 추가
     const token = await getToken();
-    const headers: HeadersInit = {};
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
 
     console.log("PUT FormData Request URL:", url);
     console.log("FormData contents:");
@@ -329,22 +321,36 @@ export const fetchPutFormData = async <T>(endpoint: string, formData: FormData):
       console.log(`${key}: ${value}`);
     });
 
-    const response = await fetch(url, {
-      method: 'PUT',
-      headers,
-      body: formData,
-    });
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', url);
 
-    console.log("PUT FormData Response Status:", response.status);
-    console.log("PUT FormData Response Headers:", response.headers);
+    if (token) {
+      xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    }
 
-    return handleResponse(response, endpoint, makeRequest);
-  };
+    xhr.onload = async () => {
+      console.log("PUT FormData Response Status:", xhr.status);
+      try {
+        const data = JSON.parse(xhr.responseText);
+        if (xhr.status === 401) {
+          const newToken = await refreshAccessToken();
+          if (newToken) {
+            resolve(await fetchPutFormData<T>(endpoint, formData));
+          } else {
+            reject(new ApiError(401, data, 'Unauthorized'));
+          }
+          return;
+        }
+        resolve(data as T);
+      } catch (e) {
+        reject(new ApiError(xhr.status, xhr.responseText, 'Parse error'));
+      }
+    };
 
-  try {
-    return await makeRequest();
-  } catch (error) {
-    console.error('Network error:', error);
-    throw error;
-  }
+    xhr.onerror = () => {
+      reject(new ApiError(0, null, 'Network error'));
+    };
+
+    xhr.send(formData);
+  });
 };

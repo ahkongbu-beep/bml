@@ -24,8 +24,8 @@ if (MEAL_STAGE && Array.isArray(MEAL_STAGE)) {
 export default function SearchBar({ onSearch }: SearchBarProps) {
 	const [query, setQuery] = useState('');
 	const [selectedMealStage, setSelectedMealStage] = useState<number>(0);
-  const [selectedMealStageDetail, setSelectedMealStageDetail] = useState<string>('');
-  const selectedStage = MEAL_STAGE.find(
+    const [selectedMealStageDetail, setSelectedMealStageDetail] = useState<string>('');
+    const selectedStage = MEAL_STAGE.find(
       stage => stage.id === selectedMealStage
   );
 

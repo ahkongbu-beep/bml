@@ -10,6 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { MEAL_CATEGORIES } from '../libs/utils/codes/MealCalendarCode';
 import { MealItemProps } from '../libs/types/MealType';
 import { getStaticImage } from '../libs/utils/common';
+import { MEAL_CONDITION } from '../libs/utils/codes/FeedMealCondition';
 
 const MealPlanItem = React.memo(({
   meal,
@@ -49,7 +50,16 @@ const MealPlanItem = React.memo(({
               <Ionicons name="ellipsis-vertical" size={20} color="#666" />
             </TouchableOpacity>
           </View>
-          <Text style={styles.mealTitle}>{meal.title || ''}</Text>
+          <Text style={styles.mealCategoryName}>
+            {MEAL_CONDITION.find((condition) => condition.value === meal.meal_condition) && (() => {
+              const condition = MEAL_CONDITION.find((condition) => condition.value === meal.meal_condition);
+              return (
+                <Text>
+                  {condition.icon} {condition.name}
+                </Text>
+              );
+            })()}
+          </Text>
           <Text style={styles.mealContents} numberOfLines={hasImage ? 2 : 3}>
             {meal.contents || ''}
           </Text>

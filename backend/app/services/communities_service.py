@@ -3,7 +3,7 @@ from app.repository.communities_repository import CommunitiesRepository
 
 from app.schemas.common_schemas import CommonResponse
 from app.serializer.communities_comments_serialize import serialize_community_comment
-from app.serializer.communities_serialize import serialize_communities_list
+from app.serializer.communities_serialize import build_community_detail_response, serialize_communities_list
 
 from app.services.users_service import validate_user
 from app.services.meals_comments_service import build_comment_tree
@@ -24,7 +24,7 @@ def get_community_by_hash(db, community_hash):
     if not community:
         return None
 
-    return community._data
+    return community
 
 def validate_community_by_id(db, community_id):
     community = get_community_by_id(db, community_id)
@@ -150,26 +150,16 @@ def get_community_detail(db, user_hash, community_hash) -> CommonResponse:
         # 이미지 목록 조회
         images = [f.image_url for f in get_attache_files_by_model_id(db, "Communities", community.id)]
 
-        return_data = {
-            "title": community.title,
-            "contents": community.contents,
-            "category_code": community.category_code,
-            "is_secret": community.is_secret,
-            "images": images,
-            "user_hash": commnity_user.view_hash,
-            "user_profile_image": commnity_user.profile_image if commnity_user.profile_image else None,
-            "user_nickname": community.user_nickname,
-            "view_hash": community.view_hash,
-            "user_child_name": user_child.child_name if user_child else None,
-            "user_child_birth": user_child.child_birth.isoformat() if user_child and user_child.child_birth else None,
-            "user_child_gender": user_child.child_gender if user_child else None,
-            "view_count": community.view_count,
-            "created_at": community.created_at.isoformat() if community.created_at else None,
-            "updated_at": community.updated_at.isoformat() if community.updated_at else None,
-        }
+        return_data = build_community_detail_response(
+            community,
+            commnity_user,
+            user_child,
+            images
+        )
 
         return CommonResponse(success=True, message="커뮤니티 글 상세 조회에 성공했습니다.", data=return_data)
     except Exception as e:
+        db.rollback()
         return CommonResponse(success=False, error=str(e))
 
 def delete_community(db, user_hash, community_hash) -> CommonResponse:

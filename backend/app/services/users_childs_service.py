@@ -17,11 +17,13 @@ def validate_agent_childs(db, params):
     return child
 
 def get_list_with_allergies_data(result):
-    for data in result:
-        if data.allergy_codes:
-            data.allergy_codes = data.allergy_codes.split(",") if data.allergy_codes else []
-            data.allergy_names = data.allergy_names.split(",") if data.allergy_names else []
-    return result
+    data_list = []
+    for row in result:
+        data = dict(row._mapping)
+        data["allergy_codes"] = data["allergy_codes"].split(",") if data.get("allergy_codes") else []
+        data["allergy_names"] = data["allergy_names"].split(",") if data.get("allergy_names") else []
+        data_list.append(data)
+    return data_list
 
 def get_list_with_allergies(db, user_id):
     data = UsersChildsRepository.get_list_with_allergies(db, user_id)

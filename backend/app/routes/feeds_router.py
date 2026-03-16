@@ -21,6 +21,11 @@ def toggle_feed_like(feed_id: int, request: Request, db: Session = Depends(get_d
 
     return feeds_service.toggle_feed_like(db, feed_id, user_hash)
 
+@router.get("/ingredients/list")
+def list_ingredients(request: Request, category: str = Query(None), db: Session = Depends(get_db)):
+    user_hash = getattr(request.state, "user_hash", None)
+    return feeds_service.list_ingredients(db, user_hash, category)
+
 @router.get("/detail/{feed_id}")
 def get_feed_detail(feed_id: int, request: Request, db: Session = Depends(get_db)):
     user_hash = getattr(request.state, "user_hash", None)

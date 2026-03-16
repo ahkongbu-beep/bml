@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import styles from './MealRegistScreen.styles';
+import { CATEGORY_ICONS, CATEGORY_LABELS } from '../libs/utils/codes/IngredientCode';
 import {
   View,
   Text,
@@ -23,14 +24,24 @@ import { useAuth } from '../libs/contexts/AuthContext';
 import { MEAL_CATEGORIES } from '../libs/utils/codes/MealCalendarCode';
 import { useCategoryCodes } from '../libs/hooks/useCategories';
 import { MEAL_STAGE } from '../libs/utils/codes/MealState';
-import { useSearchIngredients } from '../libs/hooks/useFeeds';
+import { useIngredientList } from '../libs/hooks/useFeeds';
 import { getStaticImage } from '../libs/utils/common';
 import { useCreateMealWithImage, useUpdateMealWithImage, useUpdateMeal } from '../libs/hooks/useMeals';
 import { MEAL_CONDITION } from '../libs/utils/codes/FeedMealCondition';
 import { toastError, toastInfo, toastSuccess } from '@/libs/utils/toast';
+import { LoadingPage } from '../components/Loading';
 
 export default function MealRegistScreen({ route, navigation }: any) {
-  const { selectedDate, meal, selectedChildId } = route.params || {};
+
+  const { selectedDate: _selectedDate, meal, selectedChildId } = route.params || {};
+
+  // 선택된 날짜가 없으면 오늘날짜로
+  const today = new Date();
+  const selectedDate = _selectedDate || [
+    today.getFullYear(),
+    String(today.getMonth() + 1).padStart(2, '0'),
+    String(today.getDate()).padStart(2, '0'),
+  ].join('-');
 
   const { user } = useAuth();
   const { data: categoryCodes } = useCategoryCodes('MEALS_GROUP');
@@ -44,6 +55,7 @@ export default function MealRegistScreen({ route, navigation }: any) {
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [existingImageUrl, setExistingImageUrl] = useState<string | null>(null);
+  const [imageChanged, setImageChanged] = useState(false);
   const [mealCondition, setMealCondition] = useState<string>('0');
   const [isPreMade, setIsPreMade] = useState<'Y' | 'N'>('N');
   const [mealStage, setMealStage] = useState<number>(0); // 1: 이유식, 2: 유아식, 3: 일반식
@@ -52,6 +64,11 @@ export default function MealRegistScreen({ route, navigation }: any) {
   const [ingredients, setIngredients] = useState<string[]>([]);
   const [ingredientInput, setIngredientInput] = useState('');
   const [childId, setChildId] = useState<number | null>(selectedChildId || null);
+  const [selectedIngredientCategory, setSelectedIngredientCategory] = useState<string | null>(null);
+  const [ingredientSearch, setIngredientSearch] = useState('');
+  const [showIngredientInput, setShowIngredientInput] = useState(false);
+  const { data: ingredientListData, isLoading: ingredientListLoading } = useIngredientList('');
+
 
   const selectedStage = MEAL_STAGE.find(stage => stage.id === mealStage);
   const [stageItems, setStageItems] = useState<{id:string;label:string;needCode:boolean}[]>([]);
@@ -87,11 +104,7 @@ export default function MealRegistScreen({ route, navigation }: any) {
     ]).start();
   }, []);
 
-  const searchTerm = ingredientInput.trim();
-  const { data: ingredientSuggestions = [] } = useSearchIngredients(searchTerm);
-  const showIngredientSuggestions = searchTerm.length > 0 && ingredientSuggestions.length > 0;
-
-  // 수정 모드일 때 초기값 설정
+  // 수정 모드일 때 초기값 설정 (조건부 return 이전에 위치해야 함 - Rules of Hooks)
   useEffect(() => {
     if (meal) {
       setContents(meal.contents || '');
@@ -110,6 +123,12 @@ export default function MealRegistScreen({ route, navigation }: any) {
       }
     }
   }, [meal]);
+
+  if (ingredientListLoading) {
+    return (
+      <LoadingPage title="재료 정보를 불러오는 중" />
+    );
+  }
 
   const handleAddIngredient = (suggestion?: string) => {
     const clean = (suggestion || ingredientInput).replace('#', '').trim();
@@ -141,6 +160,7 @@ export default function MealRegistScreen({ route, navigation }: any) {
 
     if (!result.canceled && result.assets[0]) {
       setSelectedImage(result.assets[0].uri);
+      setImageChanged(true);
     }
   };
 
@@ -161,15 +181,16 @@ export default function MealRegistScreen({ route, navigation }: any) {
 
     if (!result.canceled && result.assets[0]) {
       setSelectedImage(result.assets[0].uri);
+      setImageChanged(true);
     }
   };
 
   const handleRemoveImage = () => {
     setSelectedImage(null);
+    setImageChanged(true);
     setExistingImageUrl(null);
   };
 
-  const [showIngredientInput, setShowIngredientInput] = useState(false);
   const handelMealStageDetailSelect = (item: { id: string; label: string; needCode: boolean }) => {
     setShowIngredientInput(item.needCode);
     setMealStageDetail(item.id);
@@ -208,8 +229,8 @@ export default function MealRegistScreen({ route, navigation }: any) {
       }
     }
 
-    // 이미지가 있는 경우 FormData 사용
-    if (selectedImage) {
+    // 이미지가 새로 선택/변경된 경우 FormData 사용
+    if (selectedImage && imageChanged) {
       const formData = new FormData();
 
       // 이미지 파일 추가
@@ -223,10 +244,11 @@ export default function MealRegistScreen({ route, navigation }: any) {
         type: type,
       } as any);
 
-      // 나머지 데이터 추가
       Object.entries(mealData).forEach(([key, value]) => {
         if (key === 'ingredients' && Array.isArray(value)) {
           formData.append(key, JSON.stringify(value));
+        } else if (value === null || value === undefined) {
+          // null/undefined는 전송하지 않음
         } else {
           formData.append(key, String(value));
         }
@@ -271,11 +293,22 @@ export default function MealRegistScreen({ route, navigation }: any) {
         });
       }
     } else {
-      // 이미지가 없는 경우 기존 방식 사용
+      // 이미지 변경이 없는 경우 - FormData로 보내되 파일 없이
       if (isEditMode) {
-        // 수정 모드
-        updateMealMutation.mutate(
-          { mealHash: meal.view_hash, mealData },
+        const formData = new FormData();
+        // 나머지 데이터 추가
+        // 나머지 데이터 추가
+        Object.entries(mealData).forEach(([key, value]) => {
+          if (key === 'ingredients' && Array.isArray(value)) {
+            formData.append(key, JSON.stringify(value));
+          } else if (value === null || value === undefined) {
+            // null/undefined는 전송하지 않음
+          } else {
+            formData.append(key, String(value));
+          }
+        });
+        updateMealWithImageMutation.mutate(
+          { mealHash: meal.view_hash, formData },
           {
             onSuccess: (response) => {
               if (!response.success) {
@@ -286,7 +319,7 @@ export default function MealRegistScreen({ route, navigation }: any) {
                 onHide: () => navigation.goBack(),
               });
             },
-            onError: (error) => {
+            onError: () => {
               toastError('식단 수정에 실패했습니다.');
             },
           }
@@ -366,14 +399,14 @@ export default function MealRegistScreen({ route, navigation }: any) {
                   style={styles.imageButton}
                   onPress={handleTakePhoto}
                 >
-                  <Ionicons name="camera" size={24} color="#FF9AA2" />
+                  <Ionicons name="camera" size={10} color="#FF9AA2" />
                   <Text style={styles.imageButtonText}>촬영</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.imageButton}
                   onPress={handlePickImage}
                 >
-                  <Ionicons name="images" size={24} color="#FF9AA2" />
+                  <Ionicons name="images" size={10} color="#FF9AA2" />
                   <Text style={styles.imageButtonText}>갤러리</Text>
                 </TouchableOpacity>
               </View>
@@ -489,7 +522,6 @@ export default function MealRegistScreen({ route, navigation }: any) {
           </View>
           {/* 식사 단계 end */}
 
-
           {/* 식사 단계에 따른 selectbox 노출 */}
           {stageItems.length > 0 && (
             <View style={styles.section}>
@@ -515,70 +547,153 @@ export default function MealRegistScreen({ route, navigation }: any) {
             </View>
           )}
           {/* 재료입력(기성품 여부가 N 인 경우)start */}
-          {showIngredientInput && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>재료 입력</Text>
-              <View style={styles.tagInputContainer}>
-                <View style={styles.tagInputRow}>
-                  <TextInput
-                    style={styles.tagInput}
-                    placeholder="재료명을 입력하세요 (예: 당근, 감자)"
-                    placeholderTextColor="#B8B8B8"
-                    value={ingredientInput}
-                    onChangeText={setIngredientInput}
-                    onSubmitEditing={() => handleAddIngredient(ingredientInput)}
-                    returnKeyType="done"
-                  />
-                  {ingredientInput.length > 0 && (
-                    <TouchableOpacity style={styles.tagAddButton} onPress={() => handleAddIngredient(ingredientInput)}>
-                      <Ionicons name="add" size={26} color="#FFFFFF" />
-                    </TouchableOpacity>
-                  )}
-                </View>
+          {showIngredientInput && (() => {
+            const catData = (ingredientListData as any[])?.find(
+              (c: any) => c.category === selectedIngredientCategory
+            );
+            const filtered = selectedIngredientCategory
+              ? (catData?.ingredients ?? []).filter(
+                  (ing: any) => ingredientSearch === '' || ing.name.includes(ingredientSearch)
+                )
+              : [];
+            return (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>재료 입력</Text>
 
-                {/* 재료 자동완성 */}
-                {showIngredientSuggestions && ingredientSuggestions.length > 0 && (
-                  <View style={styles.suggestionsContainer}>
-                    <View style={styles.suggestionsHeader}>
-                      <Ionicons name="search" size={13} color="#FF9AA2" />
-                      <Text style={styles.suggestionsHeaderText}>추천 재료</Text>
+                {/* 대카테고리 칩 */}
+                {Array.isArray(ingredientListData) && (
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    style={{ marginBottom: 14 }}
+                    contentContainerStyle={{ gap: 8, paddingVertical: 2 }}
+                  >
+                    {ingredientListData.map((cat: any) => {
+                      const isActive = selectedIngredientCategory === cat.category;
+                      return (
+                        <TouchableOpacity
+                          key={cat.category}
+                          onPress={() => {
+                            setSelectedIngredientCategory(isActive ? null : cat.category);
+                            setIngredientSearch('');
+                          }}
+                          style={[
+                            styles.ingredientCatChip,
+                            isActive && styles.ingredientCatChipActive,
+                          ]}
+                        >
+                          <Text style={styles.ingredientCatIcon}>
+                            {CATEGORY_ICONS[cat.category] ?? '🍴'}
+                          </Text>
+                          <Text style={[
+                            styles.ingredientCatLabel,
+                            isActive && styles.ingredientCatLabelActive,
+                          ]}>
+                            {CATEGORY_LABELS[cat.category] ?? cat.category}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                )}
+
+                {/* 재료 검색 + 리스트 */}
+                {selectedIngredientCategory && (
+                  <View style={styles.ingredientListBox}>
+                    {/* 검색 인풋 */}
+                    <View style={styles.ingredientSearchRow}>
+                      <Ionicons name="search" size={15} color="#FF9AA2" />
+                      <TextInput
+                        style={styles.ingredientSearchInput}
+                        placeholder={`${CATEGORY_LABELS[selectedIngredientCategory] ?? ''} 재료 검색`}
+                        placeholderTextColor="#C8C8C8"
+                        value={ingredientSearch}
+                        onChangeText={setIngredientSearch}
+                      />
+                      {ingredientSearch.length > 0 && (
+                        <TouchableOpacity onPress={() => setIngredientSearch('')}>
+                          <Ionicons name="close-circle" size={16} color="#C8C8C8" />
+                        </TouchableOpacity>
+                      )}
                     </View>
-                    {ingredientSuggestions.map((suggestion, key) => (
-                      <TouchableOpacity
-                        key={key}
-                        style={[
-                          styles.suggestionItem,
-                          key === ingredientSuggestions.length - 1 && styles.suggestionItemLast,
-                        ]}
-                        onPress={() => handleAddIngredient(suggestion)}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={styles.suggestionHash}>#</Text>
-                        <Text style={styles.suggestionText}>{suggestion}</Text>
-                        <Ionicons name="add-circle-outline" size={18} color="#FF9AA2" />
-                      </TouchableOpacity>
+                    {/* 구분선 */}
+                    <View style={styles.ingredientListDivider} />
+                    {/* 세로 스크롤 목록 */}
+                    <ScrollView
+                      style={styles.ingredientScrollList}
+                      nestedScrollEnabled
+                      showsVerticalScrollIndicator={false}
+                      keyboardShouldPersistTaps="handled"
+                    >
+                      {filtered.length === 0 ? (
+                        <View style={styles.ingredientEmptyRow}>
+                          <Text style={styles.ingredientEmptyText}>검색 결과가 없습니다.</Text>
+                        </View>
+                      ) : (
+                        filtered.map((ing: any) => {
+                          const isSelected = ingredients.includes(ing.name);
+                          return (
+                            <TouchableOpacity
+                              key={ing.id}
+                              onPress={() => {
+                                if (isSelected) {
+                                  setIngredients(ingredients.filter(n => n !== ing.name));
+                                } else {
+                                  setIngredients([...ingredients, ing.name]);
+                                }
+                              }}
+                              style={[
+                                styles.ingredientRow,
+                                isSelected && styles.ingredientRowSelected,
+                              ]}
+                              activeOpacity={0.7}
+                            >
+                              <View style={[
+                                styles.ingredientCheckCircle,
+                                isSelected && styles.ingredientCheckCircleActive,
+                              ]}>
+                                {isSelected && (
+                                  <Ionicons name="checkmark" size={12} color="#FFFFFF" />
+                                )}
+                              </View>
+                              <Text style={[
+                                styles.ingredientRowText,
+                                isSelected && styles.ingredientRowTextSelected,
+                              ]}>
+                                {ing.name}
+                              </Text>
+                              {ing.allergy_risk === 'Y' && (
+                                <View style={styles.allergyBadge}>
+                                  <Text style={styles.allergyBadgeText}>알레르기</Text>
+                                </View>
+                              )}
+                            </TouchableOpacity>
+                          );
+                        })
+                      )}
+                    </ScrollView>
+                  </View>
+                )}
+
+                {/* 선택된 재료 태그 */}
+                {ingredients.length > 0 && (
+                  <View style={[styles.tagList, { marginTop: 14 }]}>
+                    {ingredients.map((item, index) => (
+                      <View key={index} style={styles.tag}>
+                        <Text style={styles.tagText}>#{item}</Text>
+                        <TouchableOpacity
+                          onPress={() => handleRemoveIngredient(index)}
+                          style={styles.tagRemoveButton}
+                        >
+                          <Ionicons name="close" size={14} color="#FF6B7A" />
+                        </TouchableOpacity>
+                      </View>
                     ))}
                   </View>
                 )}
               </View>
-
-              {ingredients.length > 0 && (
-                <View style={styles.tagList}>
-                  {ingredients.map((item, index) => (
-                    <View key={index} style={styles.tag}>
-                      <Text style={styles.tagText}>#{item}</Text>
-                      <TouchableOpacity
-                        onPress={() => handleRemoveIngredient(index)}
-                        style={styles.tagRemoveButton}
-                      >
-                        <Ionicons name="close" size={16} color="#666" />
-                      </TouchableOpacity>
-                    </View>
-                  ))}
-                </View>
-              )}
-            </View>
-          )}
+            );
+          })()}
           {/* 재료입력 end */}
 
           {/* 기성품 여부 Y/N | N 인 경우 재료 입력 start */}
