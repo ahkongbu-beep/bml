@@ -152,7 +152,7 @@ class FeedRepository:
 
         image_subquery = (
             session.query(
-                FeedsImages.img_model_id.label('feed_id'),
+                AttachesF.img_model_id.label('feed_id'),
                 sql_func.group_concat(FeedsImages.image_url).label('images'),
                 sql_func.group_concat(FeedsImages.id).label('image_ids')
             )

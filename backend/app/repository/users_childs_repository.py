@@ -5,6 +5,20 @@ from sqlalchemy import (Date, func)
 class UsersChildsRepository:
 
     @staticmethod
+    def get_agent_childs_by_user_id(session, user_id: int):
+        return session.query(UsersChilds).filter(
+            UsersChilds.user_id == user_id,
+            UsersChilds.is_agent == "Y"
+        ).first()
+
+    @staticmethod
+    def get_child_by_id_and_name(session, child_id: int, child_name: str):
+        return session.query(UsersChilds).filter(
+            UsersChilds.id == child_id,
+            UsersChilds.child_name == child_name
+        ).first()
+
+    @staticmethod
     def getAgentChild(session, user_id: int):
         return session.query(UsersChilds).filter(
             UsersChilds.user_id == user_id,
@@ -50,7 +64,7 @@ class UsersChildsRepository:
         return child_instance
 
     @staticmethod
-    def delete_child_user(session, child_instance, is_commit: bool = True):
+    def delete(session, child_instance, is_commit: bool = True):
         session.delete(child_instance)
         if is_commit:
             session.commit()
@@ -58,7 +72,7 @@ class UsersChildsRepository:
             session.flush()
 
     @staticmethod
-    def getListWithAllergies(session, user_id: int):
+    def get_list_with_allergies(session, user_id: int):
         from app.models.users_childs_allergies import UsersChildsAllergies
         from app.libs.serializers.query import SerializerQueryResult
 
@@ -86,4 +100,4 @@ class UsersChildsRepository:
             )
         )
 
-        return SerializerQueryResult(query.all())
+        return query.all()

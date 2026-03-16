@@ -8,7 +8,7 @@ class FoodItemRepository:
         return session.query(FoodsItems).filter(FoodsItems.id == food_id).first()
 
     @staticmethod
-    def find_by_code(session, food_code: str):
+    def get_food_item_by_code(session, food_code: str):
         return session.query(FoodsItems).filter(FoodsItems.food_code == food_code).first()
 
     @staticmethod

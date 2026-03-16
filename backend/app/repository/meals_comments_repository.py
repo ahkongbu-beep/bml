@@ -15,8 +15,12 @@ class MealsCommentsRepository:
         return session.query(MealsComments).filter(MealsComments.view_hash == view_hash).first()
 
     @staticmethod
-    def delete_by_id(session, comment_id: int, is_commit=True):
-        comment = session.query(MealsComments).filter(MealsComments.id == comment_id).first()
+    def get_comment_by_view_hash(session, view_hash: str):
+        return session.query(MealsComments).filter(MealsComments.view_hash == view_hash).first()
+
+
+    @staticmethod
+    def soft_delete(session, comment, is_commit=True):
         comment.deleted_at = datetime.datetime.now(pytz.timezone("Asia/Seoul"))
         comment.is_active = "N"
         try:
@@ -93,8 +97,8 @@ class MealsCommentsRepository:
         if "offset" in extra:
             query = query.offset(extra["offset"])
 
-        result = query.all()
-        return QueryResult(result)
+        return query.all()
+
 
 class QueryResult:
     """쿼리 결과를 감싸는 래퍼 클래스 - 체이닝 패턴 지원"""

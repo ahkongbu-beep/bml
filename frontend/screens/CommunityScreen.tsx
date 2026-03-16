@@ -300,6 +300,8 @@ export default function CommunityScreen({ navigation }: any) {
   const renderPost = ({ item }: { item: CommunityPost }) => {
     const isMine = item.user_hash === user?.view_hash;
 
+    console.log("item", item);
+
     // category_code에 맞는 주제 찾기
     const category = topicGroupsWithAll.find(cat => cat.id === item.category_code);
     const categoryName = category ? category.value : '';
@@ -317,7 +319,7 @@ export default function CommunityScreen({ navigation }: any) {
               style={styles.postProfileContainer}
             >
               <Image
-                source={{ uri: getStaticImage('thumbnail', item.profile_image) || '' }}
+                source={{ uri: getStaticImage('thumbnail', item.user.profile_image) || '' }}
                 style={styles.postProfileImage}
               />
             </TouchableOpacity>
@@ -330,7 +332,7 @@ export default function CommunityScreen({ navigation }: any) {
                   </View>
                 )}
                 <Text style={styles.postMetaText}>
-                  {item.nickname} · {diffMonthsFrom(item.child_birth)}개월
+                  {item.child?.child_name} · {diffMonthsFrom(item.child?.child_birth)}개월
                 </Text>
               </View>
 

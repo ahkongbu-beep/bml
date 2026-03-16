@@ -1,12 +1,21 @@
 
 from app.models.communities import Communities
 from app.models.users_childs import UsersChilds
-from app.libs.serializers.query import SerializerQueryResult
+
 from app.libs.hash_utils import generate_sha256_hash
 from datetime import datetime
 import pytz
 
 class CommunitiesRepository:
+
+    def increase_view_count(db, community, is_commit=True):
+        """커뮤니티 글 조회수 증가 함수"""
+        community.view_count += 1
+        db.add(community)
+
+        if is_commit:
+            db.commit()
+            db.refresh(community)
 
     @staticmethod
     def find_by_view_hash(db, view_hash):
@@ -64,7 +73,7 @@ class CommunitiesRepository:
         from app.models.users import Users
         from app.models.communities_likes import CommunitiesLikes
         from app.models.communities_comments import CommunitiesComments
-        from app.models.communities_images import CommunitiesImages
+        from app.models.attaches_files import AttachesFiles
 
         # 기본값 설정
         limit = params.get("limit", 20)
@@ -73,10 +82,11 @@ class CommunitiesRepository:
         # 이미지 서브쿼리: 각 커뮤니티의 이미지들을 콤마로 연결
         image_subquery = (
             db.query(
-                CommunitiesImages.community_id,
-                sql_func.group_concat(CommunitiesImages.image_url).label('images')
+                AttachesFiles.img_model_id.label("community_id"),
+                sql_func.group_concat(AttachesFiles.image_url).label('images')
             )
-            .group_by(CommunitiesImages.community_id)
+            .filter(AttachesFiles.img_model == "Communities")
+            .group_by(AttachesFiles.img_model_id)
             .subquery()
         )
 
@@ -209,7 +219,7 @@ class CommunitiesRepository:
 
         # 결과 조회
         result = query.limit(limit).all()
-        return SerializerQueryResult(result)
+        return result
 
     @staticmethod
     def get_list_count(db, user_id, params) -> int:

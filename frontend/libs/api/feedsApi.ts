@@ -150,7 +150,7 @@ export const blockUser = async (deny_user_hash: string): Promise<ApiResponse<nul
  */
 export const getMyFeeds = async (params?: Omit<FeedListParams, 'user_hash'>): Promise<PaginationResponse<Feed>> => {
   const finalParams = { ...params, type: "owner", page: params?.page || 1, limit: params?.limit || 30 };
-  return fetchGet<PaginationResponse<Feed>>('/feeds/list', finalParams);
+  return fetchGet<PaginationResponse<Feed>>('/meals/feed/list', finalParams);
 };
 
 /**

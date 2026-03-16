@@ -12,18 +12,6 @@ class CommunitiesCommentsRepository:
         return session.query(CommunitiesComments).filter(CommunitiesComments.view_hash == view_hash).first()
 
     @staticmethod
-    def delete_by_id(session, comment_id: int):
-        comment = session.query(CommunitiesComments).filter(CommunitiesComments.id == comment_id).first()
-        comment.deleted_at = datetime.datetime.now(pytz.timezone("Asia/Seoul"))
-        try:
-            session.commit()
-            return True
-        except Exception as e:
-            session.rollback()
-
-        return False
-
-    @staticmethod
     def soft_delete(session, comment: 'CommunitiesComments'):
         comment.deleted_at = datetime.datetime.now(pytz.timezone("Asia/Seoul"))
         try:
@@ -35,7 +23,7 @@ class CommunitiesCommentsRepository:
         return False
 
     @staticmethod
-    def create(session, params: dict):
+    def create(session, params: dict, is_commit: bool = True):
         kst = pytz.timezone("Asia/Seoul")
         now = datetime.datetime.now(kst)
         # view_hash 생성
@@ -56,7 +44,10 @@ class CommunitiesCommentsRepository:
             )
 
             session.add(comment)
-            session.commit()
+            if is_commit:
+                session.commit()
+            else:
+                session.flush()  # 변경사항을 DB에 반영하여 ID를 생성하기 위해 flush
             session.refresh(comment)
             return comment
         except Exception as e:
@@ -113,66 +104,4 @@ class CommunitiesCommentsRepository:
             query = query.offset(extra["offset"])
 
         result = query.all()
-        return QueryResult(result)
-
-class QueryResult:
-    """쿼리 결과를 감싸는 래퍼 클래스 - 체이닝 패턴 지원"""
-
-    def __init__(self, results):
-        self._results = results
-
-    def getData(self):
-        """직렬화된 Pydantic 모델 리스트 반환"""
-        from app.schemas.feeds_schemas import FeedsUserResponse
-        from app.schemas.communities_schemas import CommunityCommentResponse
-
-        return [
-            CommunityCommentResponse(
-                community_id=v.community_id,
-                comment=v.comment,
-                parent_id=v.parent_id,
-                is_owner=v.is_owner,
-                created_at=v.created_at,
-                updated_at=v.updated_at,
-                deleted_at=v.deleted_at,
-                view_hash=v.view_hash,
-                parent_hash=v.parent_hash,
-                user=FeedsUserResponse(
-                    nickname=v.nickname,
-                    profile_image=v.profile_image if v.profile_image else None,
-                    user_hash=v.user_hash
-                )
-            )
-            for v in self._results
-        ]
-
-    def toDict(self):
-        """딕셔너리 리스트 반환"""
-        return [
-            {
-                "community_id": v.community_id,
-                "comment": v.comment,
-                "parent_id": v.parent_id,
-                "is_owner": v.is_owner,
-                "created_at": v.created_at,
-                "updated_at": v.updated_at,
-                "deleted_at": v.deleted_at,
-                "view_hash": v.view_hash,
-                "parent_hash": v.parent_hash,
-                "user": {
-                    "nickname": v.nickname,
-                    "profile_image": v.profile_image if v.profile_image else None,
-                    "user_hash": v.user_hash
-                }
-            }
-            for v in self._results
-        ]
-
-    def toJSON(self):
-        """JSON 문자열 반환"""
-        import json
-        return json.dumps(self.toDict(), ensure_ascii=False, default=str)
-
-    def getRawData(self):
-        """원본 SQLAlchemy 객체 반환"""
-        return self._results
+        return result

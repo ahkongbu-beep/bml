@@ -2,10 +2,9 @@ from app.models.meals_calendar import MealsCalendars
 from app.models.categories_codes import CategoriesCodes
 from app.models.feeds_tags_mappers import FeedsTagsMappers
 from app.models.feeds_tags import FeedsTags
-from app.models.feeds_images import FeedsImages
+from app.models.attaches_files import AttachesFiles
 from app.models.meals_likes import MealsLikes
 from app.models.users import Users
-from sqlalchemy import func as sql_func
 from app.models.users_childs import UsersChilds
 from app.models.users_childs_allergies import UsersChildsAllergies
 
@@ -68,6 +67,18 @@ class MealsCalendarsRepository:
             session.rollback()
             raise e
 
+    @staticmethod
+    def soft_delete(session, meal_calendar, is_commit=True):
+        try:
+            meal_calendar.is_active = "N"
+            if is_commit:
+                session.commit()
+            else:
+                session.flush()  # 변경사항을 DB에 반영하지만 커밋하지는 않음
+            return True
+        except Exception as e:
+            session.rollback()
+            raise e
 
     @staticmethod
     def findByUserIdAndDate(session, user_id: int, input_date: str, child_id: int, category_code: int = None):
@@ -75,7 +86,8 @@ class MealsCalendarsRepository:
         query = session.query(MealsCalendars).filter(
             MealsCalendars.user_id == user_id,
             MealsCalendars.child_id == child_id,
-            MealsCalendars.input_date == input_date
+            MealsCalendars.input_date == input_date,
+            MealsCalendars.is_active == "Y"
         )
 
         if category_code is not None:
@@ -85,7 +97,7 @@ class MealsCalendarsRepository:
 
     @staticmethod
     def get_list(session, params, extra=None):
-        from sqlalchemy import case, func as sql_func
+        from sqlalchemy import case, func as sql_func, distinct
 
         if extra is None:
             extra = {}
@@ -114,15 +126,13 @@ class MealsCalendarsRepository:
 
         image_subquery = (
             session.query(
-                FeedsImages.img_model_id.label("meal_id"),
-                sql_func.min(FeedsImages.image_url).label("image_url")
+                AttachesFiles.img_model_id.label("meal_id"),
+                sql_func.min(AttachesFiles.image_url).label("image_url")
             )
-            .filter(FeedsImages.img_model == "Meals")
-            .group_by(FeedsImages.img_model_id)
+            .filter(AttachesFiles.img_model == "Meals", AttachesFiles.is_active == "Y")
+            .group_by(AttachesFiles.img_model_id)
             .subquery()
         )
-
-        from sqlalchemy import distinct
 
         # 대표 자녀 정보 + 알레르기 정보 서브쿼리 (통합)
         user_childs_subquery = (
@@ -211,7 +221,7 @@ class MealsCalendarsRepository:
                 return None
             return column == value
 
-        conditions = list(filter(None, [
+        conditions = [c for c in [
             eq(MealsCalendars.is_public, "is_public"),
             eq(MealsCalendars.category_code, "category_id"),
             eq(MealsCalendars.is_active, "is_active"),
@@ -222,7 +232,7 @@ class MealsCalendarsRepository:
             MealsCalendars.user_id == params["my_user_id"] if params.get("view_type") == "mine" else None,
             ~MealsCalendars.user_id.in_(params["deny_user_ids"]) if params.get("deny_user_ids") else None,
             MealsCalendars.id < params["cursor"] if params.get("cursor") else None,
-        ]))
+        ] if c is not None]
 
         # target_user_id가 있으면 해당 사용자의 피드만 조회
         if params.get("target_user_id"):
@@ -234,75 +244,5 @@ class MealsCalendarsRepository:
             query = query.filter(MealsCalendars.created_at.between(params["start_date"], params["end_date"]))
 
         query = query.filter(*conditions)
-
         result = query.order_by(order_by).offset(offset).limit(limit).all()
-
-        return QueryResult(result)
-
-class QueryResult:
-    """쿼리 결과를 감싸는 래퍼 클래스 - 체이닝 패턴 지원"""
-
-    def __init__(self, results):
-        self._results = results
-
-    def getData(self):
-        """직렬화된 Pydantic 모델 리스트 반환"""
-        from app.schemas.meals_schemas import MealsCalendarResponse
-        from app.schemas.feeds_schemas import FeedsUserResponse
-        from app.schemas.users_schemas import UserChildItemSchema, AllergyItemSchema
-
-        return [
-            MealsCalendarResponse(
-                id=v.id,
-                title=v.title,
-                contents=v.contents,
-                input_date=f"{v.input_date.year}-{v.input_date.month}-{v.input_date.day}",
-                month=v.month,
-                refer_feed_id=v.refer_feed_id,
-                image_url=v.image_url if v.image_url else None,
-                category_id=v.category_id,
-                category_name=v.category_name,
-                is_pre_made=v.is_pre_made,
-                view_count=v.view_count,
-                like_count=v.like_count if v.like_count else 0,
-                meal_condition=v.meal_condition,
-                is_liked=v.is_liked,
-                is_public=v.is_public,
-                meal_stage=v.meal_stage,
-                meal_stage_detail=v.meal_stage_detail,
-                mapped_tags=v.mapped_tags.split(',') if v.mapped_tags else [],
-                user=FeedsUserResponse(
-                    id=v.user_id,
-                    nickname=v.nickname,
-                    profile_image=v.profile_image if v.profile_image else None,
-                    user_hash=v.user_hash
-                ),
-                childs=UserChildItemSchema(
-                    child_name=v.child_name,
-                    child_birth=v.child_birth,
-                    child_gender=v.child_gender,
-                    is_agent=v.is_agent,
-                    allergies=[
-                        AllergyItemSchema(
-                            allergy_code=code.strip() if code else None,
-                            allergy_name=name.strip()
-                        )
-                        for code, name in zip(
-                            v.allergy_codes.split(',') if v.allergy_codes else [],
-                            v.allergy_names.split(',') if v.allergy_names else []
-                        )
-                    ] if v.allergy_names else []
-                ),
-                view_hash=v.view_hash
-            )
-            for v in self._results
-        ]
-
-    def toJSON(self):
-        """JSON 문자열 반환"""
-        import json
-        return json.dumps(self.toDict(), ensure_ascii=False, default=str)
-
-    def getRawData(self):
-        """원본 SQLAlchemy 객체 반환"""
-        return self._results
+        return result

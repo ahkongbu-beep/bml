@@ -64,7 +64,7 @@ export default function MyFeedGrid({
             onPress={() => onFeedPress(feed.id)}
           >
             <Image
-              source={{ uri: feed.images?.[0] ? getStaticImage('medium', feed.images[0]) : '' }}
+              source={{ uri: feed.image_url ? getStaticImage('medium', feed.image_url) : '' }}
               style={styles.feedImage}
             />
             {feed.images && feed.images.length > 1 && (

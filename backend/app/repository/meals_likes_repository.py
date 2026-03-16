@@ -66,3 +66,12 @@ class MealsLikesRepository:
         )
 
         return query.all()
+
+    @staticmethod
+    def delete(session, like, is_commit=True):
+        if like:
+            session.delete(like)
+            if is_commit:
+                session.commit()
+            else:
+                session.flush()  # 변경사항을 DB에 반영하지만 커밋하지는 않음

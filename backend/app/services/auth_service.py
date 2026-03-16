@@ -6,10 +6,12 @@
 """
 from sqlalchemy import func
 from sqlalchemy.orm import Session
-from app.repository.user_repository import UserRepository
+
 from app.repository.meals_mappers_repository import MealsMappersRepository
 
 from app.models.users import Users
+
+from app.services.users_service import validate_user, validate_user_email, get_sns_user, update_user_last_login
 
 from app.schemas.users_schemas import UserResponseSchema
 from app.schemas.common_schemas import CommonResponse
@@ -23,13 +25,15 @@ from typing import Optional
 
 def email_login(db: Session, email: str, password: str) -> CommonResponse:
     """이메일 로그인"""
-    user = UserRepository.get_user_by_email(db, email)
 
-    if not user:
-        return CommonResponse(success=False, message="일치하는 회원 정보를 찾을 수 없습니다.", data=None)
+    try:
+        user = validate_user_email(db, email)
 
-    if not verify_password(user.password, password):
-        return CommonResponse(success=False, message="비밀번호가 일치하지 않습니다.", data=None)
+        if not verify_password(user.password, password):
+            return CommonResponse(success=False, message="비밀번호가 일치하지 않습니다.", data=None)
+
+    except Exception as e:
+        return CommonResponse(success=False, message=str(e), data=None)
 
     return _generate_login_response(db, user)
 
@@ -180,7 +184,7 @@ def _handle_social_login(db: Session, social_info: SocialUserInfo, refresh_token
     from app.libs.hash_utils import generate_sha256_hash
 
     # DB에서 사용자 검색
-    user = UserRepository.get_user_by_sns_account(db, social_info.provider, social_info.social_id)
+    user = get_sns_user(db, social_info.provider, social_info.social_id)
 
     # 신규 사용자인 경우 자동 회원가입
     if not user:
@@ -264,7 +268,7 @@ def _generate_login_response(db: Session, user: Users) -> CommonResponse:
     refresh_token = create_refresh_token(token_data)
 
     # 마지막 로그인 시간 업데이트
-    UserRepository.update_last_login(db, user.id)
+    update_user_last_login(db, user)
 
     # 식단 선호도 조회
     meals_mapper = MealsMappersRepository.get_list(db, user.id).serialize()
@@ -316,7 +320,7 @@ async def remove_deny_user(db: Session, user_hash: str) -> CommonResponse:
     """
     회원 탈퇴
     """
-    user = UserRepository.find_by_view_hash(db, user_hash)
+    user = validate_user(db, user_hash)
     if not user:
         return CommonResponse(success=False, message="회원 정보를 찾을 수 없습니다.", data=None)
 
@@ -376,7 +380,7 @@ def refresh_access_token(db: Session, refresh_token: str) -> CommonResponse:
             data=None
         )
 
-    user = UserRepository.find_by_view_hash(db, user_hash)
+    user = validate_user(db, user_hash)
     if not user:
         return CommonResponse(
             success=False,

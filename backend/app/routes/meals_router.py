@@ -61,6 +61,7 @@ async def create_meal(
         'category_id': category_id,
         'input_date': input_date,
         'contents': contents,
+        'refer_feed_id': 0,
         'ingredients': ingredients_list,
         'is_pre_made': isPreMade,
         'is_public': is_public,

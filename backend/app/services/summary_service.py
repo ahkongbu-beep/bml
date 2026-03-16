@@ -3,10 +3,8 @@
 - sns_login_type 이 EMAIL 인 경우 password는 필수
 - 그 외 sns_login_type 인 경우 sns_id 는 필수
 """
-import hashlib
 from pathlib import Path
 
-from fastapi import params
 from app.repository.user_repository import UserRepository
 from app.repository.feed_repository import FeedRepository
 from app.repository.feeds_tags_mappers_repository import FeedsTagsMappersRepository

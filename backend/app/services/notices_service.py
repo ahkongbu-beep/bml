@@ -1,6 +1,5 @@
 from app.repository.notices_repository import NoticesRepository
-from app.repository.categories_codes_repository import CategoriesCodesRepository
-
+from app.services.categories_codes_service import get_category_code_by_id
 from app.schemas.notices_schemas import NoticesCreateRequest, NoticesDetailResponseData, NoticesUpdateRequest
 from app.schemas.common_schemas import CommonResponse
 
@@ -14,7 +13,7 @@ def notice_detail(db, view_hash: str):
     if not notice:
         return CommonResponse(success=False, error="존재하지 않는 공지사항입니다.", data=None)
 
-    category_code = CategoriesCodesRepository.findById(db, notice.category_id)
+    category_code = get_category_code_by_id(db, notice.category_id)
 
     data = NoticesDetailResponseData(
         view_hash=notice.view_hash,
@@ -34,7 +33,7 @@ def notice_detail(db, view_hash: str):
 # 공지 등록
 def create_notice(notice: NoticesCreateRequest, client_ip: str, db):
 
-    category_code = CategoriesCodesRepository.findById(db, notice.category_id)
+    category_code = get_category_code_by_id(db, notice.category_id)
     if not category_code or category_code.type != "NOTICES_GROUP":
         return CommonResponse(success=False, error="유효하지 않은 카테고리입니다.", data=None)
 
@@ -80,7 +79,7 @@ def update_notice(notice: NoticesUpdateRequest, view_hash: str, db):
     if not existing_notice:
         return CommonResponse(success=False, error="존재하지 않는 공지사항입니다.", data=None)
 
-    category_code = CategoriesCodesRepository.findById(db, notice.category_id)
+    category_code = get_category_code_by_id(db, notice.category_id)
 
     if not category_code or category_code.type != "NOTICES_GROUP":
         return CommonResponse(success=False, error="유효하지 않은 카테고리입니다.", data=None)

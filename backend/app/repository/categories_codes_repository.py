@@ -1,5 +1,4 @@
 from app.core.database import Base
-from app.libs.serializers.query import SerializerQueryResult
 from app.models.categories_codes import CategoriesCodes
 
 class CategoriesCodesRepository:
@@ -8,31 +7,21 @@ class CategoriesCodesRepository:
         return session.query(CategoriesCodes).filter(CategoriesCodes.id == category_id).first()
 
     @staticmethod
-    def get_one_data(session, category_id: int):
-        return session.query(CategoriesCodes).filter(CategoriesCodes.id == category_id).first()
-
-    @staticmethod
-    def findByTypeAndSort(session, type: str, sort: int):
+    def get_category_by_type_and_sort(session, type: str, sort: int):
         return session.query(CategoriesCodes).filter(
             CategoriesCodes.type == type,
             CategoriesCodes.sort == sort
         ).first()
 
     @staticmethod
-    def findByTypeAndCode(session, type: str, code: str):
-        return session.query(CategoriesCodes).filter(
-            CategoriesCodes.type == type,
-            CategoriesCodes.code == code
-        ).first()
-
-    def findByTypeAndValue(session, type: str, value: str):
+    def get_category_by_type_and_value(session, type: str, value: str):
         return session.query(CategoriesCodes).filter(
             CategoriesCodes.type == type,
             CategoriesCodes.value == value
         ).first()
 
     @staticmethod
-    def getLastCode(session, type: str):
+    def get_last_code(session, type: str):
         last_count = session.query(CategoriesCodes).filter(
             CategoriesCodes.type == type
         ).count()
@@ -44,7 +33,7 @@ class CategoriesCodesRepository:
 
     @staticmethod
     def create(session, params: dict):
-        new_code = CategoriesCodes.getLastCode(session, params["type"])
+        new_code = CategoriesCodesRepository.get_last_code(session, params["type"])
 
         params["code"] = new_code
 
@@ -67,7 +56,7 @@ class CategoriesCodesRepository:
 
     @staticmethod
     def update(session, category_id: int, params: dict):
-        category_code = CategoriesCodes.findById(session, category_id)
+        category_code = CategoriesCodesRepository.get_category_codes_by_id(session, category_id)
         if not category_code:
             raise Exception("카테고리 코드가 존재하지 않습니다.")
 
@@ -88,9 +77,6 @@ class CategoriesCodesRepository:
 
     @staticmethod
     def get_list(session, params: dict):
-        # TODO: Admin 및 Category 테이블이 생성되면 JOIN 추가
-        # 현재는 임시 데이터 사용
-
         query = session.query(CategoriesCodes)
 
         if 'type' in params and params['type']:
@@ -110,4 +96,4 @@ class CategoriesCodesRepository:
             CategoriesCodes.sort.asc()
         ).all()
 
-        return SerializerQueryResult(results)
+        return results

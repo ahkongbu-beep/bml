@@ -7,6 +7,22 @@ class DeniesUsersRepository:
     user_id 로 차단한 회원 목록 조회
     """
     @staticmethod
+    def get_denies_users_by_user_id(session, user_id: int):
+        return session.query(DeniesUsers).filter(
+            DeniesUsers.user_id == user_id
+        ).all()
+
+    @staticmethod
+    def get_deny_user_by_user_id_and_deny_user_id(session, user_id: int, deny_user_id: int):
+        return session.query(DeniesUsers).filter(
+            DeniesUsers.user_id == user_id,
+            DeniesUsers.deny_user_id == deny_user_id
+        ).first()
+
+    """
+    user_id 로 차단한 회원 목록 조회
+    """
+    @staticmethod
     def findByUserIds(session, user_id: int):
         return session.query(DeniesUsers).filter(
             DeniesUsers.user_id == user_id
@@ -35,17 +51,15 @@ class DeniesUsersRepository:
         )
 
         session.add(deny_entry)
-        session.commit()
         session.refresh(deny_entry)
         return deny_entry
 
     @staticmethod
-    def deleteByUserIdAndDenyUserId(session, user_id: int, deny_user_id: int):
+    def delete(session, user_id: int, deny_user_id: int):
         session.query(DeniesUsers).filter(
             DeniesUsers.user_id == user_id,
             DeniesUsers.deny_user_id == deny_user_id
         ).delete()
-        session.commit()
 
     """
     user_id 로 차단한 리스트 조회

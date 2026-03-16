@@ -1,4 +1,3 @@
-# (db, meal_image, "Feeds", create_feed_response.id, is_commit=False)
 import datetime
 import os
 import shutil

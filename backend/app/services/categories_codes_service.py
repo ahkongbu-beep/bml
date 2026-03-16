@@ -2,9 +2,14 @@ from app.repository.categories_codes_repository import CategoriesCodesRepository
 from app.repository.food_item_repository import FoodItemRepository
 from app.schemas.categories_codes_schemas import CategoryCodeResponse
 from app.schemas.common_schemas import CommonResponse
+from app.libs.serializers.query import SerializerQueryResult
 
 def get_category_code_by_id(db, category_id: int):
     return CategoriesCodesRepository.get_category_codes_by_id(db, category_id)
+
+def get_category_list(db, params):
+    result = CategoriesCodesRepository.get_list(db, params)
+    return SerializerQueryResult(result).serialize()
 
 def list_categories_codes(db, cc_type: str = None):
 
@@ -12,7 +17,7 @@ def list_categories_codes(db, cc_type: str = None):
     if cc_type:
         params["type"] = cc_type
 
-    categories_codes = CategoriesCodesRepository.get_list(db, params).serialize()
+    categories_codes = get_category_list(db, params)
 
     # type별로 그룹화
     grouped_data = {}
@@ -33,7 +38,7 @@ def save_categories_code(db, data):
             return CommonResponse(success=False, error="카테고리 정보가 조회되지않습니다.", data=None)
 
         try:
-            exist_category_code = CategoriesCodesRepository.findByTypeAndSort(db, data["type"], data["sort"])
+            exist_category_code = CategoriesCodesRepository.get_category_by_type_and_sort(db, data["type"], data["sort"])
             if category_code.id != exist_category_code.id and exist_category_code:
                 raise Exception("동일한 타입과 정렬순서의 카테고리 코드가 이미 존재합니다.")
 
@@ -64,11 +69,11 @@ def save_categories_code(db, data):
                 "sort": data.get("sort", 1),
             }
 
-            exist_category_code = CategoriesCodesRepository.findByTypeAndSort(db, params["type"], params["sort"])
+            exist_category_code = CategoriesCodesRepository.get_category_by_type_and_sort(db, params["type"], params["sort"])
             if exist_category_code:
                 raise Exception("동일한 타입과 정렬순서의 카테고리 코드가 이미 존재합니다.")
 
-            exist_category_code = CategoriesCodesRepository.findByTypeAndValue(db, params["type"], params["value"])
+            exist_category_code = CategoriesCodesRepository.get_category_by_type_and_value(db, params["type"], params["value"])
             if exist_category_code:
                 raise Exception("동일한 타입과 값의 카테고리 코드가 이미 존재합니다.")
 

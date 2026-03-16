@@ -2,21 +2,39 @@
 식단 캘린더 service 가이드
 """
 from app.repository.meals_calendars_repository import MealsCalendarsRepository
-from app.repository.categories_codes_repository import CategoriesCodesRepository
-from app.repository.feeds_images_repository import FeedsImagesRepository
-from app.repository.meals_calendars_images_repository import MealsCalendarsImagesRepository
-
 from app.schemas.common_schemas import CommonResponse
 from app.schemas.meals_schemas import FeedListRequest
-
 from app.libs.hash_utils import generate_sha256_hash
 from app.services.ingredients_service import  process_tags
 from app.services.ingredients_mappers_service import create_ingredient_mapper, delete_ingredient_mapper
+from app.services.attaches_files_service import soft_delete_file_by_model_id, upload_file, save_upload_file
 from app.services.users_service import validate_user
 from app.services.feeds_images_service import create_meal_image
 from app.services.denies_users_service import get_denies_user_id_list
 from app.services.users_childs_service import get_agent_childs
 from app.services.categories_codes_service import get_category_code_by_id
+from app.services.meals_calendars_images_service import get_user_month_image_map, delete_calendar_image_by_month, upload_calendar_image
+
+def validate_meal_calendar_id(db, meal_id):
+    meal_calendar = get_meal_calendar_by_id(db, meal_id)
+    if not meal_calendar:
+        raise Exception("식단 캘린더 정보를 찾을 수 없습니다.")
+    return meal_calendar
+
+"""
+식단 id 로 조회
+"""
+def get_meal_calendar_by_id(db, meal_id: int):
+    return MealsCalendarsRepository.get_calendar_by_id(db, meal_id)
+
+def get_user_meal_calendar(db, params):
+
+    user_id = params.get('user_id', None)
+    input_date = params.get('input_date', None)
+    child_id = params.get('child_id', None)
+    category_code_id = params.get('category_code_id', None)
+
+    return MealsCalendarsRepository.findByUserIdAndDate(db, user_id, input_date, child_id, category_code_id)
 
 """
 식단 캘린더 view_hash 생성 로직
@@ -24,8 +42,10 @@ from app.services.categories_codes_service import get_category_code_by_id
 """
 async def generate_meal_calendar_hash(user_id: int, input_date: str, category_code: int, child_id: int) -> str:
     from app.core.config import settings
+    from datetime import datetime
     # view_hash 생성
-    view_hash = generate_sha256_hash(user_id, input_date, category_code, child_id, settings.SECRET_KEY)
+    now_timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    view_hash = generate_sha256_hash(user_id, input_date, category_code, child_id, now_timestamp, settings.SECRET_KEY)
     return view_hash
 
 """
@@ -37,18 +57,10 @@ async def get_calendar_month_image(db, params: dict) -> CommonResponse:
     except Exception as e:
         return CommonResponse(success=False, error=str(e), data=None)
 
-    meal_calendars = await MealsCalendarsImagesRepository.get_active_user(db, user.id, order_by="month desc")
-
     meal_image_list = {}
 
-    for calendar_month_image in meal_calendars:
-        meal_image_list[calendar_month_image.month] = calendar_month_image.image
-
-    return CommonResponse(
-        success=True,
-        error=None,
-        data=meal_image_list
-    )
+    meal_image_list = await get_user_month_image_map(db, user.id)
+    return CommonResponse(success=True, error=None, data=meal_image_list)
 
 def validate_feed_params(db, filters: FeedListRequest, user_hash: str, type: str = "list"):
     params = {
@@ -119,8 +131,8 @@ def get_feed_type_calendar(db, user_hash, filters: FeedListRequest) -> CommonRes
             "offset": filters.offset,
             "order_by": filters.sort_by if filters.sort_by else "created_at_desc"
         }
-
-        calendar_data = MealsCalendarsRepository.get_list(db, search_params, extra=extra).getData()
+        calendar_list = MealsCalendarsRepository.get_list(db, search_params, extra=extra)
+        calendar_data = get_feed_type_calendars_data(calendar_list)
 
         return CommonResponse(success=True, error=None, data=calendar_data)
     except Exception as e:
@@ -143,15 +155,15 @@ def list_calendar(db, params: dict) -> CommonResponse:
             "is_active": "Y"
         }
 
-        calendar_data = MealsCalendarsRepository.get_list(db, search_params).getData()
-
+        calendar_data = MealsCalendarsRepository.get_list(db, search_params)
+        result = get_feed_type_calendars_data(calendar_data)  # 데이터 가공 (피드 형태로 변환)
         # 조회된 데이터를 날짜 기준 리스트로 정렬
         calendar_list = {}
-        for item in calendar_data:
-            date_key = item.input_date
+        for v in result:
+            date_key = v.input_date
             if date_key not in calendar_list:
                 calendar_list[date_key] = []
-            calendar_list[date_key].append(item)
+            calendar_list[date_key].append(v)
 
         data = {
             "month": params.get("month", ""),
@@ -200,16 +212,8 @@ async def upload_calendar_month_image(db, user_hash: str, month: str, file) -> C
         user_id = user.id
 
         # 기존 이미지 삭제
-        MealsCalendarsImagesRepository.delete_active_calendar_images_by_month(
-            db,
-            user_id,
-            month
-        )
-
-        image_result = await MealsCalendarsImagesRepository.upload(db, user_id, month, file)
-
-        if not image_result or image_result == False:
-            raise Exception("이미지 업로드에 실패했습니다.")
+        delete_calendar_image_by_month(db, user_id, month)
+        image_result = await upload_calendar_image(db, user_id, month, file)
 
         params = {
             "user_id": user_id,
@@ -237,6 +241,7 @@ async def create_meal_calendar(db, user, category_code, body):
         "user_id": user.id,
         "child_id": body['child_id'],
         "contents": body['contents'],
+        "refer_feed_id": body['refer_feed_id'],
         "month": body['input_date'][:7],
         "meal_condition": body['meal_condition'],
         "input_date": body['input_date'],
@@ -258,12 +263,11 @@ async def upload_meal_image(db, meal_calendar, body):
     if body.get('attaches'):
         try:
             file = body['attaches']
-            # 파일 확장자 추출
-            filename = file.filename or "image.jpg"
-            ext = filename.split('.')[-1] if '.' in filename else 'jpg'
 
             # FeedsImagesRepository.upload 사용하여 이미지 저장
-            await FeedsImagesRepository.upload(db, meal_calendar.id, file, ext, path="Meals", sort_order=0)
+            result = await upload_file(meal_calendar.id, file, path="Meals")
+            await save_upload_file(db, model="Meals", model_id=meal_calendar.id, result=result)
+
         except Exception as e:
             # 이미지 저장 실패해도 식단은 유지
             print(f"이미지 업로드 실패: {str(e)}")
@@ -298,7 +302,13 @@ async def create_meal(db, body: dict) -> CommonResponse:
         body['view_hash'] = view_hash
 
         meal_calendar = await create_meal_calendar(db, user, category_code, body)
-        # 파일 업로드
+
+        print("⭕⭕⭕⭕")
+        print("식단 캘린더 생성 완료, ID:", meal_calendar.id)
+        print("식단 캘린더 해시:", body)
+        print("⭕⭕⭕⭕")
+
+        # 이미지 파일 업로드
         await upload_meal_image(db, meal_calendar, body)
 
         # 재료 Mapper 등록
@@ -308,7 +318,7 @@ async def create_meal(db, body: dict) -> CommonResponse:
             if len(body.get('ingredients')) != len(ingredient_ids):
                 raise Exception("재료 정보 중 확인되지 않는 재료가 있습니다.")
 
-            create_ingredient_mapper(db, "Meals", meal_calendar.id, ingredient_ids)  # meal_id는 캘린더 생성 후 업데이트
+            create_ingredient_mapper(db, meal_calendar.id, ingredient_ids)  # meal_id는 캘린더 생성 후 업데이트
 
         # 최종 commit
         db.commit()
@@ -320,6 +330,7 @@ async def create_meal(db, body: dict) -> CommonResponse:
         )
     except Exception as e:
         db.rollback()
+        print("⭕⭕", str(e))
         return CommonResponse(
             success=False,
             error="식단 캘린더 생성 중 오류가 발생했습니다. " + str(e),
@@ -388,7 +399,7 @@ async def update_meal(db, body: dict) -> CommonResponse:
             ingredients = body.get('ingredients', [])
 
             # 기존 재료 삭제
-            delete_ingredient_mapper(db, "Meals", meal_calendar.id)
+            delete_ingredient_mapper(db, meal_calendar.id)
 
             if ingredients:
                 ingredient_ids = process_tags(db, ingredients)
@@ -397,29 +408,16 @@ async def update_meal(db, body: dict) -> CommonResponse:
                     db.rollback()
                     raise Exception("재료 정보 중 확인되지 않는 재료가 있습니다.")
 
-                create_ingredient_mapper(db, "Meals", meal_calendar.id, ingredient_ids)
+                create_ingredient_mapper(db, meal_calendar.id, ingredient_ids)
 
         # -------------------------
         # 6. 이미지 처리 (완전 교체)
         # -------------------------
         if body.get('attaches'):
-            file = body['attaches']
-
             # 기존 이미지 삭제
-            FeedsImagesRepository.deleteByFeedId(db, "Meals", meal_calendar.id, is_commit=False)
-
-            filename = file.filename or "image.jpg"
-            ext = filename.split('.')[-1] if '.' in filename else 'jpg'
-
+            soft_delete_file_by_model_id(db, "Meals", meal_calendar.id)
             # 업로드 실패하면 전체 rollback 됨
-            await FeedsImagesRepository.upload(
-                db,
-                meal_calendar.id,
-                file,
-                ext,
-                path="Meals",
-                sort_order=0
-            )
+            upload_meal_image(db, meal_calendar, body)
 
         # -------------------------
         # 7. 최종 commit
@@ -450,8 +448,6 @@ async def delete_meal(db, body: dict) -> CommonResponse:
         # 1. 사용자 & 대상 조회
         # -------------------------
         user = validate_user(db, body.get('user_hash'))
-        if not user:
-            return CommonResponse(success=False, error="유효하지 않은 회원정보입니다.", data=None)
 
         meal_calendar = MealsCalendarsRepository.find_by_view_hash(db, body['meal_hash'])
         if not meal_calendar or meal_calendar.user_id != user.id:
@@ -459,11 +455,77 @@ async def delete_meal(db, body: dict) -> CommonResponse:
         # -------------------------
         # 2. 이미지 삭제
         # -------------------------
-        FeedsImagesRepository.deleteByFeedId(db, "Meals", meal_calendar.id, is_commit=False)
-        db.delete(meal_calendar)
+        soft_delete_file_by_model_id(db, "Meals", meal_calendar.id)
+
+        # -------------------------
+        # 3. meal_calendar 삭제 (soft delete)
+        # -------------------------
+        MealsCalendarsRepository.soft_delete(db, meal_calendar, is_commit=False)
+
         db.commit()
         return CommonResponse(success=True, message="식단 캘린더가 성공적으로 삭제되었습니다.", data=None)
     except Exception as e:
         db.rollback()
         return CommonResponse(success=False, error=str(e), data=None)
 
+"""
+피드 형태 식단 리스트
+"""
+def get_feed_type_calendars_data(result):
+
+    try:
+
+        """직렬화된 Pydantic 모델 리스트 반환"""
+        from app.schemas.meals_schemas import MealsCalendarResponse
+        from app.schemas.feeds_schemas import FeedsUserResponse
+        from app.schemas.users_schemas import UserChildItemSchema, AllergyItemSchema
+
+        return [
+            MealsCalendarResponse(
+                id=v.id,
+                title=v.title,
+                contents=v.contents,
+                input_date=f"{v.input_date.year}-{v.input_date.month}-{v.input_date.day}",
+                month=v.month,
+                refer_feed_id=v.refer_feed_id,
+                image_url=v.image_url if v.image_url else None,
+                category_id=v.category_id,
+                category_name=v.category_name,
+                is_pre_made=v.is_pre_made,
+                view_count=v.view_count,
+                like_count=v.like_count if v.like_count else 0,
+                meal_condition=v.meal_condition,
+                is_liked=v.is_liked,
+                is_public=v.is_public,
+                meal_stage=v.meal_stage,
+                meal_stage_detail=v.meal_stage_detail,
+                mapped_tags=v.mapped_tags.split(',') if v.mapped_tags else [],
+                user=FeedsUserResponse(
+                    id=v.user_id,
+                    nickname=v.nickname,
+                    profile_image=v.profile_image if v.profile_image else None,
+                    user_hash=v.user_hash
+                ),
+                childs=UserChildItemSchema(
+                    child_name=v.child_name,
+                    child_birth=v.child_birth,
+                    child_gender=v.child_gender,
+                    is_agent=v.is_agent,
+                    allergies=[
+                        AllergyItemSchema(
+                            allergy_code=code.strip() if code else None,
+                            allergy_name=name.strip()
+                        )
+                        for code, name in zip(
+                            v.allergy_codes.split(',') if v.allergy_codes else [],
+                            v.allergy_names.split(',') if v.allergy_names else []
+                        )
+                    ] if v.allergy_names else []
+                ),
+                view_hash=v.view_hash
+            )
+            for v in result
+        ]
+
+    except Exception as e:
+        return CommonResponse(success=False, error="식단 캘린더 조회 중 오류가 발생했습니다. " + str(e), data=None)

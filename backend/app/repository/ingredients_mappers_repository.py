@@ -14,7 +14,6 @@ class IngredientsMappersRepository:
     def delete_mapper(db, model:str, meal_id: int, is_commit=True):
         try:
             db.query(IngredientsMappers).filter(
-                IngredientsMappers.model == model,
                 IngredientsMappers.meal_id == meal_id
             ).delete()
         except Exception as e:

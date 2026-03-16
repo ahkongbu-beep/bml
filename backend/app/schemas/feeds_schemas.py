@@ -85,7 +85,6 @@ class FeedsResponse(BaseModel):
     meal_stage_detail: Optional[str] = ""
     category_id: Optional[int] = 0
     category_name: Optional[str] = None
-    is_share_meal_plan: Optional[str] = None
     is_liked: Optional[bool] = False
     tags: List[str] = []
     images: List[str] = []

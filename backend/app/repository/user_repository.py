@@ -83,7 +83,7 @@ class UserRepository:
             nickname=params['nickname'],
             email=params['email'],
             password=hashed_password,
-            role=params.get('role', RoleEnum.USER),
+            role=params.get('role', "USER"),
             is_active=params.get('is_active', 1),
             marketing_agree=params.get('marketing_agree', 0),
             push_agree=params.get('push_agree', 0),
@@ -105,7 +105,7 @@ class UserRepository:
         return user
 
     @staticmethod
-    def update(session, user_instance, params: dict):
+    def update(session, user_instance, params: dict, is_commit: bool = True):
         """
         회원정보 수정 시 수정 가능한 항목을 미리 정의
         미리 저장한 항목이 아닌 경우 update 해주지않음
@@ -120,6 +120,7 @@ class UserRepository:
             "marketing_agree",
             "push_agree",
             "is_active",
+            "password",
         ]
 
         try:
@@ -149,7 +150,8 @@ class UserRepository:
             kst = pytz.timezone("Asia/Seoul")
             user_instance.updated_at = datetime.now(kst)
 
-            session.commit()
+            if is_commit:
+                session.commit()
             session.refresh(user_instance)
             return user_instance
 

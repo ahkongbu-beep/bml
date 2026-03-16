@@ -94,8 +94,14 @@ export default function FeedListScreen() {
     meal_stage_detail: searchMealStageDetail,
   });
 
-  // 모든 페이지의 피드를 평탄화
-  const feeds = data?.pages.flatMap(page => page.data ?? []).filter(Boolean) ?? [];
+
+
+  // 모든 페이지의 피드를 평탄화 (id 기준 중복 제거)
+  const feeds = data?.pages
+    .flatMap(page => page.data ?? [])
+    .filter(Boolean)
+    .filter((item, index, self) => self.findIndex(f => f.id === item.id) === index) ?? [];
+  console.log("feeds", JSON.stringify(feeds));
 
   const summaryFeedImageMutation  = useSummaryFeedImage(); // 이미지 요약
 

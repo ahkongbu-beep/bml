@@ -255,6 +255,9 @@ export const fetchDelete = async <T>(endpoint: string, data?:any): Promise<T> =>
     const headers = await getHeaders();
     const url = `${API_BASE_URL}${endpoint}`;
 
+    console.log("DELETE Request URL:", url);
+    console.log("DELETE Request Body:", JSON.stringify(data, null, 2));
+
     const response = await fetch(url, {
       method: 'DELETE',
       headers,
