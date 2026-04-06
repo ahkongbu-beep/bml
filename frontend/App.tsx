@@ -12,17 +12,18 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Provider as PaperProvider } from 'react-native-paper';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import FeedListScreen from './screens/FeedListScreen';
-import FeedDetailScreen from './screens/FeedDetailScreen';
 import FeedSaveScreen from './screens/FeedSaveScreen';
 import FeedCommentScreen from './screens/FeedCommentScreen';
 import NoticeScreen from './screens/NoticeScreen';
 import NoticeDetailScreen from './screens/NoticeDetailScreen';
 import MealPlanScreen from './screens/MealPlanScreen';
 import MealRegistScreen from './screens/MealRegistScreen';
-import MyPageScreen from './screens/MyPageScreen';
+import MyProfileScreen from './screens/MyProfileScreen';
 import EditProfileScreen from './screens/EditProfileScreen';
 import SplashScreen from './screens/SplashScreen';
 import DenyUserScreen from './screens/DenyUserScreen';
+import MealMyDetailScreen from './screens/MealMyDetailScreen';
+import MealUserDetailScreen from './screens/MealUserDetailScreen';
 import LoginScreen from './screens/LoginScreen';
 import RegistScreen from './screens/RegistScreen';
 import SummaryListScreen from './screens/SummaryListScreen';
@@ -101,7 +102,7 @@ function TabNavigator() {
       <Tab.Screen name="FeedList" component={FeedListScreen} />
       <Tab.Screen name="Notice" component={NoticeScreen} />
       <Tab.Screen name="MealPlan" component={MealPlanScreen} />
-      <Tab.Screen name="MyPage" component={MyPageScreen} />
+      <Tab.Screen name="MyProfile" component={MyProfileScreen} />
       <Tab.Screen name="FeedLikeList" component={FeedLikeListScreen} />
       <Tab.Screen name="SummaryList" component={SummaryListScreen} />
       <Tab.Screen name="UserProfile" component={UserProfileScreen} />
@@ -121,13 +122,14 @@ function MainNavigator() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Tabs" component={TabNavigator} />
-      <Stack.Screen name="FeedDetail" component={FeedDetailScreen} />
       <Stack.Screen name="FeedSave" component={FeedSaveScreen} />
       <Stack.Screen name="FeedComment" component={FeedCommentScreen} />
       <Stack.Screen name="NoticeDetail" component={NoticeDetailScreen} />
       <Stack.Screen name="EditProfile" component={EditProfileScreen} />
       <Stack.Screen name="DenyUser" component={DenyUserScreen} />
       <Stack.Screen name="MealRegist" component={MealRegistScreen} />
+      <Stack.Screen name="MealMyDetail" component={MealMyDetailScreen} />
+      <Stack.Screen name="MealUserDetail" component={MealUserDetailScreen} />
       <Stack.Screen name="FeedLikeList" component={FeedLikeListScreen} />
       <Stack.Screen name="SummaryList" component={SummaryListScreen} />
       <Stack.Screen name="UserProfile" component={UserProfileScreen} />

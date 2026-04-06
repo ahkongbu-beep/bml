@@ -13,14 +13,16 @@ import {
   Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Feed } from '../libs/types/FeedType';
+
+/* 상수 및 유틸리티 함수 정의 */
+import { Feed, FeedItemProps } from '../libs/types/FeedType';
 import { formatDate, diffMonthsFrom, getStaticImage } from '@/libs/utils/common';
-import { FeedItemProps } from '../libs/types/FeedType';
 import { USER_CHILD_GENDER } from '../libs/utils/codes/UserChildCode';
+import { getAmountColor, getBorderColor } from '../libs/utils/codes/IngredientCode';
 
 const { width } = Dimensions.get('window');
 
-const FeedItem = React.memo(({
+const MealItem = React.memo(({
   item,
   menuVisible,
   currentImageIndex,
@@ -35,7 +37,9 @@ const FeedItem = React.memo(({
   onAddToMealCalendar,
   userHash,
   isMine,
-  onEditFeed
+  onEditFeed,
+  onTagPress,
+  selectedTags = []
 }: FeedItemProps) => {
   // URL에서 iid 추출하는 함수
   const extractImageId = (imageUrl: string): string => {
@@ -151,11 +155,28 @@ const FeedItem = React.memo(({
       <View style={styles.contentContainer}>
         {/* 주 식재료 */}
         <View style={styles.tagsSection}>
-          {item.mapped_tags.length > 0 && item.mapped_tags.map((tag, idx) => (
-            <View key={`${item.id}-tag-${idx}-${tag}`} style={styles.tag}>
-              <Text style={styles.tagText}>{tag}</Text>
-            </View>
-          ))}
+          {item.mapped_tags.length > 0 && item.mapped_tags.map((tag, idx) => {
+            const score = parseFloat(tag.mapper_score);
+            const bgColor = getAmountColor(score);
+            const borderColor = getBorderColor(score);
+            const isSelected = selectedTags.includes(tag.mapper_name);
+            return (
+              <TouchableOpacity
+                key={`${item.id}-tag-${idx}-${tag.mapper_name}`}
+                style={[
+                  styles.tag,
+                  {
+                    backgroundColor: bgColor,
+                    borderColor: borderColor,
+                  },
+                  isSelected && styles.tagActive
+                ]}
+                onPress={() => onTagPress?.(tag.mapper_name)}
+              >
+                <Text style={[styles.tagText, { color: borderColor }, isSelected && styles.tagTextActive]}>{tag.mapper_name}</Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
         <Text style={styles.content}>
           {item.contents.split('\n').map((line, index) => (
@@ -168,8 +189,9 @@ const FeedItem = React.memo(({
 
       {/* 액션 버튼 */}
       <View style={styles.actions}>
+        {/* 좋아요 버튼 */}
         <TouchableOpacity
-          onPress={() => onLike(item.id)}
+          onPress={() => onLike(item.view_hash)}
           style={styles.actionButton}
         >
           <Ionicons
@@ -180,6 +202,8 @@ const FeedItem = React.memo(({
           <Text style={styles.actionButtonText}>도움이 되었어요</Text>
           <Text style={styles.actionButtonCount}>{item.like_count || 0}</Text>
         </TouchableOpacity>
+
+        {/* 댓글 버튼 */}
         <TouchableOpacity
           style={styles.actionButton}
           onPress={() => onCommentPress(item.id)}
@@ -196,24 +220,35 @@ const FeedItem = React.memo(({
             style={styles.bottomActionButton}
             onPress={() => {
               const currentIndex = currentImageIndex[item.id] || 0;
-              onAiSummary(userHash, item.id, currentIndex.toString());
+              onAiSummary(
+                item.user.user_hash,
+                item.category_id,
+                item.input_date,
+                item.child_id,
+                item.meal_stage,
+                item.meal_stage_detail,
+                item.contents,
+                item.mapped_tags,
+                item.image_url
+              );
             }}
           >
             <Ionicons name="sparkles" size={18} color="#FF9AA2" />
-            <Text style={styles.bottomActionButtonText}>AI 요약</Text>
+            <Text style={styles.bottomActionButtonText}>영양분석</Text>
           </TouchableOpacity>
         )}
-        {/* 내 피드일때 식단 공유버튼 노출 */}
+        {/* 내 피드가 아닐 때 식단 공유버튼 노출 */}
         {!isMine && onAddToMealCalendar && (
           <TouchableOpacity
             style={styles.bottomActionButton}
-            onPress={() => onAddToMealCalendar(item.user.user_hash, item.id)}
+            onPress={() => onAddToMealCalendar(item.user.user_hash, item.id, item.view_hash)}
           >
             <Ionicons name="calendar-outline" size={18} color="#FF9AA2" />
             <Text style={styles.bottomActionButtonText}>식단 캘린더에 추가</Text>
           </TouchableOpacity>
         )}
-        {/* 내 피드일때 수정보튼을 노출 */}
+
+        {/* 내 피드일때 수정버튼을 노출 */}
         {isMine && onEditFeed && (
           <TouchableOpacity
             style={styles.bottomActionButton}
@@ -282,17 +317,28 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   tag: {
-    borderWidth: 1,
-    borderColor: '#DDD',
-    backgroundColor: '#f3f3f3',
+    borderWidth: 1.5,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  tagActive: {
+    borderColor: '#FF9AA2',
+    backgroundColor: '#FFE5E5',
+  },
+  tagCircles: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   tagText: {
     fontSize: 14,
-    color: '#707070',
     fontWeight: '600',
+  },
+  tagTextActive: {
+    color: '#FF9AA2',
   },
   menuItem: {
     flexDirection: 'row',
@@ -485,4 +531,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default FeedItem;
+export default MealItem;

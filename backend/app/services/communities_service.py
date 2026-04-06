@@ -35,7 +35,7 @@ def validate_community_by_id(db, community_id):
 
 def get_community_by_id(db, community_id):
     """커뮤니티 글 조회 서비스 함수"""
-    community = CommunitiesRepository.findById(db, community_id)
+    community = CommunitiesRepository.get_community_by_id(db, community_id)
     if not community:
         return None
 
@@ -62,37 +62,39 @@ def get_community_list(db, user_hash, params) -> CommonResponse:
     try:
         user = validate_user(db, user_hash)
 
-            # 파라미터 정리 (camelCase -> snake_case)
-        db_params = {
-            "category_code": params.get("category_code"),
-            "is_notice": params.get("is_notice"),
-            "is_secret": params.get("is_secret"),
-            "keyword": params.get("keyword"),
-            "month": params.get("month"),
-            "start_date": params.get("start_date"),
-            "end_date": params.get("end_date"),
-            "user_nickname": params.get("user_nickname"),
-            "sort_by": params.get("sort_by", "latest"),
-            "cursor": params.get("cursor"),
-            "my_only": params.get("my_only"),
-            "limit": params.get("limit", 20),
-        }
+        append_keys = [
+            "category_code",
+            "is_notice",
+            "is_secret",
+            "keyword",
+            "month",
+            "start_date",
+            "end_date",
+            "user_nickname",
+            "sort_by",
+            "my_only",
+            "cursor",
+            "limit"
+        ]
 
-        community_list = CommunitiesRepository.get_list(db, user.id, db_params)
-        community_serialize = serialize_communities_list(community_list)
+        db_params = {}
+        for key in append_keys:
+            db_params[key] = params[key]
 
-        communities = [item._data for item in community_serialize]
+        community_list = CommunitiesRepository.get_community_list(db, user.id, db_params)
+        communities = [item._data for item in serialize_communities_list(community_list)]
 
-        total_count = CommunitiesRepository.get_list_count(db, user.id, db_params)
+        total_count = CommunitiesRepository.get_community_count(db, user.id, db_params)
 
-        data = {
-            "communities": communities,
-            "total_count": total_count,
-            # cursor는 마지막 항목의 id를 반환
-            # Community.id.desc() 기준으로 정렬되어 있다고 가정
-            "cursor": communities[-1]['id'] if communities else None,
-        }
-        return CommonResponse(success=True, data=data)
+        return CommonResponse(
+            success=True,
+            data={
+                "communities": communities,
+                "total_count": total_count,
+                "cursor": communities[-1]['id'] if communities else None,
+            }
+        )
+
     except Exception as e:
         return CommonResponse(success=False, message=str(e))
 
@@ -100,7 +102,9 @@ def get_community_list(db, user_hash, params) -> CommonResponse:
 async def create_community(db, user_hash, client_ip, title, contents, category_code, is_secret, files) -> CommonResponse:
     try:
         user = validate_user(db, user_hash)
-        params = {
+
+        # 커뮤니티 글 생성 (이미지 업로드는 이후 단계에서 처리)
+        new_community = CommunitiesRepository.create(db, {
             "title": title,
             "contents": contents,
             "category_code": category_code,
@@ -108,12 +112,9 @@ async def create_community(db, user_hash, client_ip, title, contents, category_c
             "user_id": user.id,
             "user_nickname": user.nickname,
             "user_ip": client_ip,
-        }
+        })
 
-        new_community = CommunitiesRepository.create(db, params)
-        # =============================
         # 이미지 업로드 처리 (최대 3장)
-        # =============================
         if files and len(files) > 0:
             for idx, file in enumerate(files[:3]):  # 최대 3장
                 if file and file.filename:
@@ -133,11 +134,10 @@ async def create_community(db, user_hash, client_ip, title, contents, category_c
 """
 def get_community_detail(db, user_hash, community_hash) -> CommonResponse:
     try:
-        commnity_user = validate_user(db, user_hash)
-
+        user = validate_user(db, user_hash)
         community = validate_community_by_hash(db, community_hash)
 
-        if community.is_active != 'Y':
+        if community.is_active == 'N':
             raise ValueError("삭제된 커뮤니티 글입니다.")
 
         increate_community_view_count(db, community)
@@ -152,12 +152,12 @@ def get_community_detail(db, user_hash, community_hash) -> CommonResponse:
 
         return_data = build_community_detail_response(
             community,
-            commnity_user,
+            user,
             user_child,
             images
         )
-
         return CommonResponse(success=True, message="커뮤니티 글 상세 조회에 성공했습니다.", data=return_data)
+
     except Exception as e:
         db.rollback()
         return CommonResponse(success=False, error=str(e))
@@ -169,19 +169,26 @@ def delete_community(db, user_hash, community_hash) -> CommonResponse:
         community = validate_community_by_hash(db, community_hash)
 
         if community.is_active != 'Y':
-            return CommonResponse(success=False, error="이미 삭제된 커뮤니티 글입니다.")
+            raise ValueError("이미 삭제된 커뮤니티 글입니다.")
 
         if community.user_id != user.id:
-            return CommonResponse(success=False, error="본인이 작성한 글만 삭제할 수 있습니다.")
+            raise ValueError("본인이 작성한 글만 삭제할 수 있습니다.")
 
         result = CommunitiesRepository.soft_delete(db, community)
+        db.commit()
+
         if not result:
-            return CommonResponse(success=False, error="커뮤니티 글 삭제에 실패했습니다.")
+            raise ValueError("커뮤니티 글 삭제에 실패했습니다.")
 
         if result.is_active != 'N':
-            return CommonResponse(success=False, error="커뮤니티 글 삭제에 실패했습니다.")
+            raise ValueError("커뮤니티 글 삭제에 실패했습니다.")
+
+    except ValueError as ve:
+        db.rollback()
+        return CommonResponse(success=False, error=str(ve))
 
     except Exception as e:
+        db.rollback()
         return CommonResponse(success=False, error=str(e))
 
     return CommonResponse(success=True, message="커뮤니티 글이 성공적으로 삭제되었습니다.")
@@ -219,34 +226,11 @@ async def update_community(db, user_hash, community_hash, title, contents, is_se
         community.is_secret = is_secret
 
         db.commit()
-        db.refresh(community)
-
-        user_child = get_agent_childs(db, {"user_id": user.id})
-
-        # 이미지 목록 조회
-        images = [f.image_url for f in get_attache_files_by_model_id(db, "Communities", community.id)]
-
-        return_data = {
-            "title": community.title,
-            "contents": community.contents,
-            "category_code": community.category_code,
-            "is_secret": community.is_secret,
-            "images": images,
-            "user_hash": user.view_hash,
-            "user_profile_image": user.profile_image if user.profile_image else None,
-            "user_nickname": community.user_nickname,
-            "view_hash": community.view_hash,
-            "user_child_name": user_child.child_name if user_child else None,
-            "user_child_birth": user_child.child_birth.isoformat() if user_child and user_child.child_birth else None,
-            "user_child_gender": user_child.child_gender if user_child else None,
-            "created_at": community.created_at.isoformat() if community.created_at else None,
-            "updated_at": community.updated_at.isoformat() if community.updated_at else None,
-        }
-
+        return CommonResponse(success=True, message="커뮤니티 글이 성공적으로 수정되었습니다.", data=None)
     except Exception as e:
         return CommonResponse(success=False, message="커뮤니티 글 수정 중 오류가 발생했습니다." + str(e))
 
-    return CommonResponse(success=True, message="커뮤니티 글이 성공적으로 수정되었습니다.", data=return_data)
+
 
 """
 커뮤니티 글 좋아요 서비스 함수
@@ -288,8 +272,10 @@ def like_community(db, user_hash, community_hash) -> CommonResponse:
 
     return CommonResponse(success=True, message="커뮤니티 글에 좋아요를 눌렀습니다.")
 
-""" 커뮤니티 댓글 등록 서비스 함수 """
 def create_community_comment(db, user_hash, community_hash, params) -> CommonResponse:
+    """
+    커뮤니티 댓글 등록 서비스 함수
+    """
     try:
         user = validate_user(db, user_hash)
         community = validate_community_by_id(db, community_hash)
@@ -326,9 +312,10 @@ def create_community_comment(db, user_hash, community_hash, params) -> CommonRes
 
     return CommonResponse(success=True, message="커뮤니티 댓글이 성공적으로 작성되었습니다.", data=None)
 
-""" 커뮤니티 댓글 삭제 서비스 함수 """
 def delete_community_comment(db, user_hash, comment_hash) -> CommonResponse:
-
+    """
+    커뮤니티 댓글 삭제 서비스 함수
+    """
     try:
         user = validate_user(db, user_hash)
         comment = validate_comment_by_hash(db, comment_hash)
@@ -347,10 +334,11 @@ def delete_community_comment(db, user_hash, comment_hash) -> CommonResponse:
     except Exception as e:
         return CommonResponse(success=False, message="커뮤니티 댓글 삭제 중 오류가 발생했습니다." + str(e))
 
-"""
-커뮤니티 댓글 수정 서비스 함수
-"""
+
 def update_community_comment(db, user_hash, comment_hash, params) -> CommonResponse:
+    """
+    커뮤니티 댓글 수정 서비스 함수
+    """
     try:
         user = validate_user(db, user_hash)
         comment = validate_comment_by_hash(db, comment_hash)
@@ -367,11 +355,10 @@ def update_community_comment(db, user_hash, comment_hash, params) -> CommonRespo
 
     return CommonResponse(success=True, message="커뮤니티 댓글이 성공적으로 수정되었습니다.")
 
-"""
-커뮤니티 댓글 리스트 조회 서비스 함수
-"""
 def get_community_comments(db, user_hash, params) -> CommonResponse:
-
+    """
+    커뮤니티 댓글 리스트 조회 서비스 함수
+    """
     try:
         validate_user(db, user_hash)
         community = validate_community_by_hash(db, params.get("community_hash"))
@@ -385,7 +372,6 @@ def get_community_comments(db, user_hash, params) -> CommonResponse:
         }
 
         comment_list = serialize_community_comment(get_community_comments_list(db, params, extra))
-
         tree_data = build_comment_tree(comment_list)
 
         return CommonResponse(success=True, data={

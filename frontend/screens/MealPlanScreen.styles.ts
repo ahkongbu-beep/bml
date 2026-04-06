@@ -221,6 +221,13 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: colors.text.secondary,
   },
+  childRadioLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  childAgentIcon: {
+    marginRight: 4,
+  },
   childRadioOptionTextSelected: {
     color: colors.primary,
     fontWeight: '700',

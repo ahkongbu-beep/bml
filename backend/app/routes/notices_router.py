@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends, Request, Query
 from app.services import notices_service
 from app.core.database import get_db
 from sqlalchemy.orm import Session
-from app.schemas.notices_schemas import NoticesCreateRequest, NoticesUpdateRequest
 from app.schemas.common_schemas import CommonResponse
 router = APIRouter()
 
@@ -16,16 +15,3 @@ def notice_detail(view_hash: str, db: Session = Depends(get_db)):
         return CommonResponse(success=False, error="유효하지 않은 공지사항 식별자입니다.", data=None)
 
     return notices_service.notice_detail(db, view_hash)
-
-@router.post("/create")
-def create_notice(notice: NoticesCreateRequest, request: Request, db: Session = Depends(get_db)):
-    client_ip = request.client.host
-    return notices_service.create_notice(notice, client_ip, db)
-
-@router.put("/update/{view_hash}")
-def update_notice(view_hash: str, notice: NoticesUpdateRequest, db: Session = Depends(get_db)):
-    return notices_service.update_notice(notice, view_hash, db)
-
-@router.put("/toggle_status/{view_hash}")
-def toggle_notice(view_hash: str, db: Session = Depends(get_db)):
-    return notices_service.toggle_notice(view_hash, db)

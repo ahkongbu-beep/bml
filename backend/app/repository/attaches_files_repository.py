@@ -28,6 +28,6 @@ class AttachesFilesRepository:
             is_active="Y"
         )
         db.add(new_file)
-        db.commit()
+        db.flush()
         db.refresh(new_file)
         return new_file

@@ -3,12 +3,24 @@ from app.services.categories_codes_service import get_category_code_by_id
 from app.schemas.notices_schemas import NoticesCreateRequest, NoticesDetailResponseData, NoticesUpdateRequest
 from app.schemas.common_schemas import CommonResponse
 
-def list_notices(db):
-    notice_list = NoticesRepository.get_list(db, params={}).getData()
+def get_notice_by_view_hash(db, view_hash: str):
+    notice = NoticesRepository.find_by_view_hash(db, view_hash)
+    return notice
+
+def get_notice_list(db, params = {}):
+    notice_list = NoticesRepository.get_list(db, params=params)
+    return notice_list
+
+def get_notice_count(db, params = {}):
+    notice_count = NoticesRepository.get_count(db, params=params)
+    return notice_count
+
+def list_notices(db, params = {}):
+    notice_list = get_notice_list(db, params=params)
     return CommonResponse(success=True, message="", data=notice_list)
 
 def notice_detail(db, view_hash: str):
-    notice = NoticesRepository.find_by_view_hash(db, view_hash)
+    notice = get_notice_by_view_hash(db, view_hash)
 
     if not notice:
         return CommonResponse(success=False, error="존재하지 않는 공지사항입니다.", data=None)
@@ -47,29 +59,12 @@ def create_notice(notice: NoticesCreateRequest, client_ip: str, db):
         "ip": client_ip
     }
 
-    try:
-        new_notice = NoticesRepository.create(db, params)
+    new_notice = NoticesRepository.create(db, params)
 
-        if not new_notice:
-            raise Exception("공지사항 등록 실패했습니다.")
-    except Exception as e:
-        return CommonResponse(success=False, error=str(e), data=None)
+    if not new_notice:
+        return None
 
-    data = NoticesDetailResponseData(
-        id=new_notice.id,
-        view_hash=new_notice.view_hash,
-        category_id=new_notice.category_id,
-        category_text=category_code.value,
-        title=new_notice.title,
-        content=new_notice.content,
-        ip=new_notice.ip,
-        is_important=new_notice.is_important,
-        status=new_notice.status,
-        created_at=new_notice.created_at,
-        updated_at=new_notice.updated_at,
-    )
-
-    return CommonResponse(success=True, message="", data=data)
+    return new_notice
 
 """ 공지 수정"""
 def update_notice(notice: NoticesUpdateRequest, view_hash: str, db):
@@ -89,6 +84,7 @@ def update_notice(notice: NoticesUpdateRequest, view_hash: str, db):
         "title": notice.title,
         "content": notice.content,
         "is_important": notice.is_important,
+        "client_id": notice.client_id
     }
 
     try:
@@ -97,38 +93,20 @@ def update_notice(notice: NoticesUpdateRequest, view_hash: str, db):
         if not updated_notice:
             raise Exception("공지사항 수정에 실패했습니다.")
     except Exception as e:
-        return CommonResponse(success=False, error=str(e), data=None)
+        return None
 
-    data = NoticesDetailResponseData(
-        id=updated_notice.id,
-        view_hash=updated_notice.view_hash,
-        category_id=updated_notice.category_id,
-        category_text=category_code.value,
-        title=updated_notice.title,
-        content=updated_notice.content,
-        ip=updated_notice.ip,
-        is_important=updated_notice.is_important,
-        status=updated_notice.status,
-        created_at=updated_notice.created_at,
-        updated_at=updated_notice.updated_at,
-    )
+    return updated_notice
 
-    return CommonResponse(success=True, message="공지 수정완료하였습니다.", data=data)
-
-def toggle_notice(view_hash: str, db):
-
-    existing_notice = NoticesRepository.find_by_view_hash(db, view_hash)
-
-    if not existing_notice:
-        return CommonResponse(success=False, error="존재하지 않는 공지사항입니다.", data=None)
+def toggle_notice(notice: str, db):
 
     try:
-        if existing_notice.status == "active":
-            existing_notice.status = "unactive"
+        if notice.status == "active":
+            notice.status = "unactive"
         else:
-            existing_notice.status = "active"
+            notice.status = "active"
         db.commit()
     except Exception as e:
-        return CommonResponse(success=False, error="공지사항 삭제에 실패했습니다.", data=None)
+        db.rollback()
+        return False
 
-    return CommonResponse(success=True, message="공지사항 상태가 변경되었습니다.", data=None)
+    return True

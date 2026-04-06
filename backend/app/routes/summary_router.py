@@ -1,10 +1,16 @@
 from fastapi import APIRouter, Depends, Request, Query
 from app.core.database import get_db
 from sqlalchemy.orm import Session
-from app.schemas.summary_schemas import SummaryFeedRequest
-from app.schemas.common_schemas import CommonResponse
+from app.schemas.summary_schemas import SummaryFeedRequest, TempMealSummaryRequest
 from app.services import summary_service
 router = APIRouter()
+
+@router.post("/meal/temp_summary")
+async def temp_meal_summary(request: Request, body: TempMealSummaryRequest, db: Session = Depends(get_db)):
+    params = body.dict()
+    params['user_hash'] = getattr(request.state, "user_hash", None)
+    return await summary_service.temp_meal_summary(db, params)
+
 
 @router.post("/feed/item")
 async def feed_summary(request: Request, body: SummaryFeedRequest, db: Session = Depends(get_db)):

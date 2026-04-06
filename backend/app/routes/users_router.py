@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, File, Form, Form, Request, Query, UploadFile
 from app.services import users_service
 from app.schemas.users_schemas import UserCreateSchema, UserFindPasswordRequest, UserPasswordConfirmRequest, SearchUserPasswordConfirmRequest, SearchUserAccountConfirmRequest, UserPasswordChangeRequest, UserChildDeleteRequest
+from app.schemas.users_childs_schemas import UserChildCreateRequest, ChildSchema
 from app.schemas.common_schemas import CommonResponse
 from app.core.database import get_db
 from sqlalchemy.orm import Session
@@ -18,12 +19,6 @@ async def create_user(
     # FormData로 받은 데이터 파싱
     form_data = await request.form()
 
-    # FormData의 모든 키 확인
-    print(f"🔑 FormData keys: {list(form_data.keys())}")
-    for key in form_data.keys():
-        value = form_data.get(key)
-        print(f"  - {key}: {type(value)} = {value if not hasattr(value, 'filename') else f'File({value.filename})'}")
-
     # JSON 데이터 파싱
     import json
     data_json = form_data.get('data')
@@ -34,8 +29,6 @@ async def create_user(
 
     # 프로필 이미지 파일 가져오기
     profile_image_file = form_data.get('profile_image')
-    print(f"📸 프로필 이미지 파일: {profile_image_file}")
-    print(f"📸 파일 타입: {type(profile_image_file)}")
 
     # UserCreateSchema 형식으로 생성 (profile_image 제외)
     user_data = UserCreateSchema(
@@ -54,7 +47,6 @@ async def create_user(
     # UploadFile 객체를 별도로 추가
     if profile_image_file:
         validated_data['profile_image'] = profile_image_file
-        print(f"✅ profile_image added to validated_data")
 
     if not validated_data.get("sns_login_type"):
         return CommonResponse(success=False, error="회원가입 유형은 필수 항목입니다.", data=None)
@@ -141,22 +133,13 @@ async def update_user(
 
 """ 자녀 정보 등록 """
 @router.post("/children/create")
-async def create_user_child(request: Request, db: Session = Depends(get_db)):
+async def create_user_child(request: Request, body: List[ChildSchema], db: Session = Depends(get_db)):
     user_hash = getattr(request.state, "user_hash", None)
 
     if not user_hash:
         return CommonResponse(success=False, message="사용자 인증이 필요합니다.", data=None)
 
-    # FormData로 받은 데이터 파싱
-    form_data = await request.form()
-
-    # JSON 데이터 파싱
-    import json
-    data_json = form_data.get('data')
-    if not data_json:
-        return CommonResponse(success=False, message="요청 데이터가 없습니다. 받은 키들: " + str(list(form_data.keys())), data=None)
-
-    children_data = json.loads(data_json)
+    children_data = [item.dict() for item in body]
     return await users_service.create_user_child(db, user_hash, children_data)
 
 """ 자녀 정보 삭제 """
@@ -172,8 +155,13 @@ async def delete_user_child(request: Request, body: UserChildDeleteRequest, db: 
 
 """ 회원 프로필 조회 """
 @router.get("/profile")
-def get_user_profile(user_hash: str = Query(''), user_id: str = Query(''), db: Session = Depends(get_db)):
-    return users_service.get_user_profile(db, user_hash, user_id)
+def get_user_profile(request: Request, db: Session = Depends(get_db)):
+
+    user_hash = getattr(request.state, "user_hash", None)
+
+    target_hash = request.query_params.get("target_hash", None)
+
+    return users_service.get_user_profile(db, user_hash, target_hash)
 
 """ 내 정보 조회(좋아요, 피드등록 etc) """
 @router.post("/me")

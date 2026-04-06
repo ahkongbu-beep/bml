@@ -56,10 +56,13 @@ export const useAuth = () => {
   // 로그아웃 Mutation
   const logoutMutation = useMutation({
     mutationFn: () => logoutApi(user?.view_hash || ''),
-    onSuccess: async () => {
+    onMutate: async () => {
       await clearStorage();
       setUser(null);
       setIsAuthenticated(false);
+    },
+    onSuccess: async () => {
+      // 로컬 로그아웃은 onMutate에서 즉시 처리됨
     },
     onError: async () => {
       // 백엔드 에러가 발생해도 프론트엔드에서 로그아웃 처리

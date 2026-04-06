@@ -14,7 +14,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { getStaticImage, diffMonthsFrom } from '../libs/utils/common';
 import { MEAL_CATEGORIES } from '../libs/utils/codes/MealCalendarCode';
 import { USER_CHILD_GENDER } from '../libs/utils/codes/UserChildCode';
-
+import { MEAL_CONDITION } from '../libs/utils/codes/FeedMealCondition';
+import { MEAL_STAGE } from '../libs/utils/codes/MealState';
+import { getAmountColor, getBorderColor } from '../libs/utils/codes/IngredientCode';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface MealDetailModalProps {
@@ -37,7 +39,18 @@ const MealDetailModal: React.FC<MealDetailModalProps> = ({
   onViewSource,
 }) => {
   const category = MEAL_CATEGORIES.find((c) => c.name === meal?.category_name);
+
   if (!meal) return null;
+
+  // 식단 상태 매핑
+  const condition = MEAL_CONDITION.find(v => v.value === meal.meal_condition);
+  let stage = null;
+  let stageDetail = null;
+  if (meal.meal_stage && meal.meal_stage_detail) {
+    stage = MEAL_STAGE.find(v => v.id === meal.meal_stage);
+    stageDetail = stage.items.find(v => v.id === meal.meal_stage_detail);
+  }
+
   return (
     <Modal
       visible={visible}
@@ -63,9 +76,7 @@ const MealDetailModal: React.FC<MealDetailModalProps> = ({
                 <Ionicons name="close" size={28} color="#4A4A4A" />
               </TouchableOpacity>
             </View>
-            <Text style={styles.modalDate}>
-              <Text>📅 {meal.input_date?.replace(/-/g, '.')}</Text>
-            </Text>
+            <Text style={styles.modalDate}>📅 {meal.input_date?.replace(/-/g, '.')}</Text>
           </LinearGradient>
 
           {/* 컨텐츠 */}
@@ -84,28 +95,38 @@ const MealDetailModal: React.FC<MealDetailModalProps> = ({
               </View>
             )}
 
-            {/* 작성자 정보 */}
-            {meal.user && (
-              <View style={styles.userSection}>
-                <View style={styles.userInfo}>
-                  {meal.user.profile_image && (
-                    <Image
-                      source={{ uri: getStaticImage('thumbnail', meal.user.profile_image) }}
-                      style={styles.userAvatar}
-                    />
-                  )}
-                  {!meal.user.profile_image && (
-                    <View style={[styles.userAvatar, styles.userAvatarPlaceholder]}>
-                      <Ionicons name="person" size={20} color="#999" />
-                    </View>
-                  )}
-                  <View style={styles.userDetails}>
-                    <Text style={styles.userName}>{meal.user.nickname || '익명'}</Text>
-                    <Text style={styles.userLabel}>작성자</Text>
+            {/* 아이정보 */}
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Ionicons name="information-circle" size={20} color="#FF9AA2" />
+                <Text style={styles.sectionTitle}>아이정보</Text>
+              </View>
+              <View style={styles.infoGrid}>
+                <View style={styles.infoItem}>
+                  <View style={styles.infoIconContainer}>
+                    <Ionicons name="calendar-outline" size={18} color="#FF9AA2" />
+                  </View>
+                  <View style={styles.infoContent}>
+                    <Text style={styles.infoLabel}>아이정보</Text>
+                    <Text style={styles.infoValue}>
+                      {meal.childs
+                        ? `${diffMonthsFrom(meal.childs.child_birth)}세 · ${USER_CHILD_GENDER[meal.childs.child_gender]}`
+                        : '정보 없음'}
+                    </Text>
+                    {meal.childs?.allergies?.length > 0 && (
+                      <View style={styles.allergyContainer}>
+                        <Text style={styles.allergyLabel}>알레르기 </Text>
+                        {meal.childs.allergies.map((a: { allergy_code: string; allergy_name: string }) => (
+                          <View key={a.allergy_code} style={styles.allergyTag}>
+                            <Text style={styles.allergyTagText}>{a.allergy_name}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    )}
                   </View>
                 </View>
               </View>
-            )}
+            </View>
 
             {/* 식단 정보 */}
             <View style={styles.section}>
@@ -117,18 +138,31 @@ const MealDetailModal: React.FC<MealDetailModalProps> = ({
               <View style={styles.infoGrid}>
                 <View style={styles.infoItem}>
                   <View style={styles.infoIconContainer}>
-                    <Ionicons name="calendar-outline" size={18} color="#FF9AA2" />
+                    <Ionicons name="calendar" size={18} color="#FF9AA2" />
                   </View>
                   <View style={styles.infoContent}>
-                    <Text style={styles.infoLabel}>아이정보</Text>
-                    <Text style={styles.infoValue}>
-                      {userInfo.user_childs && userInfo.user_childs.length > 0
-                        ? `${diffMonthsFrom(userInfo.user_childs[0].child_birth)}세 · ${USER_CHILD_GENDER[userInfo.user_childs[0].child_gender]}`
-                        : '정보 없음'}
-                    </Text>
+                    <Text style={styles.infoLabel}>월</Text>
+                    <Text style={styles.infoValue}>{meal.month || ''} · {meal.contents || ''}</Text>
                   </View>
                 </View>
-                {meal.is_pre_made == "N" && (
+              </View>
+
+              {!!(meal.meal_stage && meal.meal_stage_detail) && (
+                <View style={styles.infoGrid}>
+                  <View style={styles.infoItem}>
+                    <View style={styles.infoIconContainer}>
+                      <Ionicons name="calendar" size={18} color="#FF9AA2" />
+                    </View>
+                    <View style={styles.infoContent}>
+                      <Text style={styles.infoLabel}>식사 분류</Text>
+                      <Text style={styles.infoValue}>{stage?.label || ''} · {stageDetail?.label || ''}</Text>
+                    </View>
+                  </View>
+                </View>
+              )}
+
+              {meal.is_pre_made == "N" && meal.mapped_tags?.length > 0 && (
+                <View style={styles.infoGrid}>
                   <View style={styles.infoItem}>
                     <View style={styles.infoIconContainer}>
                       <Ionicons name="time-outline" size={18} color="#FF9AA2" />
@@ -136,59 +170,64 @@ const MealDetailModal: React.FC<MealDetailModalProps> = ({
                     <View style={styles.infoContent}>
                       <Text style={styles.infoLabel}>사용재료</Text>
                       <View style={styles.tagContainer}>
-                        {meal.mapped_tags.map((tag: string, index: number) => (
-                          <View key={index} style={styles.tag}>
-                            <Text style={styles.tagText}>{tag}</Text>
-                          </View>
-                        ))}
+                        {meal.mapped_tags.map((tag: any, index: number) => {
+                          const score = parseFloat(tag.mapper_score);
+                          const bgColor = getAmountColor(score);
+                          const borderColor = getBorderColor(score);
+                          return (
+                            <View key={index} style={[styles.tag, { backgroundColor: bgColor, borderColor: borderColor }]}>
+                              <Text style={[styles.tagText, { color: borderColor }]}>{tag.mapper_name}</Text>
+                            </View>
+                          );
+                        })}
                       </View>
                     </View>
                   </View>
-                )}
-                <View style={styles.infoItem}>
-                  <View style={styles.infoIconContainer}>
-                    <Ionicons name="calendar" size={18} color="#FF9AA2" />
-                  </View>
-                  <View style={styles.infoContent}>
-                    <Text style={styles.infoLabel}>월</Text>
-                    <Text style={styles.infoValue}>{meal.month || ''}</Text>
-                  </View>
                 </View>
-                <View style={styles.infoItem}>
-                  <View style={styles.infoIconContainer}>
-                    <Ionicons name="document-text" size={20} color="#FF9AA2" />
-                  </View>
-                  <View style={styles.infoContent}>
-                    <Text style={styles.infoLabel}>상세내용</Text>
-                    <Text style={styles.contentsText}>{meal.contents || ''}</Text>
-                  </View>
-                </View>
+              )}
 
-                {meal.refer_feed_id > 0 && (
+              {!!meal.meal_condition && (
+                <View style={styles.infoGrid}>
+                  <View style={styles.infoItem}>
+                    <View style={styles.infoIconContainer}>
+                      <Ionicons name="alert-circle-outline" size={18} color="#FF9AA2" />
+                    </View>
+                    <View style={styles.infoContent}>
+                      <Text style={styles.infoLabel}>식단 상태</Text>
+                      <Text style={styles.infoValue}>{condition?.name || ''} {condition?.icon || ''}</Text>
+                    </View>
+                  </View>
+                </View>
+              )}
+
+              {meal.refer_feed_id > 0 && (
+                <View style={styles.infoGrid}>
                   <View style={styles.infoItem}>
                     <View style={styles.infoIconContainer}>
                       <Ionicons name="copy-outline" size={18} color="#FF9AA2" />
                     </View>
                     <View style={styles.infoContent}>
                       <Text style={styles.infoLabel}>출처</Text>
-                      <Text style={styles.infoValue}>복사된 식단</Text>
+                      <Text style={styles.infoValue}>{meal.refer_info?.refer_user_nickname || ''} 님의 식단</Text>
                     </View>
                   </View>
-                )}
-              </View>
+                </View>
+              )}
             </View>
 
             {/* 출처 */}
-            {meal.refer_feed_id > 0 && onViewSource && (
-              <TouchableOpacity
-                style={styles.sourceSection}
-                onPress={onViewSource}
-              >
-                <Ionicons name="copy-outline" size={20} color="#FF9AA2" />
-                <Text style={styles.sourceText}>원본 식단 보기</Text>
-                <Ionicons name="chevron-forward" size={20} color="#999" />
-              </TouchableOpacity>
-            )}
+            <View style={styles.infoGrid}>
+              {meal.refer_feed_id > 0 && onViewSource && (
+                <TouchableOpacity
+                  style={styles.sourceSection}
+                  onPress={onViewSource}
+                >
+                  <Ionicons name="copy-outline" size={20} color="#FF9AA2" />
+                  <Text style={styles.sourceText}>원본 식단 보기</Text>
+                  <Ionicons name="chevron-forward" size={20} color="#999" />
+                </TouchableOpacity>
+              )}
+            </View>
 
             <View style={{ height: 100 }} />
           </ScrollView>
@@ -311,6 +350,7 @@ const styles = StyleSheet.create({
   },
   section: {
     marginTop: 24,
+    gap: 12,
   },
   firstSection: {
     marginTop: 16,
@@ -413,17 +453,21 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   tag: {
-    backgroundColor: '#FFF0F3',
-    paddingHorizontal: 7,
+    paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 10,
     borderWidth: 1.5,
-    borderColor: '#FFD4DB',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  tagCircles: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   tagText: {
-    fontSize: 15,
-    color: '#FF6B7A',
-    fontWeight: '700',
+    fontSize: 13,
+    fontWeight: '600',
   },
   sourceSection: {
     flexDirection: 'row',
@@ -488,6 +532,30 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  allergyContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+  },
+  allergyLabel: {
+    fontSize: 11,
+    color: '#868E96',
+  },
+  allergyTag: {
+    backgroundColor: '#FFF8E1',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#FFE082',
+  },
+  allergyTagText: {
+    fontSize: 11,
+    color: '#F57F17',
+    fontWeight: '600',
   },
 });
 

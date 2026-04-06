@@ -8,7 +8,8 @@ import {
   getUserProfile,
   googleLogin as googleLoginApi,
   GoogleLoginRequest,
-  withdrawalApi
+  withdrawalApi,
+  refreshAccessToken,
 } from '../api/authApi';
 import { LoginRequest, User } from '../types/UserType';
 import {
@@ -20,6 +21,7 @@ import {
   saveNeedChildRegistration,
   isTokenExpired,
   isTokenExpiringSoon,
+  getRefreshToken,
 } from '../utils/storage';
 
 interface AuthContextType {
@@ -57,12 +59,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // 토큰 만료 체크
           const tokenExpired = await isTokenExpired();
           if (tokenExpired) {
-            console.log('토큰이 만료되었습니다. 로그아웃 처리합니다.');
-            await clearStorage();
-            setUser(null);
-            setIsAuthenticated(false);
-            setIsLoading(false);
-            return;
+            console.log('토큰이 만료되었습니다. Refresh Token으로 갱신을 시도합니다.');
+            const storedRefreshToken = await getRefreshToken();
+            if (storedRefreshToken) {
+              try {
+                const refreshResult = await refreshAccessToken(storedRefreshToken);
+                if (refreshResult.success && refreshResult.data?.token) {
+                  await saveToken(refreshResult.data.token);
+                  console.log('Access Token이 자동으로 갱신되었습니다.');
+                } else {
+                  throw new Error('Token refresh failed');
+                }
+              } catch {
+                console.log('토큰 갱신 실패. 로그아웃 처리합니다.');
+                await clearStorage();
+                setUser(null);
+                setIsAuthenticated(false);
+                setIsLoading(false);
+                return;
+              }
+            } else {
+              console.log('Refresh Token이 없습니다. 로그아웃 처리합니다.');
+              await clearStorage();
+              setUser(null);
+              setIsAuthenticated(false);
+              setIsLoading(false);
+              return;
+            }
           }
 
           const savedUser = await getUserInfo();
@@ -71,10 +94,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setUser(savedUser);
             setIsAuthenticated(true);
 
-            // 2. 토큰이 곧 만료될 예정이면 경고 로그
+            // 2. 토큰이 곧 만료될 예정이면 미리 갱신
             const expiringSoon = await isTokenExpiringSoon();
             if (expiringSoon) {
-              console.warn('토큰이 1시간 이내에 만료됩니다. 다시 로그인하시기 바랍니다.');
+              const storedRefreshToken = await getRefreshToken();
+              if (storedRefreshToken) {
+                try {
+                  const refreshResult = await refreshAccessToken(storedRefreshToken);
+                  if (refreshResult.success && refreshResult.data?.token) {
+                    await saveToken(refreshResult.data.token);
+                    console.log('만료 예정으로 Access Token을 미리 갱신했습니다.');
+                  }
+                } catch {
+                  console.warn('토큰이 1시간 이내에 만료됩니다. 자동 갱신에 실패했습니다.');
+                }
+              } else {
+                console.warn('토큰이 1시간 이내에 만료됩니다. 다시 로그인하시기 바랍니다.');
+              }
             }
 
             // 3. 백그라운드에서 최신 프로필 정보 가져오기
@@ -112,10 +148,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     onSuccess: async (data) => {
 
       if (data.success && data.data) {
-        const { user, token } = data.data;
+      const { user, token, refresh_token } = data.data;
 
-        if (token && user) {
-          await saveToken(token);
+          if (token && user) {
+          await saveToken(token, refresh_token);
           await saveUserInfo(user);
           setUser(user);
           setIsAuthenticated(true);
@@ -130,10 +166,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     mutationFn: (data: GoogleLoginRequest) => googleLoginApi(data),
     onSuccess: async (data) => {
       if (data.success && data.data) {
-        const { user, token } = data.data;
+        const { user, token, refresh_token } = data.data;
 
         if (token && user) {
-          await saveToken(token);
+          await saveToken(token, refresh_token);
           await saveUserInfo(user);
           setUser(user);
           setIsAuthenticated(true);
@@ -152,10 +188,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // 로그아웃 Mutation
   const logoutMutation = useMutation({
     mutationFn: () => logoutApi(user?.view_hash || ''),
-    onSuccess: async () => {
+    onMutate: async () => {
       await clearStorage();
       setUser(null);
       setIsAuthenticated(false);
+    },
+    onSuccess: async () => {
+      // 로컬 로그아웃은 onMutate에서 즉시 처리됨
     },
     onError: async () => {
       // 백엔드 에러가 발생해도 프론트엔드에서 로그아웃 처리
@@ -168,10 +207,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // 회원탈퇴
   const withdrawalMutation = useMutation({
     mutationFn: () => withdrawalApi(),
-    onSuccess: async () => {
+    onMutate: async () => {
       await clearStorage();
       setUser(null);
       setIsAuthenticated(false);
+    },
+    onSuccess: async () => {
+      // 로컬 로그아웃은 onMutate에서 즉시 처리됨
     },
     onError: async () => {
       // 백엔드 에러가 발생해도 프론트엔드에서 로그아웃 처리

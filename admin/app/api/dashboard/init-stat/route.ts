@@ -11,11 +11,11 @@ export async function GET(request: NextRequest) {
     const data = await apiCall(callURL, 'GET');
 
     if (!data.success) {
-      throw new Error(data.error || '피드 조회에 실패했습니다.');
+      throw new Error(data.error || '대시보드 초기 통계 정보 조회에 실패했습니다.');
     }
-    return createSuccessResponse("피드 조회 성공", data.data);
+    return createSuccessResponse("대시보드 초기 통계 정보 조회 성공", data.data);
   } catch (error) {
-    return createErrorResponse(error, "피드 조회 중 오류가 발생했습니다.");
+    return createErrorResponse(error, "대시보드 초기 통계 정보 조회 중 오류가 발생했습니다.");
   }
 }
 

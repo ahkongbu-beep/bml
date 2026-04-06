@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import styles from './MealRegistScreen.styles';
-import { CATEGORY_ICONS, CATEGORY_LABELS } from '../libs/utils/codes/IngredientCode';
 import {
   View,
   Text,
@@ -14,22 +13,35 @@ import {
   Platform,
   Image,
   Animated,
+  Modal,
 } from 'react-native';
+import Header from '../components/Header';
+import Layout from '@/components/Layout';
+import AiSummaryMealModal from '../components/AiSummaryMealModal';
+import { LoadingPage } from '../components/Loading';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
-import Header from '../components/Header';
-import Layout from '@/components/Layout';
+
 import { useAuth } from '../libs/contexts/AuthContext';
-import { MEAL_CATEGORIES } from '../libs/utils/codes/MealCalendarCode';
-import { useCategoryCodes } from '../libs/hooks/useCategories';
-import { MEAL_STAGE } from '../libs/utils/codes/MealState';
 import { useIngredientList } from '../libs/hooks/useFeeds';
+import { useCreateMealWithImage, useUpdateMealWithImage, useUpdateMeal, useAnalyzeMeal } from '../libs/hooks/useMeals';
+import { useCategoryCodes } from '../libs/hooks/useCategories';
+
+// 상수 및 utils
 import { getStaticImage } from '../libs/utils/common';
-import { useCreateMealWithImage, useUpdateMealWithImage, useUpdateMeal } from '../libs/hooks/useMeals';
-import { MEAL_CONDITION } from '../libs/utils/codes/FeedMealCondition';
 import { toastError, toastInfo, toastSuccess } from '@/libs/utils/toast';
-import { LoadingPage } from '../components/Loading';
+import { MEAL_STAGE } from '../libs/utils/codes/MealState';
+import { MEAL_CATEGORIES } from '../libs/utils/codes/MealCalendarCode';
+import { MEAL_CONDITION } from '../libs/utils/codes/FeedMealCondition';
+import {
+  CATEGORY_ICONS,
+  CATEGORY_LABELS,
+  INGREDIENT_AMOUNT_OPTIONS,
+  getAmountCircles,
+  getAmountColor,
+  getBorderColor
+} from '../libs/utils/codes/IngredientCode';
 
 export default function MealRegistScreen({ route, navigation }: any) {
 
@@ -48,6 +60,7 @@ export default function MealRegistScreen({ route, navigation }: any) {
   const createMealWithImageMutation = useCreateMealWithImage();
   const updateMealWithImageMutation = useUpdateMealWithImage();
   const updateMealMutation = useUpdateMeal();
+  const analyzeMealMutation = useAnalyzeMeal();
   const isPending = createMealWithImageMutation.isPending || updateMealWithImageMutation.isPending;
   const isEditMode = !!meal;
 
@@ -62,13 +75,21 @@ export default function MealRegistScreen({ route, navigation }: any) {
   const [mealStageDetail, setMealStageDetail] = useState<string>(''); // 세부 단계 선택값
   const [isPublic, setIsPublic] = useState<'Y' | 'N'>('Y');
   const [ingredients, setIngredients] = useState<string[]>([]);
+  const [ingredientAmounts, setIngredientAmounts] = useState<Record<string, number>>({});
+  const [ingredientAmountModalVisible, setIngredientAmountModalVisible] = useState(false);
+  const [selectedIngredientNameForAmount, setSelectedIngredientNameForAmount] = useState<string | null>(null);
   const [ingredientInput, setIngredientInput] = useState('');
   const [childId, setChildId] = useState<number | null>(selectedChildId || null);
   const [selectedIngredientCategory, setSelectedIngredientCategory] = useState<string | null>(null);
   const [ingredientSearch, setIngredientSearch] = useState('');
   const [showIngredientInput, setShowIngredientInput] = useState(false);
+  const [aiSummaryVisible, setAiSummaryVisible] = useState(false);
+  const [aiSummaryData, setAiSummaryData] = useState<{
+    totalScore: number;
+    totalSummary: string;
+    suggestions: string[];
+  } | null>(null);
   const { data: ingredientListData, isLoading: ingredientListLoading } = useIngredientList('');
-
 
   const selectedStage = MEAL_STAGE.find(stage => stage.id === mealStage);
   const [stageItems, setStageItems] = useState<{id:string;label:string;needCode:boolean}[]>([]);
@@ -82,6 +103,11 @@ export default function MealRegistScreen({ route, navigation }: any) {
       setStageItems([]);
     }
   }, [mealStage]);
+
+  useEffect(() => {
+    const selectedStageItem = stageItems.find((item) => item.id === mealStageDetail);
+    setShowIngredientInput(!!selectedStageItem?.needCode);
+  }, [stageItems, mealStageDetail]);
 
   // 애니메이션 값
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -106,13 +132,29 @@ export default function MealRegistScreen({ route, navigation }: any) {
 
   // 수정 모드일 때 초기값 설정 (조건부 return 이전에 위치해야 함 - Rules of Hooks)
   useEffect(() => {
+
     if (meal) {
       setContents(meal.contents || '');
       setSelectedCategory(meal.category_id || null);
       setMealCondition(meal.meal_condition || '0');
       setIsPreMade(meal.is_pre_made || 'N');
       setIsPublic(meal.is_public || 'Y');
-      setIngredients(meal.mapped_tags || []);
+      setChildId(meal.childs?.child_id || null);
+
+      // mapped_tags에서 재료 이름과 스코어 추출
+      if (meal.mapped_tags && Array.isArray(meal.mapped_tags)) {
+        const ingredientNames = meal.mapped_tags.map((tag: any) => tag.mapper_name);
+        const amounts: {[key: string]: number} = {};
+        meal.mapped_tags.forEach((tag: any) => {
+          amounts[tag.mapper_name] = parseFloat(tag.mapper_score);
+        });
+        setIngredients(ingredientNames);
+        setIngredientAmounts(amounts);
+      } else {
+        setIngredients([]);
+        setIngredientAmounts({});
+      }
+
       setMealStage(meal.meal_stage || 0);
       setMealStageDetail(meal.meal_stage_detail || '');
 
@@ -139,7 +181,43 @@ export default function MealRegistScreen({ route, navigation }: any) {
   };
 
   const handleRemoveIngredient = (index: number) => {
+    const targetIngredient = ingredients[index];
     setIngredients(ingredients.filter((_, i) => i !== index));
+    if (targetIngredient) {
+      setIngredientAmounts((prev) => {
+        const next = { ...prev };
+        delete next[targetIngredient];
+        return next;
+      });
+    }
+  };
+
+  const handleOpenIngredientAmountModal = (ingredientName: string) => {
+    setSelectedIngredientNameForAmount(ingredientName);
+    setIngredientAmountModalVisible(true);
+  };
+
+  const handleSelectIngredientAmount = (amountValue: number) => {
+    if (!selectedIngredientNameForAmount) {
+      return;
+    }
+
+    const ingredientName = selectedIngredientNameForAmount;
+    if (!ingredients.includes(ingredientName)) {
+      setIngredients((prev) => [...prev, ingredientName]);
+    }
+    setIngredientAmounts((prev) => ({
+      ...prev,
+      [ingredientName]: amountValue,
+    }));
+
+    setIngredientAmountModalVisible(false);
+    setSelectedIngredientNameForAmount(null);
+  };
+
+  const handleCloseIngredientAmountModal = () => {
+    setIngredientAmountModalVisible(false);
+    setSelectedIngredientNameForAmount(null);
   };
 
   const handlePickImage = async () => {
@@ -196,6 +274,72 @@ export default function MealRegistScreen({ route, navigation }: any) {
     setMealStageDetail(item.id);
   }
 
+  /*
+    식단 등록 전 ai 분석
+   */
+  const handleAiAnalysis = () => {
+    const ingredientIdByName = new Map<string, number>();
+
+    if (Array.isArray(ingredientListData)) {
+      ingredientListData.forEach((category: any) => {
+        (category?.ingredients ?? []).forEach((ing: any) => {
+          ingredientIdByName.set(ing.name, Number(ing.id));
+        });
+      });
+    }
+
+    const ingredientList = ingredients
+      .map((name) => {
+        const ingredientId = ingredientIdByName.get(name);
+        if (!ingredientId) {
+          return null;
+        }
+        return {
+          ingredient_id: ingredientId,
+          score: ingredientAmounts[name] ?? 0.6,
+        };
+      })
+      .filter((item): item is { ingredient_id: number; score: number } => item !== null);
+
+    analyzeMealMutation.mutate(
+      {
+        userHash: user?.view_hash || '',
+        categoryCode: selectedCategory ? String(selectedCategory) : '',
+        input_date: selectedDate,
+        childId: childId || 0,
+        mealStage, mealStageDetail,
+        contents: contents.trim(),
+        ingredients: ingredientList,
+      },
+      {
+        onSuccess: (response) => {
+          if (!response.success) {
+            toastError(response.error || response.message || '영양 분석에 실패했습니다.');
+            return;
+          }
+
+          const analysisResult = response.data;
+          const totalScore = Number(analysisResult?.total_score ?? 0);
+          const totalSummary = analysisResult?.total_summary ?? '';
+          const suggestions = typeof analysisResult?.suggestion === 'string'
+            ? analysisResult.suggestion.split('_AND_').filter((item: string) => item.trim().length > 0)
+            : [];
+
+          setAiSummaryData({
+            totalScore,
+            totalSummary,
+            suggestions,
+          });
+          setAiSummaryVisible(true);
+
+        },
+        onError: (error) => {
+          toastError('식단 수정에 실패했습니다.');
+        },
+      }
+    );
+  }
+
   const handleSubmit = async () => {
     if (!contents.trim()) {
       Alert.alert('알림', '내용을 입력해주세요.');
@@ -205,6 +349,15 @@ export default function MealRegistScreen({ route, navigation }: any) {
     if (!selectedCategory) {
       Alert.alert('알림', '식사 시간을 선택해주세요.');
       return;
+    }
+
+    const ingredientIdByName = new Map<string, string | number>();
+    if (Array.isArray(ingredientListData)) {
+      ingredientListData.forEach((category: any) => {
+        (category?.ingredients ?? []).forEach((ing: any) => {
+          ingredientIdByName.set(ing.name, ing.id);
+        });
+      });
     }
 
     const mealData = {
@@ -219,10 +372,20 @@ export default function MealRegistScreen({ route, navigation }: any) {
       child_id: childId,
       meal_stage: mealStage,
       meal_stage_detail: mealStageDetail,
-      ingredients: isPreMade === 'N' ? ingredients : [],
+      ingredients: isPreMade === 'N'
+        ? ingredients.map((name) => {
+            const ingredientId = ingredientIdByName.get(name) ?? name;
+            return {
+              id: ingredientId,
+              name,
+              score: ingredientAmounts[name] ?? 0.6,
+            };
+          })
+        : [],
     };
 
     if (MEAL_STAGE.find(s => s.id === mealStage)?.items.some(i => i.id === mealStageDetail && i.needCode)) {
+      console.log("mealData", mealData)
       if (mealData.ingredients.length === 0) {
         toastInfo('재료를 입력해주세요.');
         return;
@@ -546,7 +709,7 @@ export default function MealRegistScreen({ route, navigation }: any) {
               </View>
             </View>
           )}
-          {/* 재료입력(기성품 여부가 N 인 경우)start */}
+          {/* 재료선택(기성품 여부가 N 인 경우)start */}
           {showIngredientInput && (() => {
             const catData = (ingredientListData as any[])?.find(
               (c: any) => c.category === selectedIngredientCategory
@@ -558,7 +721,7 @@ export default function MealRegistScreen({ route, navigation }: any) {
               : [];
             return (
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>재료 입력</Text>
+                <Text style={styles.sectionTitle}>재료 선택</Text>
 
                 {/* 대카테고리 칩 */}
                 {Array.isArray(ingredientListData) && (
@@ -638,8 +801,13 @@ export default function MealRegistScreen({ route, navigation }: any) {
                               onPress={() => {
                                 if (isSelected) {
                                   setIngredients(ingredients.filter(n => n !== ing.name));
+                                  setIngredientAmounts((prev) => {
+                                    const next = { ...prev };
+                                    delete next[ing.name];
+                                    return next;
+                                  });
                                 } else {
-                                  setIngredients([...ingredients, ing.name]);
+                                  handleOpenIngredientAmountModal(ing.name);
                                 }
                               }}
                               style={[
@@ -679,8 +847,8 @@ export default function MealRegistScreen({ route, navigation }: any) {
                 {ingredients.length > 0 && (
                   <View style={[styles.tagList, { marginTop: 14 }]}>
                     {ingredients.map((item, index) => (
-                      <View key={index} style={styles.tag}>
-                        <Text style={styles.tagText}>#{item}</Text>
+                      <View key={index} style={[styles.tag, { backgroundColor: getAmountColor(ingredientAmounts[item] ?? 0.6), borderColor: getBorderColor(ingredientAmounts[item] ?? 0.6) }]}>
+                        <Text style={styles.tagText}>{item} {getAmountCircles(ingredientAmounts[item] ?? 0.6)}</Text>
                         <TouchableOpacity
                           onPress={() => handleRemoveIngredient(index)}
                           style={styles.tagRemoveButton}
@@ -754,27 +922,91 @@ export default function MealRegistScreen({ route, navigation }: any) {
           </View>
           {/* 공개여부 end */}
 
-
-          {/* 저장 버튼 */}
-          <LinearGradient
-            colors={isPending ? ['#CCC', '#DDD'] : ['#FF9AA2', '#FF7B89']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.submitButton}
-          >
-            <TouchableOpacity
-              style={styles.submitButtonInner}
-              onPress={handleSubmit}
-              disabled={isPending}
+          <View style={styles.submitButtonRow}>
+            <LinearGradient
+              colors={analyzeMealMutation.isPending ? ['#CCC', '#DDD'] : ['#8FD3F4', '#84FAB0']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.analyzeButton}
             >
-              {isPending ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <Text style={styles.submitButtonText}>✨ 식단 저장하기 ✨</Text>
-              )}
-            </TouchableOpacity>
-          </LinearGradient>
+              <TouchableOpacity
+                style={styles.analyzeButtonInner}
+                onPress={handleAiAnalysis}
+                disabled={analyzeMealMutation.isPending}
+              >
+                {analyzeMealMutation.isPending ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.analyzeButtonText}>✨ 영양분석 ✨</Text>
+                )}
+              </TouchableOpacity>
+            </LinearGradient>
+
+            <LinearGradient
+              colors={isPending ? ['#CCC', '#DDD'] : ['#FF9AA2', '#FF7B89']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.submitButton}
+            >
+              <TouchableOpacity
+                style={styles.submitButtonInner}
+                onPress={handleSubmit}
+                disabled={isPending}
+              >
+                {isPending ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.submitButtonText}>✨ 식단 저장하기 ✨</Text>
+                )}
+              </TouchableOpacity>
+            </LinearGradient>
+          </View>
         </ScrollView>
+
+        <Modal
+          visible={ingredientAmountModalVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={handleCloseIngredientAmountModal}
+        >
+          <View style={styles.amountModalOverlay}>
+            <View style={styles.amountModalContainer}>
+              <Text style={styles.amountModalTitle}>재료 정량 선택</Text>
+              <Text style={styles.amountModalDescription}>
+                {selectedIngredientNameForAmount ?? ''} 을(를) 얼마나 사용하셨나요?
+              </Text>
+              <View style={styles.amountButtonRow}>
+                {INGREDIENT_AMOUNT_OPTIONS.map((option) => (
+                  <TouchableOpacity
+                    key={option.label}
+                    style={[styles.amountButton, { backgroundColor: option.color, borderColor: getBorderColor(option.value) }]}
+                    onPress={() => handleSelectIngredientAmount(option.value)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.amountCircles}>{'●'.repeat(option.circles)}</Text>
+                    <Text style={styles.amountButtonText}>{option.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <TouchableOpacity
+                style={styles.amountModalCancelButton}
+                onPress={handleCloseIngredientAmountModal}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.amountModalCancelText}>닫기</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
+        <AiSummaryMealModal
+          visible={aiSummaryVisible}
+          onClose={() => setAiSummaryVisible(false)}
+          totalScore={aiSummaryData?.totalScore ?? 0}
+          totalSummary={aiSummaryData?.totalSummary ?? ''}
+          suggestions={aiSummaryData?.suggestions ?? []}
+        />
         </KeyboardAvoidingView>
       </View>
     </Layout>

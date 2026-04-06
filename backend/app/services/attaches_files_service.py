@@ -175,7 +175,6 @@ def soft_delete_file_by_model_id(session, model: str, model_id: int):
 def copy_attache_file(origin_model: str, origin_model_instance, target_model: str, target_model_instance):
     from app.libs.hash_utils import generate_sha256_hash
     from datetime import datetime
-    from app.models.feeds_images import FeedsImages
     import shutil
 
     try:

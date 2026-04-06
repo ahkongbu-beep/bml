@@ -8,8 +8,8 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://bml-e3uz.onrender.com",
-        "EXPO_PUBLIC_STATIC_BASE_URL": "https://bml-e3uz.onrender.com",
+        "EXPO_PUBLIC_API_URL": "http://10.11.1.40:8000",
+        "EXPO_PUBLIC_STATIC_BASE_URL": "http://10.11.1.40:8000",
         "EXPO_PUBLIC_APP_NAME": "BML",
         "EXPO_PUBLIC_APP_SUBTITLE": "건강한 식단 관리",
         "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": "404204939819-ffm7mfhrn45npct70sav27iekp0j3r75.apps.googleusercontent.com",
@@ -22,8 +22,8 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://bml-e3uz.onrender.com",
-        "EXPO_PUBLIC_STATIC_BASE_URL": "https://bml-e3uz.onrender.com",
+        "EXPO_PUBLIC_API_URL": "http://10.11.1.40:8000",
+        "EXPO_PUBLIC_STATIC_BASE_URL": "http://10.11.1.40:8000",
         "EXPO_PUBLIC_APP_NAME": "BML",
         "EXPO_PUBLIC_APP_SUBTITLE": "건강한 식단 관리",
         "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": "404204939819-ffm7mfhrn45npct70sav27iekp0j3r75.apps.googleusercontent.com",
@@ -36,8 +36,8 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://bml-e3uz.onrender.com",
-        "EXPO_PUBLIC_STATIC_BASE_URL": "https://bml-e3uz.onrender.com",
+        "EXPO_PUBLIC_API_URL": "http://10.11.1.40:8000",
+        "EXPO_PUBLIC_STATIC_BASE_URL": "http://10.11.1.40:8000",
         "EXPO_PUBLIC_APP_NAME": "BML",
         "EXPO_PUBLIC_APP_SUBTITLE": "건강한 식단 관리",
         "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID":"404204939819-ffm7mfhrn45npct70sav27iekp0j3r75.apps.googleusercontent.com",

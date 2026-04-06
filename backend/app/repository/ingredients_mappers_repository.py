@@ -3,11 +3,16 @@ from app.models.ingredients_mappers import IngredientsMappers
 class IngredientsMappersRepository:
 
     @staticmethod
-    def create_mapper(db, data, is_commit=True):
+    def get_ingredient_mappers_by_meal_id(db, meal_id: int):
+        return db.query(IngredientsMappers).filter(
+            IngredientsMappers.meal_id == meal_id
+        ).all()
+
+    @staticmethod
+    def create_mapper(db, data):
         ingredient_mapper = IngredientsMappers(**data)
         db.add(ingredient_mapper)
-        if is_commit:
-            db.commit()
+        db.flush()
         return ingredient_mapper
 
     @staticmethod

@@ -75,6 +75,7 @@ export default function CommunityScreen({ navigation }: any) {
   ];
 
   const getCommunities = useGetCommunities();
+  console.log("getCommunities", getCommunities);
   const deleteCommunity = useSoftDeleteCommunity();
   const likeToggleCommunity = useLikeToggleCommunity();
 
@@ -300,8 +301,6 @@ export default function CommunityScreen({ navigation }: any) {
   const renderPost = ({ item }: { item: CommunityPost }) => {
     const isMine = item.user_hash === user?.view_hash;
 
-    console.log("item", item);
-
     // category_code에 맞는 주제 찾기
     const category = topicGroupsWithAll.find(cat => cat.id === item.category_code);
     const categoryName = category ? category.value : '';
@@ -315,7 +314,7 @@ export default function CommunityScreen({ navigation }: any) {
         >
           <View style={styles.postItemContent}>
             <TouchableOpacity
-              onPress={() => handleViewProfile(navigation, user?.view_hash, item.user_hash)}
+              onPress={() => handleViewProfile(navigation, user?.view_hash, item.user.user_hash)}
               style={styles.postProfileContainer}
             >
               <Image

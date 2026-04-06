@@ -12,23 +12,25 @@ import {
 import Layout from '../components/Layout';
 import Header from '../components/Header';
 import ConfirmPortal from '../components/ConfirmPortal';
-import styles from './FeedDetailScreen.styles';
+import styles from './MealMyDetailScreen.style';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../libs/contexts/AuthContext';
 import { diffMonthsFrom, getStaticImage } from '@/libs/utils/common';
 import { LoadingPage } from '../components/Loading';
-import { useFeed, useDeleteFeed } from '../libs/hooks/useFeeds';
+import { useMyMealDetail } from '../libs/hooks/useMeals';
+import { useDeleteFeed } from '../libs/hooks/useFeeds';
 import { USER_CHILD_GENDER } from '../libs/utils/codes/UserChildCode';
 import { MEAL_CONDITION } from '../libs/utils/codes/FeedMealCondition';
 import { toastError, toastSuccess } from '@/libs/utils/toast';
 import { ErrorPage } from '../components/ErrorPage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-export default function FeedDetailScreen({ route, navigation }: any) {
-  const { feedId } = route.params;
+export default function MealMyDetailScreen({ route, navigation }: any) {
+  const { mealHash, userHash } = route.params || {};
+  console.log('MealMyDetailScreen params:', { mealHash, userHash });
   const { user } = useAuth();
-  const { data: feed, isLoading, isError, error } = useFeed(feedId);
-  const deleteFeedMutation = useDeleteFeed(feedId);
+  const { data: feed, isLoading, isError, error } = useMyMealDetail(userHash, mealHash);
+  const deleteFeedMutation = useDeleteFeed(mealHash);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [ deleteConfirmVisible, setDeleteConfirmVisible ] = useState(false);
 
@@ -38,14 +40,14 @@ export default function FeedDetailScreen({ route, navigation }: any) {
   }
 
   // 삭제 확정
-  const confirmDelete = async (feedId: number) => {
+  const confirmDelete = async (mealId: number) => {
     setDeleteConfirmVisible(false);
 
     try {
-      const result = await deleteFeedMutation.mutateAsync(feedId);
+      const result = await deleteFeedMutation.mutateAsync(mealId);
       if (result.success) {
         toastSuccess('식단정보가 삭제되었습니다.', {
-          onHide: () => navigation.navigate('MyPage')
+          onHide: () => navigation.navigate('MyProfile')
         });
       } else {
         toastError(result.error || '식단정보 삭제에 실패했습니다.');
@@ -55,7 +57,7 @@ export default function FeedDetailScreen({ route, navigation }: any) {
     }
   }
 
-  const handleDelete = (feedId) => {
+  const handleDelete = (mealId: number) => {
     setDeleteConfirmVisible(true);
   };
 
@@ -74,7 +76,7 @@ export default function FeedDetailScreen({ route, navigation }: any) {
       <ErrorPage
         message="식단정보를 불러오는 중 오류가 발생했습니다."
         subMessage={error?.message}
-        refetch={() => { navigation.replace('FeedDetail', { feedId }) }}
+        refetch={() => { navigation.replace('MealMyDetail', { mealHash, userHash }) }}
       />
     );
   }
@@ -167,11 +169,9 @@ export default function FeedDetailScreen({ route, navigation }: any) {
             </View>
 
             {/* 섭취 상태 - 나에게만 보이게 */}
-            {isMyFeed && (
-              <View style={styles.statItem}>
-                <Text style={styles.statText}>{condition ? condition.icon + " " + condition.name : ''}</Text>
-              </View>
-            )}
+            <View style={styles.statItem}>
+              <Text style={styles.statText}>{condition ? condition.icon + " " + condition.name : ''}</Text>
+            </View>
           </View>
         </ScrollView>
 

@@ -1,8 +1,21 @@
 from datetime import datetime
 from typing import Optional, List
 from pydantic import BaseModel
-from app.schemas.users_schemas import UserChildItemSchema
 from app.schemas.feeds_schemas import FeedsCommentResponse, FeedsUserResponse
+
+class CommunityListReqest(BaseModel):
+    category_code: Optional[int] = None
+    is_notice: Optional[str] = None
+    is_secret: Optional[str] = None
+    keyword: Optional[str] = None
+    user_nickname: Optional[str] = None
+    month: Optional[str] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    sort_by: Optional[str] = "latest"
+    cursor: Optional[int] = None
+    my_only: Optional[str] = None
+    limit: int = 20
 
 class CommunityCreateRequest(BaseModel):
     title: str

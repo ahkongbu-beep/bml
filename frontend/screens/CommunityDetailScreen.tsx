@@ -18,17 +18,26 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import styles from './CommunityDetailScreen.styles';
 import { Ionicons } from '@expo/vector-icons';
+
 import Layout from '../components/Layout';
 import Header from '../components/Header';
 import CommentModal from '../components/CommentModal';
-import { useAuth } from '../libs/contexts/AuthContext';
-import { useGetDetailCommunity, useCommunityComments, useSoftDeleteCommunity, useCreateCommunityComment, useDeleteCommunityComment } from '../libs/hooks/useCommunities';
-import { useCategoryCodes } from '../libs/hooks/useCategories';
 import { LoadingPage } from '../components/Loading';
-import { formatDate, diffMonthsFrom, getStaticImage, formatRelativeTime, handleViewProfile } from '@/libs/utils/common';
-import { Portal, Dialog, Button, Icon } from 'react-native-paper';
-import { toastError, toastInfo, toastSuccess } from '@/libs/utils/toast';
+
+import { useAuth } from '../libs/contexts/AuthContext';
 import { CommunityDetail } from '../libs/types/community';
+import { useCategoryCodes } from '../libs/hooks/useCategories';
+import { formatDate, diffMonthsFrom, getStaticImage, formatRelativeTime, handleViewProfile } from '@/libs/utils/common';
+import { toastError, toastInfo, toastSuccess } from '@/libs/utils/toast';
+import {
+  useGetDetailCommunity,
+  useCommunityComments,
+  useSoftDeleteCommunity,
+  useCreateCommunityComment,
+  useDeleteCommunityComment
+} from '../libs/hooks/useCommunities';
+import { Portal, Dialog, Button, Icon } from 'react-native-paper';
+
 
 export default function CommunityDetailScreen({ route, navigation }: any) {
   const { viewHash } = route.params || {};

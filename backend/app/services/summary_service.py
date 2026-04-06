@@ -4,6 +4,12 @@
 - 그 외 sns_login_type 인 경우 sns_id 는 필수
 """
 from pathlib import Path
+import re
+import json
+
+from app.core.config import settings
+from app.libs.open_ai import openai_call
+from app.libs.age_utils import format_child_age
 
 from app.repository.user_repository import UserRepository
 from app.repository.feed_repository import FeedRepository
@@ -11,18 +17,212 @@ from app.repository.feeds_tags_mappers_repository import FeedsTagsMappersReposit
 from app.repository.meals_calendars_repository import MealsCalendarsRepository
 from app.repository.summaries_agents_repository import SummariesAgentsRepository
 from app.repository.users_childs_repository import UsersChildsRepository
+
+from app.services.meals_summaries_service import get_meal_summary_by_view_hash
 from app.schemas.common_schemas import CommonResponse
-from app.core.config import settings
-from app.libs.open_ai import openai_call
-from app.libs.age_utils import format_child_age
 
-import json
+#============================================
+# 함수 정의
+#============================================
+def set_openai_question(system_prompt: str, user_prompt: str) -> list:
+    """
+    agent 에게 보낼 메세지 format 을 정의
+    """
+    messages = [
+        {
+            "role": "system",
+            "content": system_prompt
+        },
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "text",
+                    "text": user_prompt
+                }
+            ]
+        }
+    ]
+    return messages
 
-"""
-나의 요약 검색 내역 조회
-"""
+def call_openapi(messages) -> list:
+    """
+    agent 호출 함수
+    """
+    try:
+        response = openai_call(messages)
+
+        # OpenAI API 응답에서 에러 체크
+        if "error" in response:
+            return False, f"OpenAI API 오류: {response['error']}"
+
+        # OpenAI API 응답 구조: choices[0].message.content
+        return True, response.get("choices", [{}])[0].get("message", {}).get("content", "")
+    except Exception as e:
+        return False, f"요청 처리 중 오류가 발생했습니다: {str(e)}"
+
+def parse_openai_response(content: str):
+    """
+    OpenAI 응답에서 JSON 데이터 추출
+    - ```json ... ``` 제거
+    """
+    match = re.search(r"```json\s*(\{.*?\})\s*```", content, re.DOTALL)
+
+    if match:
+        json_str = match.group(1)
+    else:
+        json_str = content  # 혹시 코드블럭 없으면 그대로
+
+    return json.loads(json_str)
+
+def get_week_report_user_prompt(summary_data, child_gender, child_birth):
+    gender = "남아" if child_gender == "M" else "여아"
+    prompt = f"다음은 {format_child_age(child_birth)} {gender}의 날짜별 식단과 영양소 데이터입니다."
+    prompt += f"\n\n모든 날짜와 식사의 영양소를 합산하여 분석하고 System Prompt에서 정의한 JSON 구조로 결과를 반환하세요."
+    prompt += f"\n\n데이터:"
+    prompt += json.dumps(summary_data, indent=2, ensure_ascii=False)
+    return prompt
+
+#============================================
+# 서비스 함수 정의
+#============================================
+def get_week_report(summary_data, child_gender, child_birth):
+    system_prompt = load_prompt_template("week_report.md").strip()
+    user_prompt = get_week_report_user_prompt(summary_data, child_gender, child_birth)
+
+    messages = set_openai_question(system_prompt, user_prompt)
+    is_success, response = call_openapi(messages)
+    if not is_success or is_success == False:
+        return CommonResponse(
+            success=False,
+            message=response,
+            data=[]
+        )
+
+    return response.get("choices", [{}])[0].get("message", {}).get("content", "")
+
+async def temp_meal_summary(db, data) -> CommonResponse:
+    """
+    임시 식단요약
+    - AI 모델을 호출하여 식단 요약 생성
+    - 가등록 단계에서 ai에게 질의를 하고 결과를 받아서 임시 테이블에 저장
+    - 프론트에서는 실제 등록 시 ai_hash로 결과 조회
+    """
+    from app.services.users_service import validate_user
+    from app.services.users_childs_service import get_child_by_id
+    from app.services.ingredients_nutritions_services import get_ingredient_mapper
+    from app.services.categories_codes_service import get_category_code_by_id
+    from app.services.meals_service import get_meal_stage_text
+    from app.services.meals_summaries_service import create_meal_summary, create_ingredient_hash
+
+    from app.schemas.summary_schemas import TempMealSummaryResponse
+
+    user_hash = data.get("user_hash")
+    category_code = data.get("category_code")
+    input_date = data.get("input_date")
+    contents = data.get("contents")
+    child_id = data.get("child_id")
+    meal_stage = data.get("meal_stage")
+    meal_stage_detail = data.get("meal_stage_detail")
+    ingredients = data.get("ingredients", [])
+
+    try:
+        # user 검증
+        user = validate_user(db, user_hash)
+        child = get_child_by_id(db, child_id)
+        if child is None:
+            raise Exception("존재하지 않는 아이정보 입니다.")
+
+        category = get_category_code_by_id(db, category_code)
+        if category is None or category.type != "MEALS_GROUP":
+            raise Exception("유효하지 않은 카테고리입니다.")
+
+        ingredient_data = []
+        for ingredient in ingredients:
+            mapper_data = get_ingredient_mapper(db, ingredient)  # 재료 유효성 검증
+
+            if mapper_data:
+                ingredient_data.append(mapper_data)
+
+        ingredient_names = [ingredient.get("name") for ingredient in ingredients if ingredient.get("name")]
+
+        view_hash = create_ingredient_hash(
+            user.id,
+            input_date,
+            category.code,
+            child_id,
+            contents,
+            meal_stage,
+            meal_stage_detail,
+            ingredient_names,
+        )
+
+        exist_meal_summary = get_meal_summary_by_view_hash(db, view_hash)  # 동일한 해시가 있는지 확인하여 중복 생성 방지
+        if exist_meal_summary:
+            data = TempMealSummaryResponse(
+                ai_hash=exist_meal_summary.view_hash,
+                total_score=exist_meal_summary.total_score,
+                total_summary=exist_meal_summary.total_summary,
+                analysis_json=exist_meal_summary.analysis_json,
+                suggestion=exist_meal_summary.suggestion
+            )
+            return CommonResponse(success=True, message="식단 요약 생성 성공", data=data)
+
+        meal_stage_text, meal_stage_detail_text = get_meal_stage_text(meal_stage, meal_stage_detail)  # 단계 텍스트로 변환 (예: 이유식 초기)
+
+        system_prompt = load_prompt_template("temp_meal_summary.md")
+
+        final_prompt = f"아이 이름 : {child.child_name}"
+        final_prompt += f"\n아이 성별 : {'남아' if child.child_gender == 'M' else '여아'}"
+        final_prompt += f"\n아이의 나이: {format_child_age(child.child_birth)}"
+        final_prompt += f"\n식단 내용: {contents}"
+        final_prompt += f"\n식단 형태: {category.value}"
+        final_prompt += f"\n식단 단계: {meal_stage_text} ({meal_stage_detail_text})"
+        final_prompt += f"\n식사 성분: {ingredient_data}"
+
+        messages = set_openai_question(system_prompt, final_prompt)
+        is_success, response = call_openapi(messages)
+        if not is_success:
+            return CommonResponse(success=False, message=response, data=[])
+
+        data = parse_openai_response(response)
+
+        suggestion = "_AND_".join(data.get("improvement_suggestions", []))
+
+        params = {
+            "user_id": user.id,
+            "total_score": data.get("total_score", 0),
+            "total_summary": data.get("summary", ""),
+            "analysis_json": data.get("nutrient_analysis", ""),
+            "score_details": data.get("score_details", ""),
+            "view_hash": view_hash,
+            "suggestion": suggestion
+        }
+
+        # 임시 테이블에 저장
+        temp_meal_summary = create_meal_summary(db, params)
+        db.commit()
+        if not temp_meal_summary:
+            raise Exception("임시 식단 요약 저장에 실패했습니다.")
+
+        data = TempMealSummaryResponse(
+            ai_hash=temp_meal_summary.view_hash,
+            total_score=temp_meal_summary.total_score,
+            total_summary=temp_meal_summary.total_summary,
+            analysis_json=temp_meal_summary.analysis_json,
+            suggestion=temp_meal_summary.suggestion
+        )
+
+        return CommonResponse(success=True, message="식단 요약 생성 성공", data=data)
+
+    except Exception as e:
+        print("⭕⭕", str(e))
+        return CommonResponse(success=False, message=f"{str(e)}", data=[])
+
 async def search_summary(db, user_hash: str, model: str, model_id: int, query: str, limit: int, offset: int) -> CommonResponse:
-
+    """
+    나의 요약 검색 내역 조회
+    """
     if model is None:
         return CommonResponse(success=False, message="조회를 위한 필수 파라미터가 없습니다.", data=[])
 
@@ -64,6 +264,11 @@ def load_prompt_template(template_name: str) -> str:
     - 반환값: 템플릿 문자열
     """
     template_path = Path(settings.PROMPT_TEMPLATES_DIR) / template_name
+
+    # 상대경로인 경우 이 파일 기준으로 절대경로 변환 (backend/prompts/)
+    if not template_path.is_absolute():
+        base_dir = Path(__file__).resolve().parent.parent.parent
+        template_path = base_dir / settings.PROMPT_TEMPLATES_DIR / template_name
 
     try:
         with open(template_path, 'r', encoding='utf-8') as file:

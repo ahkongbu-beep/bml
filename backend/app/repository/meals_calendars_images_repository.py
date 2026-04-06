@@ -71,14 +71,14 @@ class MealsCalendarsImagesRepository:
     async def create(session, params, is_commit=True) -> bool:
         user_id = params.get("user_id")
         month = params.get("month")
-        image = params.get("file")
+        image = params.get("image")   # 이미 완성된 경로 문자열
         is_active = params.get("is_active", "Y")
 
         # 새로운 이미지 생성
         new_image = MealsCalendarsImages(
             user_id=user_id,
             month=month,
-            image="/" + image['path'],
+            image=image,
             is_active=is_active
         )
         session.add(new_image)

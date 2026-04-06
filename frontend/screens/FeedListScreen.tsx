@@ -14,27 +14,32 @@ import ConfirmPortal from '@/components/ConfirmPortal';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 
-import { MealCalendar } from '../libs/types/MealCalendarType';
 import { useAuth } from '../libs/contexts/AuthContext';
+import { MealCalendar } from '../libs/types/MealCalendarType';
+import { handleViewProfile } from '@/libs/utils/common';
 
 import Layout from '../components/Layout';
 import Header from '../components/Header';
-import AiSummaryModal from '../components/AiSummaryModal';
-import AiSummaryAnswerModal from '../components/AiSummaryAnswerModal';
 import UserHeader from '../components/UserHeader';
 import SearchBar from '../components/SearchBar';
 import BannerCarousel from '../components/BannerCarousel';
-import FeedItem from '../components/FeedItem';
+import MealItem from '../components/MealItem';
+import AiSummaryMealModal from '../components/AiSummaryMealModal';
 import { LoadingPage } from '../components/Loading';
 import { ErrorPage } from '../components/ErrorPage';
-import { handleViewProfile } from '@/libs/utils/common';
+
 import {
   useInfiniteFeeds,
-  useToggleLike,
+  useIngredientList,
   useToggleBookmark,
   useBlockUser,
-  useSummaryFeedImage
 } from '../libs/hooks/useFeeds';
+
+import {
+  useToggleLike,
+  useAnalyzeMeal,
+} from '../libs/hooks/useMeals';
+
 import { toastError, toastSuccess, toastInfo } from '@/libs/utils/toast';
 
 export default function FeedListScreen() {
@@ -44,25 +49,22 @@ export default function FeedListScreen() {
   const [menuVisible, setMenuVisible] = useState<number | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState<{ [key: number]: number }>({});
   const [likingFeedId, setLikingFeedId] = useState<number | null>(null);
-  const [aiSummaryModalVisible, setAiSummaryModalVisible] = useState(false);
-  const [userPrompt, setUserPrompt] = useState<string>('');
-  const [aiAnswerModalVisible, setAiAnswerModalVisible] = useState(false);
+  const [aiSummaryVisible, setAiSummaryVisible] = useState(false);
+  const [aiSummaryData, setAiSummaryData] = useState<{
+    totalScore: number;
+    totalSummary: string;
+    suggestions: string[];
+    ingredients: { mapper_name: string; mapper_score: number; mapper_id?: string }[];
+    imageUrl?: string;
+    contents?: string;
+  } | null>(null);
   const [viewType, setViewType] = useState<"all" | "mine">('all');
+  const [isFilterExpanded, setIsFilterExpanded] = useState(false);
   // SearchBar filter states
   const [searchQuery, setSearchQuery] = useState('');
   const [searchMealStage, setSearchMealStage] = useState<number>(0);
   const [searchMealStageDetail, setSearchMealStageDetail] = useState('');
-
-  const [aiSummaryParams, setAiSummaryParams] = useState<{
-    userHash: string;
-    feedId: number;
-    imageId: string;
-  } | null>(null);
-
-  const [aiAnswerData, setAiAnswerData] = useState<{
-    question: string;
-    answer: string;
-  } | null>(null);
+  const [ingredientName, setIngredientName] = useState<string[]>([]);
 
   const [blockDialogVisible, setBlockDialogVisible] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -71,6 +73,7 @@ export default function FeedListScreen() {
     userHash: string;
     nickname: string;
   } | null>(null);
+  const { data: ingredientListData } = useIngredientList('');
 
   // 낙관적 업데이트를 위한 로컬 좋아요 상태
   const [optimisticLikes, setOptimisticLikes] = useState<{
@@ -91,6 +94,7 @@ export default function FeedListScreen() {
     limit: 20,
     type: 'list',
     view_type: viewType,
+    ingredient_name: ingredientName,
     user_hash: viewType === 'mine' ? user?.view_hash : undefined,
     meal_stage: searchMealStage,
     meal_stage_detail: searchMealStageDetail,
@@ -102,17 +106,16 @@ export default function FeedListScreen() {
     .filter(Boolean)
     .filter((item, index, self) => self.findIndex(f => f.id === item.id) === index) ?? [];
 
-  const summaryFeedImageMutation  = useSummaryFeedImage(); // 이미지 요약
-
   // Mutations
   const toggleLikeMutation     = useToggleLike();
+  const analyzeMealMutation    = useAnalyzeMeal();
   const blockUserMutation      = useBlockUser();
   const toggleBookmarkMutation = useToggleBookmark();
 
   // 좋아요 처리 (낙관적 업데이트)
-  const handleLike = useCallback((id: number) => {
+  const handleLike = useCallback((mealHash: string) => {
     // 현재 피드 찾기
-    const currentFeed = feeds?.find(feed => feed.id === id);
+    const currentFeed = feeds?.find(feed => feed.view_hash === mealHash);
     if (!currentFeed) return;
 
     // 낙관적으로 UI 먼저 업데이트
@@ -123,23 +126,24 @@ export default function FeedListScreen() {
 
     setOptimisticLikes(prev => ({
       ...prev,
-      [id]: {
+      [mealHash]: {
         is_liked: newIsLiked,
         like_count: newLikeCount,
       },
     }));
 
     // 백그라운드에서 API 호출
-    toggleLikeMutation.mutate(id, {
+    toggleLikeMutation.mutate(mealHash, {
       onSuccess: () => {
         // 성공 시 서버 데이터로 동기화
         refetch();
+        toastSuccess('반영되었습니다.');
       },
       onError: (error) => {
         // 실패 시 롤백
         setOptimisticLikes(prev => {
           const newState = { ...prev };
-          delete newState[id];
+          delete newState[mealHash];
           return newState;
         });
         toastError('좋아요 처리 중 오류가 발생했습니다.');
@@ -157,9 +161,10 @@ export default function FeedListScreen() {
   };
 
   // 식단캘린더에 복사 추가
-  const handleAddToMealCalendar = (userHash: string, feedId: number) => {
+  const handleAddToMealCalendar = (userHash: string, mealId: number, mealHash: string) => {
     setMenuVisible(null);
-    navigation.navigate('MealCopyByFeed', { feedId, userHash });
+    console.log("handleAddToMealCalendar called with:", { userHash, mealId, mealHash });
+    navigation.navigate('MealCopyByFeed', { mealId, mealHash, userHash });
   }
 
   // 사용자 차단 or 해제
@@ -180,11 +185,13 @@ export default function FeedListScreen() {
     setUserToBlock(null);
   };
 
+  // 사용자 차단 취소
   const cancelBlock = () => {
     setBlockDialogVisible(false);
     setUserToBlock(null);
   };
 
+  // 상세 메뉴열기
   const handleMenuToggle = useCallback((id: number) => {
     setMenuVisible(prev => prev === id ? null : id);
   }, []);
@@ -201,58 +208,72 @@ export default function FeedListScreen() {
     navigation.getParent()?.navigate('MealRegist', { meal, "selectedDate": meal.input_date });
   }, [navigation]);
 
-  const handleAiSummary = useCallback((userHash: string, feedId: number, imageId: string) => {
-    setAiSummaryParams({ userHash, feedId, imageId });
-    setAiSummaryModalVisible(true);
-  }, []);
+  const handleAiSummary = useCallback((
+    userHashParam: string,
+    categoryIdParam: number,
+    inputDateParam: string,
+    childIdParam: number,
+    mealStageParam: number,
+    mealStageDetailParam: string,
+    contentsParam: string,
+    mappedTagsParam: any[],
+    imagePathParam?: string,
+  ) => {
+    const ingredientList = mappedTagsParam.map(tag => ({
+      ingredient_id: parseInt(tag.mapper_id, 10),
+      score: parseFloat(tag.mapper_score),
+    }));
 
-  // ai 요약 뮤테이션 옵션
-  const aiSummaryMutationOptions = (prompt: string) => ({
-    onSuccess: (data: any) => {
-      setAiSummaryModalVisible(false);
-      setAiAnswerData({ question: prompt, answer: data });
-      setAiAnswerModalVisible(true);
-    },
-    onError: (error: unknown) => {
-      setAiSummaryModalVisible(false);
-      setAiSummaryParams(null);
-      setUserPrompt('');
-      toastError('AI 요약 중 오류가 발생했습니다.');
-    },
-  });
+    analyzeMealMutation.mutate(
+      {
+        userHash: userHashParam,
+        categoryCode: categoryIdParam || 0,
+        input_date: inputDateParam,
+        childId: childIdParam || 0,
+        mealStage: mealStageParam || 0,
+        mealStageDetail: mealStageDetailParam || '',
+        contents: (contentsParam || '').trim(),
+        ingredients: ingredientList,
+      },
+      {
+        onSuccess: (response: any) => {
+          if (!response.success) {
+            toastError(response.error || response.message || '영양 분석에 실패했습니다.');
+            return;
+          }
+
+          const analysisResult = response.data;
+          const totalScore = Number(analysisResult?.total_score ?? 0);
+          const totalSummary = analysisResult?.total_summary ?? '';
+          const suggestions = typeof analysisResult?.suggestion === 'string'
+            ? analysisResult.suggestion.split('_AND_').filter((item: string) => item.trim().length > 0)
+            : [];
+
+          setAiSummaryData({
+            totalScore,
+            totalSummary,
+            suggestions,
+            ingredients: mappedTagsParam.map(tag => ({
+              mapper_name: tag.mapper_name,
+              mapper_score: tag.mapper_score,
+              mapper_id: tag.mapper_id,
+            })),
+            imageUrl: imagePathParam, // 이미지 URL도 전달
+            contents: contentsParam,
+          });
+          setAiSummaryVisible(true);
+        },
+        onError: () => {
+          toastError('영양 분석에 실패했습니다.');
+        },
+      },
+    );
+  }, [ingredientListData, analyzeMealMutation, user?.view_hash]);
 
   const handleProfileView = useCallback((userHash: string) => {
     setMenuVisible(null); // 해쉬정보가 같은 경우 내 프로필로 이동
     handleViewProfile(navigation, user?.view_hash || '', userHash);
   }, [navigation, user?.view_hash]);
-
-  // ai 요약 질문 제출
-  const handleAiSummarySubmit = useCallback((prompt: string) => {
-    if (!aiSummaryParams) return;
-
-    const { feedId, imageId } = aiSummaryParams;
-    setUserPrompt(prompt); // 사용자 질문 저장
-
-    summaryFeedImageMutation.mutate(
-      { feedId, imageId: parseInt(imageId), prompt},
-      aiSummaryMutationOptions(prompt)
-    );
-  }, [aiSummaryParams, summaryFeedImageMutation]);
-
-  // ai 답변 모달 닫기
-  const onHandleAiAnswerModalClose = () => {
-    setAiAnswerModalVisible(false);
-    setAiAnswerData(null);
-    setAiSummaryParams(null);
-    setUserPrompt('');
-  }
-
-  // ai 모달닫기
-  const onHandleAiModalClose = () => {
-    setAiSummaryModalVisible(false);
-    setAiSummaryParams(null);
-    setUserPrompt('');
-  }
 
   const keyExtractor = useCallback((item: MealCalendar) => item.id.toString(), []);
 
@@ -267,6 +288,17 @@ export default function FeedListScreen() {
     setViewType(newType);
   }
 
+  const handleTagPress = useCallback((tag: string) => {
+    setIngredientName(prev => {
+      const next = prev.includes(tag)
+        ? prev.filter(t => t !== tag)
+        : [...prev, tag];
+      flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+      return next;
+    });
+    setIsFilterExpanded(false);
+  }, []);
+
   const renderFeed = useCallback(({ item }: { item: MealCalendar }) => {
     // 낙관적 업데이트가 있으면 그것을 우선 사용
     const optimisticState = optimisticLikes[item.id];
@@ -279,7 +311,7 @@ export default function FeedListScreen() {
     const isMine = user?.view_hash === item.user.user_hash;
 
     return (
-      <FeedItem
+      <MealItem
         item={feedItem}
         menuVisible={menuVisible}
         currentImageIndex={currentImageIndex}
@@ -295,9 +327,11 @@ export default function FeedListScreen() {
         userHash={user?.view_hash}
         isMine={isMine}
         onEditFeed={handleEditFeed}
+        onTagPress={handleTagPress}
+        selectedTags={ingredientName}
       />
     );
-  }, [menuVisible, currentImageIndex, likingFeedId, optimisticLikes, handleMenuToggle, handleImageScroll, handleProfileView, handleBlock, handleLike, handleCommentPress, handleAiSummary, user?.view_hash]);
+  }, [menuVisible, currentImageIndex, likingFeedId, optimisticLikes, handleMenuToggle, handleImageScroll, handleProfileView, handleBlock, handleLike, handleCommentPress, handleAiSummary, handleTagPress, user?.view_hash]);
 
   const renderListHeader = () => (
     <View>
@@ -329,6 +363,65 @@ export default function FeedListScreen() {
           flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
         }}
       />
+      {/* 식재료 필터 배지 */}
+      {ingredientName.length > 0 && (() => {
+        const VISIBLE_COUNT = 2;
+        const hasMore = ingredientName.length > VISIBLE_COUNT;
+        const visibleTags = isFilterExpanded ? ingredientName : ingredientName.slice(0, VISIBLE_COUNT);
+        const hiddenCount = ingredientName.length - VISIBLE_COUNT;
+
+        const BadgeItem = ({ tag }: { tag: string }) => (
+          <View key={tag} style={activeFilterStyles.badge}>
+            <Ionicons name="pricetag-outline" size={13} color="#FF9AA2" />
+            <Text style={activeFilterStyles.badgeText}>{tag}</Text>
+            <TouchableOpacity
+              onPress={() => {
+                setIngredientName(prev => prev.filter(t => t !== tag));
+                flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+              }}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="close-circle" size={16} color="#FF9AA2" />
+            </TouchableOpacity>
+          </View>
+        );
+
+        return (
+          <View style={activeFilterStyles.container}>
+            <View style={activeFilterStyles.row}>
+              {visibleTags.map(tag => <BadgeItem key={tag} tag={tag} />)}
+              {!isFilterExpanded && hasMore && (
+                <TouchableOpacity
+                  style={activeFilterStyles.moreButton}
+                  onPress={() => setIsFilterExpanded(true)}
+                >
+                  <Text style={activeFilterStyles.moreButtonText}>+{hiddenCount}</Text>
+                </TouchableOpacity>
+              )}
+              {isFilterExpanded && (
+                <TouchableOpacity
+                  style={activeFilterStyles.moreButton}
+                  onPress={() => setIsFilterExpanded(false)}
+                >
+                  <Ionicons name="chevron-up" size={14} color="#FF9AA2" />
+                </TouchableOpacity>
+              )}
+              {ingredientName.length > 1 && (
+                <TouchableOpacity
+                  style={activeFilterStyles.clearAll}
+                  onPress={() => {
+                    setIngredientName([]);
+                    setIsFilterExpanded(false);
+                    flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+                  }}
+                >
+                  <Text style={activeFilterStyles.clearAllText}>전체 해제</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        );
+      })()}
       <FlatList
         ref={flatListRef}
         data={feeds}
@@ -364,22 +457,16 @@ export default function FeedListScreen() {
         }
       />
 
-      {/* AI 요약 질문 모달 */}
-      <AiSummaryModal
-        visible={aiSummaryModalVisible}
-        onClose={onHandleAiModalClose}
-        onSubmit={handleAiSummarySubmit}
-        isLoading={summaryFeedImageMutation.isPending}
-        userPrompt={userPrompt}
-      />
+      <AiSummaryMealModal
+        visible={aiSummaryVisible}
+        onClose={() => setAiSummaryVisible(false)}
+        totalScore={aiSummaryData?.totalScore ?? 0}
+        totalSummary={aiSummaryData?.totalSummary ?? ''}
+        suggestions={aiSummaryData?.suggestions ?? []}
+        ingredients={aiSummaryData?.ingredients ?? []}
+        imageUrl={aiSummaryData?.imageUrl}
+        contents={aiSummaryData?.contents} // 전체 데이터 전달 (필요 시)
 
-      {/* AI 요약 답변 모달 */}
-      <AiSummaryAnswerModal
-        visible={aiAnswerModalVisible}
-        onClose={onHandleAiAnswerModalClose}
-        question={aiAnswerData?.question || ''}
-        answer={aiAnswerData?.answer || ''}
-        title="AI 요약 결과"
       />
 
       {/* 사용자 차단 확인 Dialog */}
@@ -396,3 +483,63 @@ export default function FeedListScreen() {
     </Layout>
   );
 }
+
+const activeFilterStyles = StyleSheet.create({
+  container: {
+    backgroundColor: '#FFF5F0',
+    borderBottomWidth: 1,
+    borderBottomColor: '#FFE5E5',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  row: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 8,
+  },
+  badge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#FF9AA2',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    gap: 6,
+  },
+  badgeText: {
+    fontSize: 13,
+    color: '#FF9AA2',
+    fontWeight: '600',
+  },
+  moreButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFE5E5',
+    borderWidth: 1,
+    borderColor: '#FF9AA2',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    minWidth: 36,
+  },
+  moreButtonText: {
+    fontSize: 13,
+    color: '#FF9AA2',
+    fontWeight: '700',
+  },
+  clearAll: {
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
+  clearAllText: {
+    fontSize: 12,
+    color: '#999',
+    fontWeight: '600',
+    textDecorationLine: 'underline',
+  },
+});

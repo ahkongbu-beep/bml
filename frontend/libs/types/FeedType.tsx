@@ -37,11 +37,14 @@ export interface Feed {
 }
 
 export interface LikedFeed {
-  feed_id: number;
+  meal_id: number;
   title: string;
-  content: string;
-  feed_image_url: string;
+  contents: string;
+  image_url: string;
   liked_at: string;
+  meal_hash?: string;
+  like_hash: string;
+  user_hash: string;
 }
 
 export interface FeedItemProps {
@@ -53,13 +56,25 @@ export interface FeedItemProps {
   onImageScroll: (id: number, index: number) => void;
   onViewProfile: (userHash: string, nickname: string) => void;
   onBlock: (denyUserHash: string, nickname: string) => void;
-  onLike: (id: number) => void;
+  onLike: (mealHash: string) => void;
   onCommentPress: (id: number) => void;
-  onAiSummary?: (userHash: string, feedId: number, imageId: string) => void;
+  onAiSummary?: (
+    userHash: string,
+    categoryId: number,
+    inputDate: string,
+    childId: number,
+    mealStage: number,
+    mealStageDetail: string,
+    contents: string,
+    mappedTags: any[],
+    imageUrl?: string,
+  ) => void;
   onAddToMealCalendar?: (userHash: string, feedId: number) => void;
   userHash?: string;
   isMine?: boolean;
   onEditFeed?: (feed: Feed) => void;
+  onTagPress?: (tag: string) => void;
+  selectedTags?: string[];
 }
 
 export interface CopyFeedRequest {

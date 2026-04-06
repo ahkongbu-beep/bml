@@ -9,19 +9,6 @@ router = APIRouter()
 def list_categories_codes(cc_type: str = Query(None), db: Session = Depends(get_db)):
     return categories_codes_service.list_categories_codes(db, cc_type)
 
-@router.post("/create")
-async def save_categories_code(request: Request, db: Session = Depends(get_db)):
-    data = await request.json()
-    return categories_codes_service.save_categories_code(db, data)
-
-@router.put("/update")
-async def update_categories_code(request: Request, db: Session = Depends(get_db)):
-    data = await request.json()
-    if (not data.get("id")):
-        return {"success": False, "message": "수정을 위한 필수 정보가 없습니다.", "data": None}
-
-    return categories_codes_service.save_categories_code(db, data)
-
 @router.delete("/delete")
 async def delete_categories_code(request: Request, db: Session = Depends(get_db)):
     data = await request.json()

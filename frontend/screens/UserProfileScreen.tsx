@@ -11,7 +11,6 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
-  ActivityIndicator,
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,6 +19,7 @@ import { useAuth } from '../libs/contexts/AuthContext';
 import { useUserFeeds } from '../libs/hooks/useFeeds';
 import { useGetUserProfile } from '../libs/hooks/useUsers';
 import { useBlockUser } from '../libs/hooks/useFeeds';
+import { useUserMeals } from '../libs/hooks/useMeals';
 import MyFeedGrid from '../components/MyFeedGrid';
 import Layout from '../components/Layout';
 import { LoadingPage } from '../components/Loading';
@@ -27,25 +27,27 @@ import { ErrorPage } from '../components/ErrorPage';
 import { getStaticImage } from '../libs/utils/common';
 
 export default function UserProfileScreen({ route, navigation }: any) {
-  const { userHash } = route.params; // 조회할 사용자 Hash
+  const { targetHash } = route.params; // 조회할 사용자 Hash
+  console.log('UserProfileScreen에 전달된 params - targetHash:', targetHash);
   const { user: currentUser } = useAuth();
   const [ viewType, setViewType ] = useState<'grid' | 'list'>('grid');
 
   // 사용자 프로필 조회
-  const { data: userProfile, isLoading: profileLoading, isError: profileIsError, error: profileError } = useGetUserProfile(userHash);
-  // 사용자의 피드 목록 조회
-  const { data: userFeedsData, isLoading: feedsLoading } = useUserFeeds(userHash);
-  // 피드 데이터
-  const userFeeds = userFeedsData?.data || [];
+  const { data: userProfile, isLoading: profileLoading, isError: profileIsError, error: profileError } = useGetUserProfile(targetHash);
+  console.log('조회 대상 사용자 프로필:', userProfile);
+  // 사용자의 식단 목록 조회
+  const { data: userMealsData, isLoading: mealsLoading } = useUserMeals(targetHash);
+  // 식단 데이터
+  const userMeals = userMealsData?.data || [];
   // 차단 mutation
   const blockUserMutation = useBlockUser();
 
   // 본인 프로필인 경우 MyPage로 이동
   useEffect(() => {
-    if (currentUser?.view_hash === userHash) {
-      navigation.replace('MyPage');
+    if (currentUser?.view_hash === targetHash) {
+      navigation.replace('MyProfile');
     }
-  }, [currentUser?.view_hash, userHash, navigation]);
+  }, [currentUser?.view_hash, targetHash, navigation]);
 
   const handleBlockUser = () => {
     if (!userProfile?.view_hash) return;
@@ -87,7 +89,7 @@ export default function UserProfileScreen({ route, navigation }: any) {
       <ErrorPage
         message="프로필을 불러오는 중 오류가 발생했습니다."
         subMessage={profileError?.message}
-        refetch={() => { navigation.replace('UserProfile', { userHash }) }}
+        refetch={() => { navigation.replace('UserProfile', { targetHash }) }}
       />
     );
   }
@@ -175,10 +177,10 @@ export default function UserProfileScreen({ route, navigation }: any) {
               </TouchableOpacity>
             </View>
             <MyFeedGrid
-              feeds={userFeeds}
-              isLoading={feedsLoading}
+              meals={userMeals}
+              isLoading={mealsLoading}
               viewType={viewType}
-              onFeedPress={(feedId) => navigation.navigate('FeedDetail', { feedId })}
+              onFeedPress={(mealHash) => navigation.navigate('MealUserDetail', { mealHash, userHash: targetHash })}
             />
           </View>
         </ScrollView>

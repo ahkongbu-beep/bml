@@ -5,8 +5,21 @@ from app.routes.users_router import router as users_router
 from app.routes.feeds_router import router as feeds_router
 from app.routes.meals_router import router as meals_router
 from app.routes.summary_router import router as summary_router
-from app.routes.dashboard_router import router as dashboard_router
 from app.routes.communities_router import router as communities_router
 from app.routes.attaches_router import router as attaches_router
+from app.routes.likes_router import router as likes_router
+from app.routes.admin_router import router as admin_router
 
-__all__ = ["auth_router", "notices_router", "categories_codes_router", "users_router", "feeds_router", "meals_router", "summary_router", "dashboard_router", "communities_router", "attaches_router"]
+__all__ = [
+    "auth_router",
+    "notices_router",
+    "categories_codes_router",
+    "users_router",
+    "feeds_router",
+    "meals_router",
+    "summary_router",
+    "communities_router",
+    "attaches_router",
+    "likes_router",
+    "admin_router"
+]

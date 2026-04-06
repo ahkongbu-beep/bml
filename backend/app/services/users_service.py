@@ -6,41 +6,79 @@
 from app.repository.user_repository import UserRepository
 from app.repository.meals_comments_repository import MealsCommentsRepository
 
+from app.schemas.users_schemas import UserResponse
+from app.schemas.common_schemas import CommonResponse
+from app.libs.password_utils import hash_password
+
 from app.services.passwords_resets_tokens_service import update_password_reset_token_expire, validate_use_password_reset, create_password_reset_token, validate_password_token
-from app.services.users_childs_service import create_child, get_child_by_id, get_child_by_id_and_name, get_list_with_allergies, update_child, delete_child
+from app.services.users_childs_service import create_child, get_child_by_id, get_child_by_user_id_and_name, update_child, delete_child
 from app.services.denies_users_service import deny_user_process, get_denies_user_list
 from app.services.attaches_files_service import soft_delete_file_by_model_id, upload_file
 from app.services.meals_mappers_service import create_meal_mapper, meal_mapper_list_by_id
 from app.services.categories_codes_service import get_category_code_by_id
 from app.services.foods_items_service import get_allergy_details_by_codes
-from app.schemas.users_schemas import UserResponseSchema
-from app.schemas.common_schemas import CommonResponse
-from app.libs.password_utils import hash_password
-from app.services.users_childs_allergies_service import bulk_create_user_child_allergies
+from app.services.users_childs_allergies_service import bulk_create_user_child_allergies, delete_user_child_allergies
+
+def get_user_like_count(db, user_id):
+    """
+    사용자 좋아요 수 조회
+    """
+    return UserRepository.get_user_like_count(db, user_id)
+
+def get_user_count(db, params={}):
+    """
+    회원 수 조회
+    """
+    return UserRepository.get_count(db, params)
+
+def get_all_users(db, params = {}):
+    """
+    모든 회원 정보 조회
+    """
+    return UserRepository.get_list(db, params=params)
 
 def validate_user_id(db, user_id):
+    """
+    회원 ID로 회원 정보 조회
+    """
     user = UserRepository.findById(db, user_id)
     if not user:
-        raise Exception("회원 정보를 찾을 수 없습니다.")
+        raise ValueError("회원 정보를 찾을 수 없습니다.")
     return user
 
 def validate_user_email_and_name(db, email, name):
+    """
+    이메일과 이름으로 회원 정보 조회
+    """
     user = UserRepository.get_user_by_email_and_name(db, email, name)
     if not user:
-        raise Exception("회원 정보를 찾을 수 없습니다.")
+        raise ValueError("회원 정보를 찾을 수 없습니다.")
+    return user
+
+def get_user_by_nickname(db, nickname):
+    """
+    닉네임으로 회원 정보 조회
+    """
+    user = UserRepository.get_user_by_nickname(db, nickname)
+    if not user:
+        raise ValueError("회원 정보를 찾을 수 없습니다.")
     return user
 
 def validate_user_email(db, email):
-    user = UserRepository.get_user_by_email(db, email)
+    user = get_user_by_email(db, email)
     if not user:
-        raise Exception("회원 정보를 찾을 수 없습니다.")
+        raise ValueError("회원 정보를 찾을 수 없습니다.")
     return user
+
+def get_user_by_email(db, email):
+    return UserRepository.get_user_by_email(db, email)
 
 def validate_user(db, user_hash):
     user = UserRepository.find_by_view_hash(db, user_hash)
     if not user:
-        raise Exception("회원 정보를 찾을 수 없습니다.")
+        raise ValueError("회원 정보를 찾을 수 없습니다.")
     return user
+
 
 def get_sns_user(db, sns_login_type, sns_id):
     return UserRepository.get_user_by_sns_account(db, sns_login_type, sns_id)
@@ -50,10 +88,8 @@ def update_user_last_login(db, user):
 
 """ 비밀번호 찾기 """
 async def find_password(db, data) -> CommonResponse:
-
     try:
         user = validate_user_email_and_name(db, data.get("email"), data.get("name"))
-
         validate_use_password_reset(db, user.id)
 
         reset_token = create_password_reset_token(db, user.id)
@@ -61,7 +97,13 @@ async def find_password(db, data) -> CommonResponse:
             raise Exception("비밀번호 재설정 토큰 생성에 실패했습니다.")
 
         return CommonResponse(success=True, message="회원 정보를 확인했습니다.", data={"token": reset_token.token})
+
+    except ValueError as e:
+        db.rollback()
+        return CommonResponse(success=False, error=str(e), data=None)
+
     except Exception as e:
+        db.rollback()
         return CommonResponse(success=False, error=str(e), data=None)
 
 async def confirm_password_reset(db, data) -> CommonResponse:
@@ -77,33 +119,29 @@ async def confirm_password_reset(db, data) -> CommonResponse:
         # 토큰 사용 처리
         update_password_reset_token_expire(db, valid_token)
         db.commit()
+        return CommonResponse(success=True, message="비밀번호가 성공적으로 초기화되었습니다.", data=None)
 
-    except Exception as e:
+    except ValueError as e:
+        db.rollback()
         return CommonResponse(success=False, error=str(e), data=None)
 
-    return CommonResponse(success=True, message="비밀번호가 성공적으로 초기화되었습니다.", data=None)
+    except Exception as e:
+        db.rollback()
+        return CommonResponse(success=False, error=str(e), data=None)
 
 def get_my_info(db, data) -> CommonResponse:
-    from app.models.feeds import Feeds
-    from app.models.feeds_likes import FeedsLikes
-    from app.models.meals_calendar import MealsCalendars
-
     try:
         user = validate_user(db, data["user_hash"])
-    except Exception as e:
+        like_count, meal_count = get_user_like_count(db, user.id).values()
+
+        result = {
+            "like_count": like_count,
+            "meal_count": meal_count
+        }
+
+        return CommonResponse(success=True, message="", data=result)
+    except ValueError as e:
         return CommonResponse(success=False, error=str(e), data=None)
-
-    feed_count = db.query(Feeds).filter(Feeds.user_id == user.id).count()
-    like_count = db.query(FeedsLikes).filter(FeedsLikes.user_id == user.id).count()
-    meal_count = db.query(MealsCalendars).filter(MealsCalendars.user_id == user.id).count()
-
-    result = {
-        "feed_count": feed_count,
-        "like_count": like_count,
-        "meal_count": meal_count
-    }
-
-    return CommonResponse(success=True, message="", data=result)
 
 # 회원 가입
 async def create_user(db, user_data) -> CommonResponse:
@@ -111,7 +149,9 @@ async def create_user(db, user_data) -> CommonResponse:
     try:
         if user_data.get("email"):
             # 이메일 중복 체크
-            validate_user_email(db, user_data.get("email"))
+            exist_user = get_user_by_email(db, user_data.get("email"))
+            if exist_user:
+                raise Exception("이미 존재하는 이메일입니다.")
 
         if user_data.get("sns_login_type") == "EMAIL" and user_data.get("sns_id").strip() == "":
             user_data["sns_id"] = user_data.get("email").split("@")[0]
@@ -131,41 +171,55 @@ async def create_user(db, user_data) -> CommonResponse:
             "nickname": user_data.get("nickname"),
             "marketing_agree": user_data.get("marketing_agree", 0),
             "push_agree": user_data.get("push_agree", 0),
-            "profile_image": user_data.get("profile_image"),
             "role": "USER",
         }
 
         new_user = UserRepository.create(db, user_param, is_commit=False)
+        db.flush()
+        db.refresh(new_user)
 
         if not new_user :
             raise Exception("회원 생성에 실패했습니다.")
 
         # user 이미지 등록
         if user_data.get("profile_image"):
-            image_params = await upload_file(new_user, user_data["profile_image"], "Users")
+            image_params = await upload_file(new_user.id, user_data["profile_image"], "Users")
             profile_image = image_params["image_url"]
             UserRepository.update(db, new_user, {"profile_image": profile_image}, is_commit=False)
+            db.flush()
+            db.refresh(new_user)
         else:
-
             raise Exception("프로필 이미지 업로드 실패했습니다.")
-
-        db.flush()
 
         # 2) 자녀등록
         if user_data.get("children"):
+
+            # 대표 자녀가 있는지 체크
+            is_child = "N"
             for child in user_data.get("children"):
+                if child.get("is_agent", "N") == "Y":
+                    is_child = "Y"
+                    break
+
+            for idx, child in enumerate(user_data.get("children")):
+                if is_child == "N" and idx == 0:
+                    is_agent = 'Y'
+                else:
+                    is_agent = child.get("is_agent", "N")
 
                 user_child = create_child(
                     db,
                     user_id=new_user.id,
-                    child_name=child.get("child_name"),
-                    child_birth=child.get("child_birth"),
-                    child_gender=child.get("child_gender"),
-                    is_agent=child.get("is_agent", "N"),
+                    child_data={
+                        "child_name": child.get("child_name"),
+                        "child_birth": child.get("child_birth"),
+                        "child_gender": child.get("child_gender"),
+                        "is_agent": is_agent,
+                    }
                 )
 
                 db.flush()
-
+                db.refresh(user_child)
                 # 2-1) 알레르기 정보 등록
                 if child.get("allergies"):
                     allergy_data = get_allergy_details_by_codes(db, child.get("allergies"))
@@ -175,19 +229,17 @@ async def create_user(db, user_data) -> CommonResponse:
 
         db.commit()
         db.refresh(new_user)
+        return CommonResponse(success=True, message="가입이 완료되었습니다.", data=None)
 
+    except ValueError as e:
+        db.rollback()
+        return CommonResponse(success=False, error=str(e), data=None)
     except Exception as e:
         db.rollback()
         return CommonResponse(success=False, error=f"회원 가입 중 오류가 발생했습니다: {str(e)}", data=None)
 
-    return CommonResponse(success=True, message="가입이 완료되었습니다.", data=None)
-
 # 회원 정보 수정
 async def update_user(db, data):
-
-    if not data.get("view_hash"):
-        return CommonResponse(success=False, error="수정을 위한 필수 정보 누락되었습니다.", data=None)
-
     try:
         """ 등록된 user 를 검색 """
         user = validate_user(db, data["view_hash"])
@@ -246,22 +298,19 @@ async def update_user(db, data):
         db.commit()
         db.refresh(updated_user)
 
+        # 식단 선호도 조회하여 응답에 포함
+
+        user_response = UserResponse.model_validate(updated_user)
+        return CommonResponse(success=True, message=f"회원 정보가 성공적으로 수정되었습니다.", data=user_response)
+
+    except ValueError as e:
+        db.rollback()
+        return CommonResponse(success=False, error=str(e), data=None)
+
     except Exception as e:
         db.rollback()
         return CommonResponse(success=False, error=f"회원 정보 수정 중 오류가 발생했습니다: {str(e)}", data=None)
 
-    # 식단 선호도 조회하여 응답에 포함
-    meals_mapper = meal_mapper_list_by_id(db, updated_user.id).serialize()
-    meal_group_ids = [mapper.category_id for mapper in meals_mapper]
-
-    user_response = UserResponseSchema.model_validate(updated_user)
-    user_response_dict = user_response.model_dump()
-    user_response_dict["meal_group"] = meal_group_ids
-    # profile_image는 그대로 반환 (프론트엔드에서 backend_url과 사이즈 확장자 조합)
-    if user_response_dict.get('profile_image'):
-        user_response_dict['profile_image'] = user_response_dict['profile_image'].replace('\\', '/')
-
-    return CommonResponse(success=True, message=f"회원 정보가 성공적으로 수정되었습니다.", data=user_response_dict)
 
 # 자녀등록
 async def create_user_child(db, user_hash, children):
@@ -274,12 +323,12 @@ async def create_user_child(db, user_hash, children):
 
         for child in children:
             # 딕셔너리와 객체 모두 지원
-            child_id = child.get("child_id") if isinstance(child, dict) else getattr(child, "child_id", None)
-            child_name = child.get("child_name") if isinstance(child, dict) else getattr(child, "child_name", None)
-            child_birth = child.get("child_birth") if isinstance(child, dict) else getattr(child, "child_birth", None)
-            child_gender = child.get("child_gender") if isinstance(child, dict) else getattr(child, "child_gender", None)
-            is_agent = child.get("is_agent", "N") if isinstance(child, dict) else getattr(child, "is_agent", "N")
-            allergies = child.get("allergies", []) if isinstance(child, dict) else getattr(child, "allergies", [])
+            child_id = child.get("child_id")
+            child_name = child.get("child_name")
+            child_birth = child.get("child_birth")
+            child_gender = child.get("child_gender")
+            is_agent = child.get("is_agent", "N")
+            allergies = child.get("allergies", [])
 
             if child_id:
                 exist_child = get_child_by_id(db, child_id)
@@ -296,23 +345,27 @@ async def create_user_child(db, user_hash, children):
 
                     # 알레르기 정보 업데이트
                     if allergies:
-                        allergy_data = get_allergy_details_by_codes(db, child.get("allergies"))
-                        # 알레르기 코드를 name과 함께 변환
+                        delete_user_child_allergies(db, user.id, exist_child.id, is_commit=False)
+                        db.flush()
+                        allergy_data = get_allergy_details_by_codes(db, allergies)
                         bulk_create_user_child_allergies(db, user.id, exist_child.id, allergy_data, is_commit=False)
             else:
-                exist_child = get_child_by_id_and_name(db, user.id, child_name)
+                exist_child = get_child_by_user_id_and_name(db, user.id, child_name)
                 if exist_child:
                     db.rollback()
                     raise Exception(f"이미 등록된 자녀명입니다: {child_name}")
 
+                child_data = {
+                    "child_name": child_name,
+                    "child_birth": child_birth,
+                    "child_gender": child_gender,
+                    "is_agent": is_agent if is_agent else "N",
+                }
+
                 user_child = create_child(
                     db,
                     user_id=user.id,
-                    child_name=child_name,
-                    child_birth=child_birth,
-                    child_gender=child_gender,
-                    is_agent=is_agent if is_agent else "N",
-                    is_commit=False
+                    child_data=child_data
                 )
 
                 # flush를 호출하여 id를 생성하되 commit은 하지 않음
@@ -320,20 +373,23 @@ async def create_user_child(db, user_hash, children):
 
                 # 알레르기 정보 등록
                 if allergies:
-                    # 알레르기 코드를 name과 함께 변환
-                    bulk_create_user_child_allergies(db, user.id, user_child.id, allergies, is_commit=False)
+                    allergy_data = get_allergy_details_by_codes(db, allergies)
+                    bulk_create_user_child_allergies(db, user.id, user_child.id, allergy_data, is_commit=False)
 
         db.commit()
+        return CommonResponse(success=True, message="자녀 정보가 성공적으로 등록되었습니다.", data=None)
+
+    except ValueError as e:
+        db.rollback()
+        return CommonResponse(success=False, error=str(e), data=None)
+
     except Exception as e:
         db.rollback()
-        print(f"⭕⭕⭕Error in create_user_child: {str(e)}")
         return CommonResponse(success=False, error=f"자녀 정보 등록 중 오류가 발생했습니다: {str(e)}", data=None)
 
-    return CommonResponse(success=True, message="자녀 정보가 성공적으로 등록되었습니다.", data=None)
 
 """ 자녀 정보 삭제 """
 async def delete_user_child(db, user_hash: str, child_id: int) -> CommonResponse:
-
     try:
         user = validate_user(db, user_hash)
 
@@ -342,82 +398,76 @@ async def delete_user_child(db, user_hash: str, child_id: int) -> CommonResponse
             return CommonResponse(success=False, error="삭제할 자녀 정보를 찾을 수 없습니다.", data=None)
 
         delete_child(db, user_child, is_commit=False)
+        delete_user_child_allergies(db, user.id, user_child.id, is_commit=False)
 
         db.commit()
+        return CommonResponse(success=True, message="자녀 정보를 성공적으로 삭제하였습니다.", data=None)
+
+    except ValueError as e:
+        db.rollback()
+        return CommonResponse(success=False, error=str(e), data=None)
+
     except Exception as e:
         db.rollback()
         return CommonResponse(success=False, error=f"자녀 정보 삭제 중 오류가 발생했습니다: {str(e)}", data=None)
-
-    return CommonResponse(success=True, message="자녀 정보를 성공적으로 삭제하였습니다.", data=None)
-
 
 # 회원차단
 async def deny_usre_profile(db, user_hash, deny_user_hash):
     try:
         user = validate_user(db, user_hash)
-
-        if not user:
-            raise Exception("회원 정보를 찾을 수 없습니다.")
-
         deny_user = validate_user(db, deny_user_hash)
-        if not deny_user:
-            raise Exception("차단할 회원 정보를 찾을 수 없습니다.")
-
         # 차단 처리
         deny_user_process(db, user.id, deny_user.id)
+        db.commit()
+        return CommonResponse(success=True, message="회원이 성공적으로 차단되었습니다.", data=None)
+    except ValueError as e:
+        db.rollback()
+        return CommonResponse(success=False, error=str(e), data=None)
 
     except Exception as e:
+        db.rollback()
         return CommonResponse(success=False, error=str(e), data=None)
 
 # 회원차단 list
 def get_deny_users_list(db, user_hash):
-    user = validate_user(db, user_hash)
-
-    if not user:
-        return CommonResponse(success=False, error="회원 정보를 찾을 수 없습니다.", data=None)
+    try:
+        user = validate_user(db, user_hash)
+    except ValueError as e:
+        return CommonResponse(success=False, error=str(e), data=None)
 
     deny_users = get_denies_user_list(db, user.id)
     return CommonResponse(success=True, message="", data=deny_users)
 
 # 회원 프로필 조회
-def get_user_profile(db, user_hash, user_id):
-    from app.models.feeds import Feeds
-    from app.models.feeds_likes import FeedsLikes
-    from app.models.meals_calendar import MealsCalendars
-
-    if user_id:
-        user = UserRepository.findById(db, user_id)
-    else:
+def get_user_profile(db, user_hash, target_hash=None):
+    try:
         user = validate_user(db, user_hash)
 
-    if not user:
-        return CommonResponse(success=False, error="회원 정보를 찾을 수 없습니다.", data=None)
+        search_user = user if not target_hash else validate_user(db, target_hash)
 
-    # 통계 정보 조회
-    feed_count = db.query(Feeds).filter(Feeds.user_id == user.id).count()
-    like_count = db.query(FeedsLikes).filter(FeedsLikes.user_id == user.id).count()
-    meal_count = db.query(MealsCalendars).filter(MealsCalendars.user_id == user.id).count()
+        # like_count, meal_count는 조회 대상 기준으로 계산
+        like_count, meal_count = get_user_like_count(db, search_user.id)
+        user_response = UserResponse.model_validate(search_user).model_dump()
 
-    # 식단 선호도 조회
-    meals_mapper = meal_mapper_list_by_id(db, user.id)
-    meal_group_ids = [mapper.category_id for mapper in meals_mapper]
+        # 이미지 경로 정리
+        profile_image = user_response.get('profile_image')
+        if profile_image:
+            user_response['profile_image'] = profile_image.replace('\\', '/')
 
-    # 자녀 정보 조회 s
-    user_childs = get_list_with_allergies(db, user.id)
-    # 자녀 정보 조회 e
+        user_response.update({
+            "like_count": like_count,
+            "meal_count": meal_count
+        })
+        # 직렬화
+        user_response = UserResponse.model_validate(user_response).model_dump()
 
-    user_response = UserResponseSchema.model_validate(user)
-    user_response_dict = user_response.model_dump()
+        return CommonResponse(success=True, message="", data=user_response)
 
-    # profile_image는 그대로 반환 (프론트엔드에서 backend_url과 사이즈 확장자 조합)
-    if user_response_dict.get('profile_image'):
-        user_response_dict['profile_image'] = user_response_dict['profile_image'].replace('\\', '/')
-    user_response_dict["meal_group"] = meal_group_ids
-    user_response_dict["feed_count"] = feed_count
-    user_response_dict["like_count"] = like_count
-    user_response_dict["meal_count"] = meal_count
-    user_response_dict["user_childs"] = user_childs
-    return CommonResponse(success=True, message="", data=user_response_dict)
+    except ValueError as e:
+        return CommonResponse(success=False, error=str(e), data=None)
+
+    except Exception as e:
+        return CommonResponse(success=False, error=str(e), data=None)
 
 
 """ 회원 검증 email or phone """
@@ -467,6 +517,10 @@ def reset_password(db, data):
 
         return CommonResponse(success=True, message="비밀번호가 성공적으로 초기화되었습니다.", data={"temp_password": temp_password})
 
+    except ValueError as e:
+        db.rollback()
+        return CommonResponse(success=False, error=str(e), data=None)
+
     except Exception as e:
         db.rollback()
         return CommonResponse(success=False, error=f"비밀번호 초기화 중 오류가 발생했습니다: {str(e)}", data=None)
@@ -501,18 +555,16 @@ def user_login(db, data):
     meals_mapper = meal_mapper_list_by_id(db, user.id).serialize()
     meal_group_ids = [mapper.category_id for mapper in meals_mapper]
 
-    user_response = UserResponseSchema.model_validate(user)
+    user_response = UserResponse.model_validate(user)
     user_response_dict = user_response.model_dump()
     user_response_dict["meal_group"] = meal_group_ids
 
-    return CommonResponse(
-        success=True,
-        message="로그인에 성공했습니다.",
-        data={
-            "user": user_response_dict,
-            "token": access_token
-        }
-    )
+    data = {
+        "user": user_response_dict,
+        "token": access_token
+    }
+
+    return CommonResponse(success=True, message="로그인에 성공했습니다.", data=data)
 
 async def change_password(db, user_hash, data) -> CommonResponse:
     try:
@@ -521,7 +573,7 @@ async def change_password(db, user_hash, data) -> CommonResponse:
         from app.libs.password_utils import verify_password
 
         if not verify_password(user.password, data.get("current_password")):
-            return CommonResponse(success=False, error="현재 비밀번호가 일치하지 않습니다.", data=None)
+            raise ValueError("현재 비밀번호가 일치하지 않습니다.")
 
         # 비밀번호 해싱 및 업데이트
         hashed_password = hash_password(data.get("new_password"))
@@ -530,6 +582,10 @@ async def change_password(db, user_hash, data) -> CommonResponse:
         db.refresh(user)
 
         return CommonResponse(success=True, message="비밀번호가 성공적으로 변경되었습니다.", data=None)
+
+    except ValueError as e:
+        db.rollback()
+        return CommonResponse(success=False, error=str(e), data=None)
 
     except Exception as e:
         db.rollback()
@@ -576,7 +632,7 @@ def list_users(db, sns_id: str = None, name: str = None, nickname: str = None, p
 
         # Pydantic 모델로 변환
         # profile_image 처리
-        users_response = [UserResponseSchema.model_validate(user) for user in users]
+        users_response = [UserResponse.model_validate(user) for user in users]
         for user_response_dict in users_response:
             if user_response_dict.get('profile_image'):
                 user_response_dict['profile_image'] = user_response_dict['profile_image'].replace('\\', '/')
@@ -595,7 +651,12 @@ def list_users(db, sns_id: str = None, name: str = None, nickname: str = None, p
             }
         )
 
+    except ValueError as e:
+        db.rollback()
+        return CommonResponse(success=False, error=str(e), data=None)
+
     except Exception as e:
+        db.rollback()
         return CommonResponse(success=False, error=f"회원 목록 조회 중 오류가 발생했습니다: {str(e)}", data=None)
 
 """ 사용자 이메일 계정 찾기 user_name and user_phone """
@@ -635,7 +696,7 @@ def get_user_admin_profile(db, user_hash: str):
     # feeds = Feeds.get_list(db, {"user_id": user.id}).getData()
 
     data = {
-        "user": UserResponseSchema.model_validate(user),
+        "user": UserResponse.model_validate(user),
         "comments": comments_response,
         # "feeds": feeds
     }

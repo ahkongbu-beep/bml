@@ -13,7 +13,7 @@ from app.models.users import Users
 
 from app.services.users_service import validate_user, validate_user_email, get_sns_user, update_user_last_login
 
-from app.schemas.users_schemas import UserResponseSchema
+from app.schemas.users_schemas import UserResponse
 from app.schemas.common_schemas import CommonResponse
 from app.schemas.auth_schemas import SocialUserInfo
 from app.libs.password_utils import verify_password
@@ -41,8 +41,6 @@ def email_login(db: Session, email: str, password: str) -> CommonResponse:
 async def google_login(db: Session, id_token: str, access_token: Optional[str] = None, refresh_token: Optional[str] = None) -> CommonResponse:
     """구글 로그인"""
     try:
-        print(f"[Google Login] Starting... ID Token length: {len(id_token) if id_token else 0}")
-
         # 구글 ID 토큰 검증
         from google.oauth2 import id_token as google_id_token
         from google.auth.transport import requests
@@ -83,13 +81,6 @@ async def google_login(db: Session, id_token: str, access_token: Optional[str] =
                     if token_response.status_code == 200:
                         token_data = token_response.json()
                         actual_refresh_token = token_data.get('refresh_token')
-                        if actual_refresh_token:
-                            print(f"[Google Login] ✅ Refresh token obtained successfully")
-                        else:
-                            print(f"[Google Login] ⚠️ No refresh_token in response (user already authorized app before)")
-                            print(f"[Google Login] 💡 To get refresh_token: Revoke app access at https://myaccount.google.com/permissions")
-                    else:
-                        print(f"[Google Login] Token exchange failed: {token_response.text}")
             except Exception as e:
                 print(f"[Google Login] Token exchange error: {str(e)}")
 
@@ -105,10 +96,8 @@ async def google_login(db: Session, id_token: str, access_token: Optional[str] =
 
     except ValueError as e:
         # 토큰이 유효하지 않음
-        print(f"[Google Login] ValueError: {str(e)}")
         return CommonResponse(success=False, message=f"구글 로그인 실패: 유효하지 않은 토큰입니다. {str(e)}", data=None)
     except Exception as e:
-        print(f"[Google Login] Exception: {str(e)}")
         import traceback
         traceback.print_exc()
         return CommonResponse(success=False, message=f"구글 로그인 중 오류가 발생했습니다: {str(e)}", data=None)
@@ -240,7 +229,7 @@ def _handle_social_login(db: Session, social_info: SocialUserInfo, refresh_token
             print(f"[Social Login] ❌ User has no refresh_token (revoke app access to get one)")
 
     user.deleted_at = None
-    user.is_active = 1
+    user.is_active = "1"
     user.updated_at = func.now()
     db.flush()
 
@@ -288,7 +277,7 @@ def _generate_login_response(db: Session, user: Users) -> CommonResponse:
         "is_agent": child.is_agent
     } for child in user_childs]
 
-    user_response = UserResponseSchema.model_validate(user)
+    user_response = UserResponse.model_validate(user)
     user_response_dict = user_response.model_dump()
     user_response_dict["meal_group"] = meal_group_ids
     user_response_dict["user_childs"] = childs_data
@@ -357,43 +346,23 @@ def refresh_access_token(db: Session, refresh_token: str) -> CommonResponse:
     payload = verify_token(refresh_token)
 
     if not payload:
-        return CommonResponse(
-            success=False,
-            message="유효하지 않거나 만료된 Refresh Token입니다.",
-            data=None
-        )
+        return CommonResponse(success=False, message="유효하지 않거나 만료된 Refresh Token입니다.", data=None)
 
     # token_type 확인
     if payload.get("token_type") != "refresh":
-        return CommonResponse(
-            success=False,
-            message="Refresh Token이 아닙니다.",
-            data=None
-        )
+        return CommonResponse(success=False, message="Refresh Token이 아닙니다.", data=None)
 
     # 사용자 확인
     user_hash = payload.get("user_hash")
     if not user_hash:
-        return CommonResponse(
-            success=False,
-            message="토큰에 사용자 정보가 없습니다.",
-            data=None
-        )
+        return CommonResponse(success=False, message="토큰에 사용자 정보가 없습니다.", data=None)
 
     user = validate_user(db, user_hash)
     if not user:
-        return CommonResponse(
-            success=False,
-            message="사용자를 찾을 수 없습니다.",
-            data=None
-        )
+        return CommonResponse(success=False, message="사용자를 찾을 수 없습니다.", data=None)
 
     if not user.is_active or user.deleted_at:
-        return CommonResponse(
-            success=False,
-            message="비활성화되거나 삭제된 사용자입니다.",
-            data=None
-        )
+        return CommonResponse(success=False, message="비활성화되거나 삭제된 사용자입니다.", data=None)
 
     # 새로운 Access Token 생성
     token_data = {

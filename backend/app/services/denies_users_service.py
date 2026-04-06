@@ -11,7 +11,6 @@ def get_denies_user_by_id(db, user_id: int, deny_user_id: int):
     return DeniesUsersRepository.get_deny_user_by_user_id_and_deny_user_id(db, user_id, deny_user_id)
 
 def deny_user_process(db, user_id: int, deny_user_id: int):
-
     # 차단 처리
     exist_deny_user = get_denies_user_by_id(db, user_id, deny_user_id)
 

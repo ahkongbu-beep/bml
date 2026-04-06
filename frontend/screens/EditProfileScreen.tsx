@@ -13,40 +13,31 @@ import {
   SafeAreaView,
   KeyboardAvoidingView,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Header from '../components/Header';
 import Layout from '../components/Layout';
-
+import BlurScreen from '@/components/BlurScreen';
 import * as ImagePicker from 'expo-image-picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import PasswordChangeModal from '../components/PasswordChangeModal';
 
-import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../libs/contexts/AuthContext';
 import { useChangePassword } from '../libs/hooks/useUsers';
-import { useAgeGroups, useCategoryCodes } from '../libs/hooks/useCategories';
 import { getStaticImage } from '../libs/utils/common';
 import { toastInfo, toastSuccess, toastError } from '../libs/utils/toast';
 
 export default function EditProfileScreen({ navigation }: any) {
   const insets = useSafeAreaInsets();
-  const { user, isLoading, updateProfile, updateProfileLoading } = useAuth();
+  const { user, isLoading, updateProfile, updateProfileLoading, refreshUser } = useAuth();
   const [nickname, setNickname] = useState('');
   const [email, setEmail] = useState('');
   const [description, setDescription] = useState('');
   const [profileImage, setProfileImage] = useState('https://via.placeholder.com/100');
-  const [childBirth, setChildBirth] = useState('');
-  const [childGender, setChildGender] = useState<'M' | 'W' | ''>('');
-  const [childAgeGroup, setChildAgeGroup] = useState<number>(0);
   const [marketingAgree, setMarketingAgree] = useState(false);
   const [pushAgree, setPushAgree] = useState(false);
-  const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [passwordChangeModalVisible, setPasswordChangeModalVisible] = useState(false);
-  // Hooks
-  const { data: ageGroups, isLoading: ageGroupsLoading } = useAgeGroups();
-  const { data: mealGroups, isLoading: mealGroupsLoading } = useCategoryCodes("MEALS_GROUP");
-
   const changePasswordMutation = useChangePassword();
 
   // user 데이터가 로드되면 state 업데이트
@@ -77,16 +68,26 @@ export default function EditProfileScreen({ navigation }: any) {
         nickname,
         email,
         description,
-        child_birth: childBirth,
-        child_gender: childGender || undefined,
         marketing_agree: marketingAgree,
         push_agree: pushAgree,
         profile_image: profileImage,
       },
       {
-        onSuccess: () => {
-          toastSuccess('프로필이 수정되었습니다.');
-          navigation.navigate('EditProfile', { refresh: true })
+        onSuccess: async (response) => {
+          if (response?.success) {
+            toastSuccess('프로필이 수정되었습니다.', {
+              onPress: async () => {
+                await refreshUser();
+                navigation.goBack();
+              },
+              onHide: async () => {
+                await refreshUser();
+                navigation.goBack();
+              }
+            });
+          } else {
+            toastError(response?.error || response?.message || '프로필 수정에 실패했습니다.');
+          }
         },
         onError: (error: any) => {
           toastError(error?.message || '프로필 수정 중 오류가 발생했습니다.');
@@ -106,6 +107,7 @@ export default function EditProfileScreen({ navigation }: any) {
       },
     });
   }
+
 
   const handleImageChange = async () => {
     // 권한 요청
@@ -129,28 +131,9 @@ export default function EditProfileScreen({ navigation }: any) {
     }
   };
 
-  const handleDatePress = () => {
-    setShowDatePicker(true);
-  };
-
-  const onDateChange = (event: any, date?: Date) => {
-    if (Platform.OS === 'android') {
-      setShowDatePicker(false);
-    }
-
-    if (date) {
-      setSelectedDate(date);
-      const formattedDate = date.toISOString().split('T')[0]; // YYYY-MM-DD 형식
-      setChildBirth(formattedDate);
-    }
-  };
-
-  const closeDatePicker = () => {
-    setShowDatePicker(false);
-  };
-
   return (
     <Layout>
+      <BlurScreen visible={updateProfileLoading} title="회원정보 수정중입니다." />
       <SafeAreaView style={styles.container}>
         <KeyboardAvoidingView
           style={{ flex: 1 }}

@@ -22,4 +22,4 @@ class CategoriesCodes(Base):
     )
 
     def __repr__(self):
-        return f"<CategoriesCodes(id={self.id}, type='{self.type}', code='{self.code}')>"
+        return f"<CategoriesCodes(id={self.id}, type='{self.type}', code='{self.code}', value='{self.value}', sort={self.sort}, is_active='{self.is_active}')>"

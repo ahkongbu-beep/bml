@@ -5,3 +5,4 @@ class IngredientsMappers(Base):
     __tablename__ = "ingredients_mappers"
     meal_id = Column(BigInteger, ForeignKey("meals_calendars.id"), primary_key=True)
     ingredient_id = Column(BigInteger, ForeignKey("ingredients.id"), primary_key=True)
+    score = Column(BigInteger, nullable=False, default=0)

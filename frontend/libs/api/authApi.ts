@@ -102,7 +102,7 @@ export const getProfileBySnsId = async (sns_id: string): Promise<ApiResponse<Use
  * user_hash로 사용자 프로필 조회 (타인 프로필)
  */
 export const getUserProfile = async (userHash: string): Promise<User> => {
-  const response = await fetchGet<ApiResponse<User>>(`/users/profile`, { user_hash: userHash });
+  const response = await fetchGet<ApiResponse<User>>(`/users/profile`, { target_hash: userHash });
   return response.data;
 };
 

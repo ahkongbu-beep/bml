@@ -7,6 +7,13 @@ class CategoriesCodesRepository:
         return session.query(CategoriesCodes).filter(CategoriesCodes.id == category_id).first()
 
     @staticmethod
+    def get_category_code_by_type_and_code(session, type: str, code: str):
+        return session.query(CategoriesCodes).filter(
+            CategoriesCodes.type == type,
+            CategoriesCodes.code == code
+        ).first()
+
+    @staticmethod
     def get_category_by_type_and_sort(session, type: str, sort: int):
         return session.query(CategoriesCodes).filter(
             CategoriesCodes.type == type,
@@ -55,45 +62,49 @@ class CategoriesCodesRepository:
         return new_category_code
 
     @staticmethod
-    def update(session, category_id: int, params: dict):
-        category_code = CategoriesCodesRepository.get_category_codes_by_id(session, category_id)
-        if not category_code:
-            raise Exception("카테고리 코드가 존재하지 않습니다.")
-
+    def update(session, category, params: dict):
         try:
-            category_code.type = params.get("type", category_code.type)
-            category_code.code = params.get("code", category_code.code)
-            category_code.value = params.get("value", category_code.value)
-            category_code.sort = params.get("sort", category_code.sort)
-            category_code.is_active = params.get("is_active", category_code.is_active)
-
+            category.value = params.get("value", category.value)
+            category.sort = params.get("sort", category.sort)
+            category.is_active = params.get("is_active", category.is_active)
             session.commit()
-            session.refresh(category_code)
+            session.refresh(category)
         except Exception as e:
             session.rollback()
             raise e
 
-        return category_code
+        return category
 
     @staticmethod
-    def get_list(session, params: dict):
+    def apply_filters(query, params: dict):
+        from sqlalchemy.inspection import inspect
+        mapper = inspect(CategoriesCodes)
+        columns = {column.key for column in mapper.columns}
+
+        for key, value in params.items():
+            if key in columns and value is not None:
+                query = query.filter(getattr(CategoriesCodes, key) == value)
+
+
+        return query
+
+    @staticmethod
+    def get_category_list(session, params: dict):
         query = session.query(CategoriesCodes)
 
-        if 'type' in params and params['type']:
-            query = query.filter(CategoriesCodes.type == params['type'])
+        # 모델 컬럼 목록 가져오기
+        query = CategoriesCodesRepository.apply_filters(query, params)
 
-        if "code" in params and params["code"]:
-            query = query.filter(CategoriesCodes.code == params["code"])
+        # 정렬
+        order_by = params.get("order_by", "id")
+        order_direction = params.get("order_direction", "desc")
 
-        if "is_active" in params and params["is_active"]:
-            query = query.filter(CategoriesCodes.is_active == params["is_active"])
+        if hasattr(CategoriesCodes, order_by):
+            col = getattr(CategoriesCodes, order_by)
+            query = query.order_by(col.desc() if order_direction == "desc" else col.asc())
 
-        if "value" in params and params["value"]:
-            query = query.filter(CategoriesCodes.value == params["value"])
+        # 페이징
+        if params.get("offset") is not None and params.get("limit") is not None:
+            query = query.offset(params["offset"]).limit(params["limit"])
 
-        results = query.order_by(
-            CategoriesCodes.type.asc(),
-            CategoriesCodes.sort.asc()
-        ).all()
-
-        return results
+        return query.all()

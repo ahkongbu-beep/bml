@@ -1,9 +1,12 @@
-from app.models.feeds_images import FeedsImages
+from app.models.attaches_files import AttachesFiles
 from app.models.meals_likes import MealsLikes
 from app.models.meals_calendar import MealsCalendars
+
 from sqlalchemy import func
 
 class MealsLikesRepository:
+    def get_likes_by_user_id(session, user_id: int):
+        return session.query(MealsLikes).filter(MealsLikes.user_id == user_id).all()
 
     @staticmethod
     def get_like_by_meal_id(session, meal_id: int):
@@ -42,12 +45,20 @@ class MealsLikesRepository:
 
     @staticmethod
     def get_like_user_id(session, user_id: int, limit=30, offset=0):
-        feed_image_subq = (
-            session.query(FeedsImages.image_url)
-            .filter(FeedsImages.img_model == "Feeds")
-            .filter(FeedsImages.img_model_id == MealsCalendars.id)
-            .order_by(FeedsImages.id.asc())
+        from app.models.users import Users
+
+        image_subq = (
+            session.query(AttachesFiles.image_url)
+            .filter(AttachesFiles.img_model_id == MealsCalendars.id)
+            .order_by(AttachesFiles.id.asc())
             .limit(1)
+            .correlate(MealsCalendars)
+            .scalar_subquery()
+        )
+
+        user_subq = (
+            session.query(Users.view_hash)
+            .filter(Users.id == MealsCalendars.user_id)
             .correlate(MealsCalendars)
             .scalar_subquery()
         )
@@ -57,10 +68,12 @@ class MealsLikesRepository:
                 MealsLikes.meal_id,
                 MealsLikes.created_at.label("liked_at"),
                 MealsCalendars.title,
-                MealsCalendars.content,
-                feed_image_subq.label("feed_image_url"),
+                MealsCalendars.contents,
+                MealsCalendars.view_hash,
+                image_subq.label("image_url"),
+                user_subq.label("user_hash"),
             )
-            .join(MealsCalendars, MealsLikes.feed_id == MealsCalendars.id)
+            .join(MealsCalendars, MealsLikes.meal_id == MealsCalendars.id)
             .filter(MealsLikes.user_id == user_id)
             .order_by(MealsLikes.created_at.desc())
         )
@@ -68,10 +81,7 @@ class MealsLikesRepository:
         return query.all()
 
     @staticmethod
-    def delete(session, like, is_commit=True):
+    def delete(session, like):
         if like:
             session.delete(like)
-            if is_commit:
-                session.commit()
-            else:
-                session.flush()  # 변경사항을 DB에 반영하지만 커밋하지는 않음
+        return True

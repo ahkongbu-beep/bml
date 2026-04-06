@@ -26,21 +26,15 @@ def list_ingredients(request: Request, category: str = Query(None), db: Session 
     user_hash = getattr(request.state, "user_hash", None)
     return feeds_service.list_ingredients(db, user_hash, category)
 
-@router.get("/detail/{feed_id}")
-def get_feed_detail(feed_id: int, request: Request, db: Session = Depends(get_db)):
-    user_hash = getattr(request.state, "user_hash", None)
-
-    return feeds_service.get_feed_detail(db, feed_id, user_hash)
-
 @router.post("/copy")
-def copy_feed(request: Request, params: FeedCopyRequest, db: Session = Depends(get_db)):
+async def copy_feed(request: Request, params: FeedCopyRequest, db: Session = Depends(get_db)):
 
     user_hash = getattr(request.state, "user_hash", None)
 
     if not user_hash:
         return CommonResponse(success=False, error="인증이 필요합니다.", data=None)
 
-    return feeds_service.copy_feed(db, user_hash, params=params)
+    return await feeds_service.copy_feed(db, user_hash, params=params)
 
 @router.get("/list")
 def list_feeds(

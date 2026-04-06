@@ -18,5 +18,5 @@ export const BACKEND_ROUTES = {
   USERS: () => `${API_BASE}/users`,
   FEEDS: () => `${API_BASE}/feeds`,
   SUMMARY: () => `${API_BASE}/summaries`,
-  DASHBOARD: () => `${API_BASE}/dashboard`,
+  DASHBOARD: () => `${API_BASE}/admins/dashboard`,
 }

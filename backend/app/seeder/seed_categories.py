@@ -20,7 +20,6 @@ SEED_DATA = [
     {"type": "AGE_GROUP", "code": "age_003", "value": "5~6세", "sort": 3},
 ]
 
-
 def seed_categories():
     db: Session = SessionLocal()
 

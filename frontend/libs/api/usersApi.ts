@@ -64,21 +64,7 @@ interface ChildRegistration {
 }
 
 export const setRegisterChildren = async (children: ChildRegistration[]): Promise<ApiResponse<null>> => {
-  const formData = new FormData();
-
-  // JSON 데이터 준비 (이미지 제외)
-  const jsonData = children.map((child) => ({
-    child_id: child.child_id,
-    child_name: child.child_name,
-    child_birth: child.child_birth,
-    child_gender: child.child_gender,
-    is_agent: child.is_agent,
-    allergies: child.allergies || [],
-  }));
-
-  // JSON 데이터를 FormData에 추가
-  formData.append('data', JSON.stringify(jsonData));
-  return fetchPostFormData<ApiResponse<null>>('/users/children/create', formData);
+  return fetchPost<ApiResponse<null>>('/users/children/create', children);
 }
 
 /*

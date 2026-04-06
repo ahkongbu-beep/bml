@@ -1,6 +1,5 @@
 from datetime import datetime
 from typing import Optional, List
-from fastapi.params import Query
 from pydantic import BaseModel, Field
 from app.schemas.users_schemas import UserChildItemSchema
 
@@ -31,13 +30,9 @@ class FeedCopyRequest(BaseModel):
     input_date: str
     memo: str
     title: Optional[str] = None
-    target_feed_id: int
+    target_meal_id: int
     target_user_hash: str
 
-class FeedLikeResponseData(BaseModel):
-    meal_id: int
-    like_count: int
-    is_liked: bool
 
 class FeedDeleteRequest(BaseModel):
     user_hash: str

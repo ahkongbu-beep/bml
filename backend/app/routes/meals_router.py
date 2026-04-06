@@ -5,25 +5,47 @@ from app.services import meals_service
 from app.core.database import get_db
 from sqlalchemy.orm import Session
 from app.schemas.common_schemas import CommonResponse
-from app.schemas.meals_schemas import CalendarCopyRequest, FeedListRequest
+from app.schemas.meals_schemas import CalendarCopyRequest, FeedListRequest, MealsCalendarInsertRequest
 router = APIRouter()
 
-@router.get("/feed/list")
-def list_calendar_by_feed(
+@router.get("/users/{target_user_hash}")
+def list_calendar_by_user_feed(
+    target_user_hash: str,
     request: Request,
     db: Session = Depends(get_db),
-    filters: FeedListRequest = Depends()
 ):
+    """
+    특정 사용자의 피드 기반 식단 캘린더 조회
+    """
     user_hash = getattr(request.state, "user_hash", None)
+    return meals_service.get_user_calendar_list(db, user_hash, target_user_hash)
 
+@router.get("/users/{target_user_hash}/detail/{meal_hash}")
+def get_calendar_detail_by_user_feed(
+    target_user_hash: str,
+    meal_hash: str,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """
+    특정 사용자의 피드 기반 식단 캘린더 상세 조회
+    """
+
+    user_hash = getattr(request.state, "user_hash", None)
+    return meals_service.get_user_calendar_detail(db, user_hash, target_user_hash, meal_hash)
+
+@router.get("/feed/list")
+def list_calendar_by_feed(request: Request, db: Session = Depends(get_db), filters: FeedListRequest = Depends(FeedListRequest.as_query)):
+    user_hash = getattr(request.state, "user_hash", None)
     return meals_service.get_feed_type_calendar(db, user_hash, filters)
 
 @router.get("/calendar")
-def list_calendar(request: Request, month: str = Query(...), child_id: Optional[int] = Query(None), db: Session = Depends(get_db)):
+def list_calendar(request: Request, month: str = Query(...), child_id: Optional[int] = Query(None), view_type: str = Query("mine"), db: Session = Depends(get_db)):
 
     params = {
         "month": month if month else "",
         "child_id": child_id,
+        "view_type": view_type,
         "user_hash": getattr(request.state, "user_hash", None)
     }
 
@@ -32,44 +54,36 @@ def list_calendar(request: Request, month: str = Query(...), child_id: Optional[
 @router.post("/create")
 async def create_meal(
     request: Request,
-    user_hash: Optional[str] = Form(None),
-    category_id: int = Form(...),
-    input_date: str = Form(...),
-    contents: str = Form(...),
-    isPreMade: str = Form("N"),
-    ingredients: str = Form("[]"),
-    is_public: str = Form("N"),
-    meal_condition: int = Form(0),
-    child_id: Optional[int] = Form(None),
-    meal_stage: Optional[int] = Form(0),
-    meal_stage_detail: Optional[str] = Form(None),
+    payload: MealsCalendarInsertRequest = Depends(MealsCalendarInsertRequest.as_form),
     attaches: Optional[UploadFile] = File(None),
     db: Session = Depends(get_db)
 ):
+
     # user_hash는 Form에서 오거나 request.state에서 가져오기
+    user_hash = payload.user_hash
     if not user_hash:
         user_hash = getattr(request.state, "user_hash", None)
 
     # ingredients는 JSON string으로 전달되므로 파싱
     try:
-        ingredients_list = json.loads(ingredients) if ingredients else []
+        ingredients_list = json.loads(payload.ingredients) if payload.ingredients else []
     except:
         ingredients_list = []
 
     body = {
         'user_hash': user_hash,
-        'category_id': category_id,
-        'input_date': input_date,
-        'contents': contents,
+        'category_id': payload.category_id,
+        'input_date': payload.input_date,
+        'contents': payload.contents,
         'refer_feed_id': 0,
         'ingredients': ingredients_list,
-        'is_pre_made': isPreMade,
-        'is_public': is_public,
-        'meal_condition': meal_condition,
-        'attaches': attaches,
-        'meal_stage': meal_stage,
-        'meal_stage_detail': meal_stage_detail,
-        'child_id': child_id
+        'is_pre_made': payload.isPreMade,
+        'is_public': payload.is_public,
+        'meal_condition': payload.meal_condition,
+        'meal_stage': payload.meal_stage,
+        'meal_stage_detail': payload.meal_stage_detail,
+        'child_id': payload.child_id,
+        'attaches': attaches
     }
 
     return await meals_service.create_meal(db, body)

@@ -140,11 +140,9 @@ export function diffMonthsFrom(dateString: string): number {
 export const handleViewProfile = (navigation: any, myUserHash: string, targetUserHash: string) => {
   // 해쉬정보가 같은 경우 내 프로필로 이동
   if (myUserHash === targetUserHash) {
-    console.log("내 프로필로 이동");
-    navigation.navigate('MyPage');
+    navigation.navigate('MyProfile');
   } else {
     // 타인 프로필로 이동
-    console.log("타인 프로필로 이동");
-    navigation.navigate('UserProfile', { userHash:targetUserHash });
+    navigation.navigate('UserProfile', { targetHash:targetUserHash });
   }
 };

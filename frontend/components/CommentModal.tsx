@@ -1,6 +1,6 @@
 // frontend/components/CommentModal.tsx
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,8 +10,9 @@ import {
   Image,
   Platform,
   ActivityIndicator,
-  KeyboardAvoidingView,
   FlatList,
+  Keyboard,
+  KeyboardEvent,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
@@ -56,6 +57,24 @@ export default function CommentModal({
 
   const [commentText, setCommentText] = useState('');
   const [replyingTo, setReplyingTo] = useState<{ hash: string; nickname: string } | null>(null);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, (e: KeyboardEvent) => {
+      setKeyboardHeight(e.endCoordinates.height);
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   /* =============================
      handlers
@@ -152,36 +171,31 @@ export default function CommentModal({
   ============================= */
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={0}
-    >
-      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-        {/* 헤더 */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={onClose} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color="#333" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>댓글</Text>
-          <View style={styles.headerPlaceholder} />
-        </View>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={onClose} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={24} color="#333" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>댓글</Text>
+        <View style={styles.headerPlaceholder} />
+      </View>
 
-        {/* 댓글 리스트 */}
+      <View style={[styles.keyboardContainer, { marginBottom: keyboardHeight - (Platform.OS === 'ios' ? insets.bottom : 0) }]}>
         <FlatList
           data={comments}
           keyExtractor={(item) => item.view_hash}
           renderItem={({ item }) => renderComment({ item })}
           ListEmptyComponent={renderEmpty}
-          contentContainerStyle={
-            comments.length === 0 ? styles.emptyListContainer : styles.commentList
-          }
+          contentContainerStyle={[
+            styles.commentListContent,
+            comments.length === 0 && styles.emptyListContainer,
+          ]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
+          style={styles.commentListArea}
         />
 
-        {/* 하단 고정 입력창 */}
-        <View style={[styles.inputContainer, { paddingBottom: insets.bottom > 0 ? insets.bottom : (Platform.OS === 'android' ? 8 : 8) }]}>
+        <View style={styles.inputContainer}>
           {replyingTo && (
             <View style={styles.replyingToContainer}>
               <Text style={styles.replyingToText}>
@@ -219,14 +233,14 @@ export default function CommentModal({
                 <Ionicons
                   name="send"
                   size={20}
-                  color={commentText.trim() ? '#FFFFFF' : '#CCC'}
+                  color='#FFFFFF'
                 />
               )}
             </TouchableOpacity>
           </View>
         </View>
-      </SafeAreaView>
-    </KeyboardAvoidingView>
+      </View>
+    </SafeAreaView>
   );
 }
 
@@ -238,6 +252,22 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
+  },
+  keyboardContainer: {
+    flex: 1,
+  },
+  commentListArea: {
+    flex: 1,
+  },
+  commentListContent: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    paddingBottom: 12,
+  },
+  emptyListContainer: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   header: {
     flexDirection: 'row',
@@ -258,15 +288,6 @@ const styles = StyleSheet.create({
   },
   headerPlaceholder: {
     width: 32,
-  },
-  commentList: {
-    padding: 16,
-    paddingBottom: 8,
-  },
-  emptyListContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   emptyContainer: {
     alignItems: 'center',
@@ -330,6 +351,7 @@ const styles = StyleSheet.create({
     borderTopColor: '#FFE5E5',
     paddingHorizontal: 12,
     paddingTop: 12,
+    paddingBottom: 12,
     backgroundColor: '#FFFFFF',
   },
   replyingToContainer: {

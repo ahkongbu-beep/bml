@@ -1,6 +1,5 @@
 from sqlalchemy import Column, Integer, DateTime, ForeignKey, func, UniqueConstraint
 from app.core.database import Base
-from app.models.meals_calendar import MealsCalendars
 
 class MealsLikes(Base):
     __tablename__ = "meals_likes"

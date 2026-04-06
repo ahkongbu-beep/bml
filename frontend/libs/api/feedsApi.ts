@@ -20,8 +20,8 @@ export const getFeeds = async (params?: FeedListParams): Promise<PaginationRespo
 /**
  * 특정 피드 상세 조회
  */
-export const getFeedById = async (id: number): Promise<Feed> => {
-  const response = await fetchGet<ApiResponse<Feed>>(`/feeds/detail/${id}`);
+export const getFeedById = async (mealHash: string, userHash: string): Promise<Feed> => {
+  const response = await fetchGet<ApiResponse<Feed>>(`/meals/users/${userHash}/detail/${mealHash}`);
 
   if (!response.success) {
     throw new Error(response.error || '식단 정보를 불러올 수 없습니다.');
@@ -81,7 +81,8 @@ export const blockUser = async (deny_user_hash: string): Promise<ApiResponse<nul
  * 내가 작성한 피드 목록
  */
 export const getMyFeeds = async (params?: Omit<FeedListParams, 'user_hash'>): Promise<PaginationResponse<Feed>> => {
-  const finalParams = { ...params, type: "owner", page: params?.page || 1, limit: params?.limit || 30 };
+
+  const finalParams = { ...params, type: "owner", view_type: "mine", page: params?.page || 1, limit: params?.limit || 30 };
   return fetchGet<PaginationResponse<Feed>>('/meals/feed/list', finalParams);
 };
 
@@ -91,7 +92,7 @@ export const getMyFeeds = async (params?: Omit<FeedListParams, 'user_hash'>): Pr
 export const copyFeed = async (data: CopyFeedRequest): Promise<null> => {
   const params = {
     category_code: data.categoryCode,
-    target_feed_id: data.targetFeedId,
+    target_meal_id: data.targetMealId,
     target_user_hash: data.targetUserHash,
     input_date: data.inputDate,
     memo: data.memo,
@@ -103,17 +104,7 @@ export const copyFeed = async (data: CopyFeedRequest): Promise<null> => {
   return response;
 };
 
-/**
- * 특정 사용자의 피드 목록
- * userHash를 통해 해당 사용자의 피드 조회
- */
-export const getUserFeeds = async (
-  userHash: string,
-  params?: FeedListParams
-): Promise<PaginationResponse<Feed>> => {
-  // target_user_hash로 특정 사용자의 피드만 조회
-  return fetchGet<PaginationResponse<Feed>>('/feeds/list', { ...params, type: 'list', target_user_hash: userHash });
-};
+
 /**
  * 댓글 등록
  */
@@ -165,16 +156,3 @@ export const searchIngredients = async (query: string): Promise<string[]> => {
   return response.data || [];
 };
 
-/**
- * 좋아요한 피드 목록 조회
- */
-export const getLikedFeeds = async (
-  limit: number = 30,
-  offset: number = 0
-): Promise<any[]> => {
-  const response = await fetchGet<ApiResponse<any[]>>('/feeds/like/list', {
-    limit,
-    offset
-  });
-  return response.data || [];
-};

@@ -5,7 +5,6 @@ import {
   createFeed,
   updateFeed,
   deleteFeed,
-  toggleLike,
   toggleBookmark,
   blockUser,
   getMyFeeds,
@@ -14,7 +13,6 @@ import {
   getFeedComments,
   createFeedComment,
   deleteFeedComment,
-  getLikedFeeds,
   summaryFeedImage,
   copyFeed,
   getIngredientsList
@@ -89,11 +87,11 @@ export const useInfiniteFeeds = (params?: Omit<FeedListParams, 'cursor'>) => {
 /**
  * 특정 피드 상세 조회 Hook
  */
-export const useFeed = (id: number) => {
+export const useFeed = (mealHash: string, userHash: string) => {
   const { data, isLoading, error, refetch } = useQuery<Feed, Error>({
-    queryKey: feedKeys.detail(id),
-    queryFn: () => getFeedById(id),
-    enabled: !!id,
+    queryKey: feedKeys.detail(mealHash, userHash),
+    queryFn: () => getFeedById(mealHash, userHash),
+    enabled: !!mealHash && !!userHash,
   });
 
   return {
@@ -115,16 +113,7 @@ export const useMyFeeds = (params?: FeedListParams) => {
   });
 };
 
-/**
- * 특정 사용자의 피드 목록 조회 Hook
- */
-export const useUserFeeds = (userHash: string, params?: FeedListParams) => {
-  return useQuery<PaginationResponse<Feed>, Error>({
-    queryKey: ['feeds', 'user', userHash],
-    queryFn: () => getUserFeeds(userHash, params),
-    enabled: !!userHash,
-  });
-};
+
 
 /**
  * 피드 생성 Mutation
@@ -248,21 +237,6 @@ export const useDeleteFeed = () => {
 };
 
 
-/**
- * 좋아요 토글 Mutation
- */
-export const useToggleLike = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (feedId: number) => toggleLike(feedId),
-    onSuccess: () => {
-      // 무한 스크롤 쿼리 갱신
-      queryClient.invalidateQueries({ queryKey: ['feeds', 'infinite'] });
-      queryClient.invalidateQueries({ queryKey: feedKeys.lists() });
-    },
-  });
-};
 
 /**
  * 찜하기 토글 Mutation
@@ -303,18 +277,6 @@ export const useSearchIngredients = (query: string) => {
     queryFn: () => searchIngredients(query),
     enabled: query.length > 0,
     staleTime: 1000 * 60 * 5, // 5분
-  });
-};
-
-/**
- * 좋아요한 피드 목록 조회 Hook
- */
-export const useLikedFeeds = (limit: number = 30, offset: number = 0) => {
-  return useQuery<any[], Error>({
-    queryKey: feedKeys.likedFeeds('current-user', limit, offset),
-    queryFn: () => getLikedFeeds(limit, offset),
-    staleTime: 1000 * 60 * 5, // 5분
-    keepPreviousData: true, // 페이징 시 이전 데이터 유지하여 깜빡임 방지
   });
 };
 

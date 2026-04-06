@@ -1,4 +1,6 @@
 
+from sqlalchemy import and_
+
 from app.models.communities import Communities
 from app.models.users_childs import UsersChilds
 
@@ -16,6 +18,10 @@ class CommunitiesRepository:
         if is_commit:
             db.commit()
             db.refresh(community)
+
+    @staticmethod
+    def get_community_by_id(db, community_id):
+        return db.query(Communities).filter(Communities.id == community_id, Communities.deleted_at.is_(None)).first()
 
     @staticmethod
     def find_by_view_hash(db, view_hash):
@@ -56,89 +62,19 @@ class CommunitiesRepository:
         return community
 
     @staticmethod
-    def get_list(db, user_id, params):
-        """
-        커뮤니티 목록 조회
-        params:
-            - category_code: 분류코드 (0-6, 6-12, 12-24, 24-36, 48+)
-            - is_notice: 공지글 여부
-            - is_secret: 비밀글 여부
-            - keyword: 검색 키워드
-            - month: 조회 월 (YYYY-MM)
-            - cursor: 커서 기반 페이징 (마지막 항목의 id)
-            - my_only: 내 글만 보기
-            - limit: 조회 개수
-        """
-        from sqlalchemy import func as sql_func, case, and_, or_
-        from app.models.users import Users
-        from app.models.communities_likes import CommunitiesLikes
-        from app.models.communities_comments import CommunitiesComments
-        from app.models.attaches_files import AttachesFiles
+    def apply_filters(query, params: dict, include=None):
+        from sqlalchemy import or_, func as sql_func
 
-        # 기본값 설정
-        limit = params.get("limit", 20)
-        cursor = params.get("cursor")
+        if include is None:
+            include = []
 
-        # 이미지 서브쿼리: 각 커뮤니티의 이미지들을 콤마로 연결
-        image_subquery = (
-            db.query(
-                AttachesFiles.img_model_id.label("community_id"),
-                sql_func.group_concat(AttachesFiles.image_url).label('images')
-            )
-            .filter(AttachesFiles.img_model == "Communities")
-            .group_by(AttachesFiles.img_model_id)
-            .subquery()
+        # 항상 적용: 삭제·비활성 제외
+        query = query.filter(
+            Communities.deleted_at.is_(None),
+            Communities.is_active == 'Y'
         )
 
-        # 메인 쿼리
-        query = (
-            db.query(
-                Communities.id,
-                Communities.category_code,
-                Communities.user_id,
-                Communities.title,
-                Communities.contents,
-                Communities.user_nickname,
-                Communities.like_count,
-                Communities.view_count,
-                Communities.is_secret,
-                Communities.is_active,
-                Communities.is_notice,
-                Communities.created_at,
-                Communities.updated_at,
-                Communities.pinned_at,
-                Communities.view_hash,
-                image_subquery.c.images,
-                Users.nickname,
-                Users.profile_image,
-                Users.view_hash.label("user_hash"),
-                UsersChilds.child_name,
-                UsersChilds.child_birth,
-                UsersChilds.child_gender,
-                case(
-                    (CommunitiesLikes.id.is_(None), 'N'),
-                    else_='Y'
-                ).label("is_liked")
-                # 코멘트 카운트 구하기
-                , (
-                    db.query(sql_func.count(CommunitiesComments.id))
-                    .filter(
-                        CommunitiesComments.community_id == Communities.id,
-                        CommunitiesComments.deleted_at.is_(None)
-                    )
-                    .correlate(Communities)
-                    .as_scalar()
-                ).label("comment_count")
-            )
-            .join(Users, Communities.user_id == Users.id)
-            .join(UsersChilds, and_(Users.id == UsersChilds.user_id, UsersChilds.is_agent == 'Y'), isouter=True)
-            .outerjoin(image_subquery, Communities.id == image_subquery.c.community_id)
-            .filter(Communities.deleted_at.is_(None))
-            .filter(Communities.is_active == 'Y')
-            .outerjoin(CommunitiesLikes, and_(Communities.id == CommunitiesLikes.community_id, CommunitiesLikes.user_id == user_id))
-        )
-
-        # 분류코드 필터
+        # 분류코드 (전체인 경우 "all" 무시)
         if params.get("category_code") is not None and params.get("category_code") != "all":
             query = query.filter(Communities.category_code == params["category_code"])
 
@@ -150,7 +86,7 @@ class CommunitiesRepository:
         if params.get("is_secret") is not None:
             query = query.filter(Communities.is_secret == params["is_secret"])
 
-        # 검색 키워드
+        # 검색 키워드 (제목·내용·닉네임 OR)
         if params.get("keyword"):
             keyword = params["keyword"]
             query = query.filter(
@@ -161,132 +97,181 @@ class CommunitiesRepository:
                 )
             )
 
-        # 월별 필터
+        # 월별 필터 (YYYY-MM)
         if params.get("month"):
-            month = params["month"]  # YYYY-MM 형식
             query = query.filter(
-                sql_func.date_format(Communities.created_at, '%Y-%m') == month
+                sql_func.date_format(Communities.created_at, '%Y-%m') == params["month"]
             )
 
-        # 날짜 범위 필터
+        # 날짜 범위 필터 (개별 적용)
         if params.get("start_date"):
-            start_date = params["start_date"]  # YYYY-MM-DD 형식
             query = query.filter(
-                sql_func.date(Communities.created_at) >= start_date
+                sql_func.date(Communities.created_at) >= params["start_date"]
             )
-
         if params.get("end_date"):
-            end_date = params["end_date"]  # YYYY-MM-DD 형식
             query = query.filter(
-                sql_func.date(Communities.created_at) <= end_date
+                sql_func.date(Communities.created_at) <= params["end_date"]
             )
 
-        # 회원 닉네임 검색
+        # 닉네임 검색 — "user" include로 이미 Users join된 경우 join 생략
         if params.get("user_nickname"):
-            user_nickname = params["user_nickname"]
-            query = query.filter(Users.nickname.like(f"%{user_nickname}%"))
+            from app.models.users import Users
+            if "user" not in include:
+                query = query.join(Users, Communities.user_id == Users.id)
+            query = query.filter(Users.nickname.like(f"%{params['user_nickname']}%"))
 
         # 내 글만 보기
-        if params.get("my_only") and params["my_only"]:
-            query = query.filter(Communities.user_id == user_id)
+        if params.get("my_only") and params.get("user_id"):
+            query = query.filter(Communities.user_id == params["user_id"])
 
         # 커서 기반 페이징
-        if cursor:
-            query = query.filter(Communities.id < cursor)
+        if params.get("cursor"):
+            query = query.filter(Communities.id < params["cursor"])
 
-        # 정렬
-        sort_by = params.get("sort_by", "latest")
-        if sort_by == "likes":
-            # TODO: 좋아요 수 필드 추가 후 구현
-            query = query.order_by(
-                Communities.is_notice.desc(),
-                Communities.pinned_at.desc(),
-                Communities.id.desc()
+        return query
+
+    @staticmethod
+    def build_base_query(session, params, include=None, base_query=None):
+        from sqlalchemy import case, func as sql_func, literal
+
+        if include is None:
+            include = []
+
+        query = base_query if base_query is not None else session.query(Communities)
+
+        if "user" in include:
+            from app.models.users import Users
+            query = query.join(Users, Communities.user_id == Users.id).add_columns(
+                Users.nickname,
+                Users.profile_image,
+                Users.view_hash.label("user_hash"),
             )
-        elif sort_by == "views":
+
+        if "child" in include:
+            query = query.outerjoin(
+                UsersChilds,
+                and_(Communities.user_id == UsersChilds.user_id, UsersChilds.is_agent == 'Y')
+            ).add_columns(
+                UsersChilds.child_name,
+                UsersChilds.child_birth,
+                UsersChilds.child_gender,
+            )
+
+        if "like" in include and params.get("user_id"):
+            from app.models.communities_likes import CommunitiesLikes
+            query = query.outerjoin(
+                CommunitiesLikes,
+                and_(
+                    Communities.id == CommunitiesLikes.community_id,
+                    CommunitiesLikes.user_id == params["user_id"]
+                )
+            ).add_columns(
+                case(
+                    (CommunitiesLikes.id.is_(None), literal('N')),
+                    else_=literal('Y')
+                ).label("is_liked")
+            )
+
+        if "image" in include:
+            from app.models.attaches_files import AttachesFiles
+            image_subquery = (
+                session.query(
+                    AttachesFiles.img_model_id.label("community_id"),
+                    sql_func.group_concat(AttachesFiles.image_url).label("images")
+                )
+                .filter(AttachesFiles.img_model == "Communities")
+                .group_by(AttachesFiles.img_model_id)
+                .subquery()
+            )
+            query = query.outerjoin(
+                image_subquery, Communities.id == image_subquery.c.community_id
+            ).add_columns(image_subquery.c.images)
+
+        if "comment_count" in include:
+            from app.models.communities_comments import CommunitiesComments
+            comment_count_col = (
+                session.query(sql_func.count(CommunitiesComments.id))
+                .filter(
+                    CommunitiesComments.community_id == Communities.id,
+                    CommunitiesComments.deleted_at.is_(None)
+                )
+                .correlate(Communities)
+                .as_scalar()
+            ).label("comment_count")
+            query = query.add_columns(comment_count_col)
+
+        return query
+
+    @staticmethod
+    def get_community_list(session, user_id, params, include=None):
+        """
+        커뮤니티 리스트 조회
+        """
+        from sqlalchemy import case, func as sql_func, literal
+
+        if include is None:
+            include = ["user", "child", "like", "image", "comment_count"]
+
+        # user_id를 params에 주입해 apply_filters(my_only, like)에서 사용
+        effective_params = dict(params)
+        effective_params["user_id"] = user_id
+
+        # ORM 엔티티 대신 명시적 컬럼 선택 → serialize_community에서 row.id 등 직접 접근 가능
+        base_query = session.query(
+            Communities.id,
+            Communities.category_code,
+            Communities.user_id,
+            Communities.title,
+            Communities.contents,
+            Communities.user_nickname,
+            Communities.like_count,
+            Communities.view_count,
+            Communities.is_secret,
+            Communities.is_active,
+            Communities.is_notice,
+            Communities.created_at,
+            Communities.updated_at,
+            Communities.pinned_at,
+            Communities.view_hash,
+        )
+
+        query = CommunitiesRepository.build_base_query(session, effective_params, include, base_query=base_query)
+        query = CommunitiesRepository.apply_filters(query, effective_params, include)
+
+        # 정렬: is_notice·pinned_at 우선, sort_by 반영
+        sort_by = effective_params.get("sort_by", "latest")
+        if sort_by == "views":
             query = query.order_by(
                 Communities.is_notice.desc(),
                 Communities.pinned_at.desc(),
                 Communities.view_count.desc(),
                 Communities.id.desc()
             )
-        else:  # latest (기본값)
+        else:  # latest (기본값) 및 likes
             query = query.order_by(
                 Communities.is_notice.desc(),
                 Communities.pinned_at.desc(),
                 Communities.id.desc()
             )
 
-        # 결과 조회
-        result = query.limit(limit).all()
-        return result
+        # 페이징
+        if effective_params.get("limit") is not None:
+            query = query.limit(effective_params["limit"])
+
+        return query.all()
 
     @staticmethod
-    def get_list_count(db, user_id, params) -> int:
-        """커뮤니티 목록 총 개수"""
-        from sqlalchemy import or_
-        from app.models.users import Users
+    def get_community_count(session, user_id, params) -> int:
+        """
+        커뮤니티 목록 총 개수
+        """
+        effective_params = dict(params)
+        effective_params["user_id"] = user_id
 
-        query = (
-            db.query(Communities.id)
-            .join(Users, Communities.user_id == Users.id)
-            .filter(Communities.deleted_at.is_(None))
-            .filter(Communities.is_active == 'Y')
-        )
+        # count 용도이므로 join 최소화 (user는 user_nickname 검색에 필요할 수 있어 포함)
+        include = ["user"] if effective_params.get("user_nickname") else []
 
-        # 분류코드 필터
-        if params.get("category_code") is not None and params.get("category_code") != "all":
-            query = query.filter(Communities.category_code == params["category_code"])
-
-        # 공지글 여부
-        if params.get("is_notice") is not None:
-            query = query.filter(Communities.is_notice == params["is_notice"])
-
-        # 비밀글 여부
-        if params.get("is_secret") is not None:
-            query = query.filter(Communities.is_secret == params["is_secret"])
-
-        # 검색 키워드
-        if params.get("keyword"):
-            keyword = params["keyword"]
-            query = query.filter(
-                or_(
-                    Communities.title.like(f"%{keyword}%"),
-                    Communities.contents.like(f"%{keyword}%"),
-                    Users.nickname.like(f"%{keyword}%")
-                )
-            )
-
-        # 월별 필터
-        if params.get("month"):
-            from sqlalchemy import func as sql_func
-            month = params["month"]
-            query = query.filter(
-                sql_func.date_format(Communities.created_at, '%Y-%m') == month
-            )
-
-        # 날짜 범위 필터
-        if params.get("start_date"):
-            from sqlalchemy import func as sql_func
-            start_date = params["start_date"]
-            query = query.filter(
-                sql_func.date(Communities.created_at) >= start_date
-            )
-
-        if params.get("end_date"):
-            from sqlalchemy import func as sql_func
-            end_date = params["end_date"]
-            query = query.filter(
-                sql_func.date(Communities.created_at) <= end_date
-            )
-
-        # 회원 닉네임 검색
-        if params.get("user_nickname"):
-            user_nickname = params["user_nickname"]
-            query = query.filter(Users.nickname.like(f"%{user_nickname}%"))
-
-        # 내 글만 보기
-        if params.get("my_only") and params["my_only"]:
-            query = query.filter(Communities.user_id == user_id)
+        query = CommunitiesRepository.build_base_query(session, effective_params, include)
+        query = CommunitiesRepository.apply_filters(query, effective_params, include)
 
         return query.count()

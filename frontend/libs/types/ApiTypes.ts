@@ -35,6 +35,7 @@ export interface FeedListParams {
   meal_stage_detail?: string;
   view_type?: 'all' | 'mine';
   user_hash?: string;
+  ingredient_name?: string[];
 }
 
 export interface CreateFeedCommentRequest {

@@ -14,8 +14,10 @@ class NoticesUpdateRequest(BaseModel):
     category_id: int
     content: str
     is_important: str # Y / N
+    client_id: str
 
 class NoticesResponse(BaseModel):
+    id: Optional[int] = None
     title: str
     content: Optional[str] = None
     status: str

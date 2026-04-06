@@ -138,7 +138,7 @@ class UserCreateSchema(BaseModel):
         return v
 
 
-class UserResponseSchema(BaseModel):
+class UserResponse(BaseModel):
     """회원 응답 스키마 (비밀번호 제외)"""
     sns_login_type: SnsLoginTypeEnum
     sns_id: str
@@ -161,3 +161,4 @@ class UserResponseSchema(BaseModel):
 
     class Config:
         from_attributes = True  # Pydantic v2에서 ORM 모델 자동 변환
+

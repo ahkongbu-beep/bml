@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import { MEAL_CATEGORIES } from '../libs/utils/codes/MealCalendarCode';
 import { MealItemProps } from '../libs/types/MealType';
 import { getStaticImage } from '../libs/utils/common';
 import { MEAL_CONDITION } from '../libs/utils/codes/FeedMealCondition';
+import { getAmountColor, getBorderColor } from '../libs/utils/codes/IngredientCode';
 
 const MealPlanItem = React.memo(({
   meal,
@@ -18,6 +19,7 @@ const MealPlanItem = React.memo(({
   handleDetailFeed,
   onPress,
 }: MealItemProps) => {
+  const [isExpanded, setIsExpanded] = useState(false);
   const category = MEAL_CATEGORIES.find((c) => c.name === meal.category_name);
   const hasImage = !!meal.image_url;
 
@@ -63,13 +65,29 @@ const MealPlanItem = React.memo(({
           <Text style={styles.mealContents} numberOfLines={hasImage ? 2 : 3}>
             {meal.contents || ''}
           </Text>
+          {/* 매핑된 태그 표시 - 3개까지 노출 후 더보기 형태로 */}
           {meal.mapped_tags && meal.mapped_tags.length > 0 && (
             <View style={styles.mealTags}>
-              {meal.mapped_tags.map((tag, index) => (
-                <View key={index} style={styles.tag}>
-                  <Text style={styles.tagText}>#{tag || ''}</Text>
-                </View>
-              ))}
+              {meal.mapped_tags.slice(0, isExpanded ? undefined : 3).map((tag, index) => {
+                const score = parseFloat(tag.mapper_score);
+                const bgColor = getAmountColor(score);
+                const borderColor = getBorderColor(score);
+                return (
+                  <View key={index} style={[styles.tag, { backgroundColor: bgColor, borderColor: borderColor }]}>
+                    <Text style={[styles.tagText, { color: borderColor }]}>{tag.mapper_name || ''}</Text>
+                  </View>
+                );
+              })}
+              {meal.mapped_tags.length > 3 && (
+                <TouchableOpacity
+                  style={[styles.tag, styles.moreTag]}
+                  onPress={() => setIsExpanded(!isExpanded)}
+                >
+                  <Text style={styles.moreTagText}>
+                    {isExpanded ? '접기' : `+${meal.mapped_tags.length - 3}`}
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
           )}
 
@@ -161,14 +179,30 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   tag: {
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: 6,
     borderRadius: 12,
+    borderWidth: 1.5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  tagCircles: {
+    fontSize: 11,
+    fontWeight: '700',
   },
   tagText: {
     fontSize: 12,
-    color: '#666666',
+    fontWeight: '600',
+  },
+  moreTag: {
+    backgroundColor: '#F0F0F0',
+    borderColor: '#999',
+  },
+  moreTagText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#666',
   },
   sourceContainer: {
     flexDirection: 'row',

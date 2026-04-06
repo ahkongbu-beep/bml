@@ -11,7 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { getStaticImage } from '../libs/utils/common';
 import { MEAL_CONDITION } from '../libs/utils/codes/FeedMealCondition';
 
-interface Feed {
+interface Meal {
   id: number;
   title?: string;
   content?: string;
@@ -19,17 +19,19 @@ interface Feed {
   created_at?: string;
   like_count?: number;
   comment_count?: number;
+  view_hash?: string;
+  user_hash?: string;
 }
 
 interface MyFeedGridProps {
-  feeds: Feed[];
+  meals: Meal[];
   isLoading: boolean;
   viewType: 'grid' | 'list';
-  onFeedPress: (feedId: number) => void;
+  onFeedPress: (viewHash: string) => void;
 }
 
 export default function MyFeedGrid({
-  feeds,
+  meals,
   isLoading,
   viewType,
   onFeedPress
@@ -43,13 +45,11 @@ export default function MyFeedGrid({
     );
   }
 
-
-
-  if (!feeds || feeds.length === 0) {
+  if (!meals || meals.length === 0) {
     return (
       <View style={styles.emptyFeedContainer}>
         <Ionicons name="camera-outline" size={48} color="#DDD" />
-        <Text style={styles.emptyFeedText}>아직 작성한 피드가 없습니다</Text>
+        <Text style={styles.emptyFeedText}>아직 작성한 식단이 없습니다</Text>
       </View>
     );
   }
@@ -57,17 +57,17 @@ export default function MyFeedGrid({
   if (viewType === 'grid') {
     return (
       <View style={styles.feedGrid}>
-        {feeds.map((feed) => (
+        {meals.map((meal) => (
           <TouchableOpacity
-            key={feed.id}
+            key={meal.id}
             style={styles.feedItem}
-            onPress={() => onFeedPress(feed.id)}
+            onPress={() => onFeedPress(meal.view_hash)}
           >
             <Image
-              source={{ uri: feed.image_url ? getStaticImage('medium', feed.image_url) : '' }}
+              source={{ uri: meal.image_url ? getStaticImage('medium', meal.image_url) : '' }}
               style={styles.feedImage}
             />
-            {feed.images && feed.images.length > 1 && (
+            {meal.images && meal.images.length > 1 && (
               <View style={styles.multiImageBadge}>
                 <Ionicons name="images" size={16} color="#FFFFFF" />
               </View>
@@ -81,33 +81,33 @@ export default function MyFeedGrid({
   // List view
   return (
     <View style={styles.feedList}>
-      {feeds.map((feed) => (
+      {meals.map((meal) => (
         <TouchableOpacity
-          key={feed.id}
+          key={meal.id}
           style={styles.feedListItem}
-          onPress={() => onFeedPress(feed.id)}
+          onPress={() => onFeedPress(meal.view_hash)}
         >
           <Image
-            source={{ uri: feed.images?.[0] ? getStaticImage('medium', feed.images[0]) : '' }}
+            source={{ uri: meal.image_url ? getStaticImage('medium', meal.image_url) : '' }}
             style={styles.feedListImage}
           />
           <View style={styles.feedListContent}>
             <Text style={styles.feedListTitle} numberOfLines={2}>
-              {feed.content || ''}
+              {meal.contents || ''}
             </Text>
             <View style={styles.feedListStats}>
               <View style={styles.feedListStatItem}>
                 <Ionicons name="heart" size={14} color="#FF9AA2" />
-                <Text style={styles.feedListStatText}>{feed.like_count || 0}</Text>
+                <Text style={styles.feedListStatText}>{meal.like_count || 0}</Text>
               </View>
               <View style={styles.feedListStatItem}>
                 <Ionicons name="chatbubble" size={14} color="#C0C0C0" />
-                <Text style={styles.feedListStatText}>{feed.comment_count || 0}</Text>
+                <Text style={styles.feedListStatText}>{meal.comment_count || 0}</Text>
               </View>
               <View style={styles.feedListStatItem}>
                 <Text style={styles.feedListStatText}>
-                    {MEAL_CONDITION.find(c => c.value === feed.meal_condition)?.icon || ''}
-                    {MEAL_CONDITION.find(c => c.value === feed.meal_condition)?.name || ''}
+                    {MEAL_CONDITION.find(c => c.value === meal.meal_condition)?.icon || ''}
+                    {MEAL_CONDITION.find(c => c.value === meal.meal_condition)?.name || ''}
                 </Text>
               </View>
             </View>

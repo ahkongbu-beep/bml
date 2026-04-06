@@ -1,5 +1,6 @@
 # app/repositories/feed_repository.py
 from app.models.feeds import Feeds
+from app.models.attaches_files import AttachesFiles
 
 class FeedRepository:
 
@@ -152,12 +153,12 @@ class FeedRepository:
 
         image_subquery = (
             session.query(
-                AttachesF.img_model_id.label('feed_id'),
-                sql_func.group_concat(FeedsImages.image_url).label('images'),
-                sql_func.group_concat(FeedsImages.id).label('image_ids')
+                AttachesFiles.img_model_id.label('feed_id'),
+                sql_func.group_concat(AttachesFiles.image_url).label('images'),
+                sql_func.group_concat(AttachesFiles.id).label('image_ids')
             )
-            .filter(FeedsImages.img_model == 'Feeds')
-            .group_by(FeedsImages.img_model_id)
+            .filter(AttachesFiles.img_model == 'Feeds')
+            .group_by(AttachesFiles.img_model_id)
             .subquery()
         )
 

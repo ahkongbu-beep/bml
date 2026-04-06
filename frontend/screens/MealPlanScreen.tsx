@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import styles from './MealPlanScreen.styles';
 import {
   View,
@@ -13,22 +13,29 @@ import {
   Pressable,
   RefreshControl,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
+
 import Header from '../components/Header';
 import Layout from '@/components/Layout';
 import { LoadingPage } from '../components/Loading';
+import MealPlanItem from '../components/MealPlanItem';
+import ConfirmPortal from '../components/ConfirmPortal';
+import MealDetailModal from '../components/MealDetailModal';
+
 import { Calendar, LocaleConfig } from 'react-native-calendars';
-import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from '@react-navigation/native';
 import { Dialog, Button, Portal } from 'react-native-paper';
+
 import { useAuth } from '../libs/contexts/AuthContext';
+
 import { useMeals, useDeleteMeal, useUploadCalendarMonthImage, useMonthImage } from '../libs/hooks/useMeals';
 import { MealItem } from '../libs/types/MealType';
+
 import { normalizeDate, getStaticImage, calculateAge } from '../libs/utils/common';
-import { MEAL_CATEGORIES } from '../libs/utils/codes/MealCalendarCode';
-import MealPlanItem from '../components/MealPlanItem';
-import MealDetailModal from '../components/MealDetailModal';
 import { toastError, toastSuccess, toastInfo } from '@/libs/utils/toast';
+import { MEAL_CATEGORIES } from '../libs/utils/codes/MealCalendarCode';
+
 
 // 한국어 설정
 LocaleConfig.locales['kr'] = {
@@ -60,6 +67,7 @@ export default function MealPlanScreen({ navigation }: any) {
   const [mealToDelete, setMealToDelete] = useState<MealItem | null>(null);
   const [selectedMeal, setSelectedMeal] = useState<MealItem | null>(null);
   const [detailModalVisible, setDetailModalVisible] = useState(false);
+  const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const deleteMealMutation = useDeleteMeal();
   const uploadMonthImageMutation = useUploadCalendarMonthImage();
@@ -68,8 +76,12 @@ export default function MealPlanScreen({ navigation }: any) {
   const { data: mealsCalendar, isLoading: mealsLoading, refetch } = useMeals({ month: currentMonth, child_id: selectedChildId });
   const { data: monthImage, isLoading: monthImageLoading, isFetching: monthImageFetching, refetch: refetchMonthImage } = useMonthImage(currentMonth);
   const today = new Date().toISOString().split('T')[0];
-  const allMonthImages: Record<string, string> | null = monthImage?.success ? (monthImage?.data as any) ?? null : null;
-  const monthImagePath = allMonthImages?.[currentMonth] ?? null;
+
+  // 현재 월 이미지: 쿼리 데이터에서 직접 조회 (API가 전체 월 이미지를 반환하므로 별도 캐시 불필요)
+  const monthImagePath = monthImage?.success && monthImage?.data
+    ? (monthImage.data as Record<string, string>)[currentMonth] ?? null
+    : null;
+
   // 최초 로딩(데이터 없음+패칭 중)일 때만 로딩 표시, 백그라운드 리패치 시엔 기존 이미지 유지
   const isLoadingMonthImage = monthImageLoading && monthImageFetching;
 
@@ -117,7 +129,7 @@ export default function MealPlanScreen({ navigation }: any) {
     setMenuVisible(null);
     setMenuPosition(null);
     setMealToDelete(meal);
-    setDeleteDialogVisible(true);
+    setDeleteConfirmVisible(true);
   };
 
   const confirmDelete = () => {
@@ -136,17 +148,29 @@ export default function MealPlanScreen({ navigation }: any) {
         }
       });
     }
+    setDeleteConfirmVisible(false);
     setDeleteDialogVisible(false);
     setMealToDelete(null);
   };
 
   const cancelDelete = () => {
-    setDeleteDialogVisible(false);
+    setDeleteConfirmVisible(false);
     setMealToDelete(null);
   };
 
   const handleDetailFeed = (feedId: number) => {
     navigation.navigate('FeedDetail', { feedId });
+  }
+
+  // refer_feed_id가 있는 식단은 원본 피드로 이동 (복사된 식단은 상세에서 원본 피드로 이동 가능)
+  const handleReferDetailMeal = () => {
+    console.log("⭕⭕handleReferDetailMeal called with selectedMeal:", selectedMeal);
+    if (selectedMeal.refer_info.refer_meal_hash && selectedMeal.refer_info.refer_user_hash) {
+      navigation.navigate('MealUserDetail', {
+        mealHash: selectedMeal.refer_info.refer_meal_hash,
+        userHash: selectedMeal.refer_info.refer_user_hash
+      });
+    }
   }
 
   const handleMealPress = (meal: MealItem) => {
@@ -155,6 +179,7 @@ export default function MealPlanScreen({ navigation }: any) {
   };
 
   const handleCloseDetailModal = () => {
+    setDeleteConfirmVisible(false);
     setDetailModalVisible(false);
     setSelectedMeal(null);
   };
@@ -171,13 +196,14 @@ export default function MealPlanScreen({ navigation }: any) {
     if (selectedMeal) {
       setDetailModalVisible(false);
       setMealToDelete(selectedMeal);
-      setDeleteDialogVisible(true);
+      setDeleteConfirmVisible(true);
       setSelectedMeal(null);
     }
   };
 
   const handleViewSourceFromModal = () => {
-    if (selectedMeal?.refer_feed_id) {
+    console.log("⭕⭕handleViewSourceFromModal called with refer_feed_id:", selectedMeal);
+    if (selectedMeal?.refer_feed_id > 0) {
       setDetailModalVisible(false);
       handleDetailFeed(selectedMeal.refer_feed_id);
       setSelectedMeal(null);
@@ -195,10 +221,9 @@ export default function MealPlanScreen({ navigation }: any) {
       setMenuVisible(null);
       setMenuPosition(null);
     } else {
-      event.target.measure((x: number, y: number, width: number, height: number, pageX: number, pageY: number) => {
-        setMenuPosition({ x: pageX, y: pageY + height });
-        setMenuVisible(meal.view_hash);
-      });
+      const { pageX, pageY } = event.nativeEvent;
+      setMenuPosition({ x: pageX, y: pageY + 30 });
+      setMenuVisible(meal.view_hash);
     }
   };
 
@@ -223,7 +248,6 @@ export default function MealPlanScreen({ navigation }: any) {
       const result = await ImagePicker.launchImageLibraryAsync({
         ...(mediaTypesOption ? { mediaTypes: mediaTypesOption } : {}),
         allowsEditing: true,
-        aspect: [16, 9],
         quality: 0.9,
       });
 
@@ -296,10 +320,25 @@ export default function MealPlanScreen({ navigation }: any) {
     }, [refetch])
   );
 
+  const handleMonthChange = useCallback((month: any) => {
+    const next = `${month.year}-${String(month.month).padStart(2, '0')}`;
+
+    setCurrentMonth((prev) => {
+      if (prev === next) return prev;
+      return next;
+    });
+  }, []);
+
   const onRefresh = useCallback(async () => {
-    setIsRefreshing(true);
-    await Promise.all([refetch(), refetchMonthImage()]);
-    setIsRefreshing(false);
+    try {
+      setIsRefreshing(true);
+      await Promise.all([
+        refetch(),
+        refetchMonthImage()
+      ]);
+    } finally {
+      setIsRefreshing(false);
+    }
   }, [refetch, refetchMonthImage]);
 
   // 서버 응답 직접 사용 금지 → 월별 캐시에서 읽기
@@ -335,7 +374,6 @@ export default function MealPlanScreen({ navigation }: any) {
           ) : monthImagePath ? (
             <View style={styles.monthImageContainer}>
               <Image
-                key={currentMonth}   // 월 바뀌면 무조건 새로 그림
                 source={{ uri: getStaticImage('small', monthImagePath) }}
                 style={styles.monthImage}
                 resizeMode="cover"
@@ -387,18 +425,19 @@ export default function MealPlanScreen({ navigation }: any) {
                     >
                       {selectedChildId === child.id && <View style={styles.childRadioCircleInner} />}
                     </View>
-                    <Text
-                      style={[
-                        styles.childRadioOptionText,
-                        selectedChildId === child.id ? styles.childRadioOptionTextSelected : null,
-                      ]}
-                    >
-                      {/* 대표자녀 표시 */}
+                    <View style={styles.childRadioLabelRow}>
                       {child.is_agent == 'Y' && (
-                        <Ionicons name="star" size={12} color="#FFD700" style={{ marginRight: 4 }} />
+                        <Ionicons name="star" size={12} color="#FFD700" style={styles.childAgentIcon} />
                       )}
-                      {child.child_name} (만 {calculateAge(child.child_birth)}세)
-                    </Text>
+                      <Text
+                        style={[
+                          styles.childRadioOptionText,
+                          selectedChildId === child.id ? styles.childRadioOptionTextSelected : null,
+                        ]}
+                      >
+                        {`${child.child_name} (만 ${calculateAge(child.child_birth)}세)`}
+                      </Text>
+                    </View>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -410,10 +449,7 @@ export default function MealPlanScreen({ navigation }: any) {
             current={`${currentMonth}-01`}
             markedDates={markedDates}
             onDayPress={(day) => setSelectedDate(day.dateString)}
-            onMonthChange={(month) => {
-              const next = `${month.year}-${String(month.month).padStart(2, '0')}`;
-              if (next !== currentMonth) setCurrentMonth(next);
-            }}
+            onMonthChange={handleMonthChange}
             theme={{
               backgroundColor: '#FFFFFF',
               calendarBackground: '#FFFFFF',
@@ -546,18 +582,16 @@ export default function MealPlanScreen({ navigation }: any) {
       </Modal>
 
       {/* 삭제 확인 Dialog */}
-      <Portal>
-        <Dialog visible={deleteDialogVisible} onDismiss={cancelDelete}>
-          <Dialog.Title>식단 삭제</Dialog.Title>
-          <Dialog.Content>
-            <Text>정말로 이 식단을 삭제하시겠습니까?</Text>
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={cancelDelete}>취소</Button>
-            <Button onPress={confirmDelete} textColor="#FF6B6B">삭제</Button>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
+      <ConfirmPortal
+        visible={deleteConfirmVisible}
+        title="식단 삭제"
+        message="정말로 이 식단을 삭제하시겠습니까?"
+        onConfirm={() => confirmDelete()}
+        onCancel={cancelDelete}
+        confirmText="삭제"
+        cancelText="취소"
+        confirmColor="#FF6B6B"
+      />
 
       {/* 식단 상세 모달 */}
       {selectedMeal && (
@@ -568,7 +602,9 @@ export default function MealPlanScreen({ navigation }: any) {
           onClose={handleCloseDetailModal}
           onEdit={handleEditFromModal}
           onDelete={handleDeleteFromModal}
-          onViewSource={selectedMeal.refer_feed_id ? handleViewSourceFromModal : undefined}
+          onViewSource={
+            selectedMeal.refer_feed_id ? () => handleReferDetailMeal() : undefined
+          }
         />
       )}
     </Layout>

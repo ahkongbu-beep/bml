@@ -3,52 +3,21 @@ from app.services import communities_service
 from app.core.database import get_db
 from sqlalchemy.orm import Session
 from app.schemas.common_schemas import CommonResponse
-from app.schemas.communities_schemas import CommunityCreateCommentRequest, CommunityCreateRequest, CommunityUpdateRequest
+from app.schemas.communities_schemas import CommunityCreateCommentRequest, CommunityListReqest
 router = APIRouter()
 
-""" 커뮤니티 관련 API """
+
 @router.get("/list")
-def get_community_list(
-    request: Request,
-    # 📌 필수 or 거의 필수
-    category_code: int | None = Query(None, description="카테고리"),
-    is_notice: str | None = Query(None, description="공지 여부 Y/N"),
-    is_secret: str | None = Query("N" , description="비밀글 Y/N"),
-    # 🔍 검색
-    keyword: str | None = Query(None, description="제목/내용 검색"),
-    user_nickname: str | None = Query(None, description="회원 닉네임 검색"),
-    # 📅 기간 필터
-    month: str | None = Query(None, description="YYYY-MM"),
-    start_date: str | None = Query(None, description="시작일 YYYY-MM-DD"),
-    end_date: str | None = Query(None, description="종료일 YYYY-MM-DD"),
-    # 🔄 정렬
-    sort_by: str | None = Query("latest", description="latest/likes/views"),
-    # ⬇️ 무한스크롤용 (핵심)
-    cursor: int | None = Query(None, description="마지막 community.id"),
-    my_only: str | None = Query(None, description="내가 쓴 글만 Y/N"),
-    limit: int = Query(20, ge=1, le=50),
-    db: Session = Depends(get_db),
-):
+def get_community_list(request: Request, params: CommunityListReqest = Depends(), db: Session = Depends(get_db)):
+    """
+    커뮤니티 리스트 조회 API
+    """
     user_hash = getattr(request.state, "user_hash", None)
 
     if not user_hash:
         return CommonResponse(success=False, error="로그인이 필요합니다.")
 
-    params = {
-        "category_code": category_code,
-        "is_notice": is_notice,
-        "is_secret": is_secret,
-        "keyword": keyword,
-        "user_nickname": user_nickname,
-        "month": month,
-        "start_date": start_date,
-        "end_date": end_date,
-        "sort_by": sort_by,
-        "cursor": cursor,
-        "my_only": my_only,
-        "limit": limit,
-    }
-
+    params = params.dict()
     return communities_service.get_community_list(db, user_hash, params)
 
 @router.post("/create")

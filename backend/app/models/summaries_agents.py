@@ -11,7 +11,6 @@ from sqlalchemy import (
 from sqlalchemy.sql import func
 from app.core.database import Base
 
-
 class SummariesAgents(Base):
     __tablename__ = "summaries_agents"
 

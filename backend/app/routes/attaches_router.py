@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter
 from fastapi.responses import FileResponse, Response
 import os
 import mimetypes
@@ -12,7 +12,6 @@ async def serve_attach(file_path: str):
     if not os.path.exists(full_path):
         return Response(status_code=404)
 
-    print(f"⭕⭕⭕⭕⭕⭕⭕⭕full_path", full_path)
     # 기본 mime 추론
     media_type, _ = mimetypes.guess_type(full_path)
 

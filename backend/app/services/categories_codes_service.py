@@ -1,15 +1,20 @@
 from app.repository.categories_codes_repository import CategoriesCodesRepository
 from app.repository.food_item_repository import FoodItemRepository
-from app.schemas.categories_codes_schemas import CategoryCodeResponse
 from app.schemas.common_schemas import CommonResponse
-from app.libs.serializers.query import SerializerQueryResult
 
 def get_category_code_by_id(db, category_id: int):
     return CategoriesCodesRepository.get_category_codes_by_id(db, category_id)
 
+def get_category_code_by_type_and_code(db, type: str, code: str):
+    return CategoriesCodesRepository.get_category_code_by_type_and_code(db, type, code)
+
 def get_category_list(db, params):
-    result = CategoriesCodesRepository.get_list(db, params)
-    return SerializerQueryResult(result).serialize()
+    from app.serializer.categories_codes_serialize import serialize_category_code
+    result = CategoriesCodesRepository.get_category_list(db, params)
+    return [serialize_category_code(cc) for cc in result]
+
+def get_category_by_type_and_sort(db, type: str, sort: int):
+    return CategoriesCodesRepository.get_category_by_type_and_sort(db, type, sort)
 
 def list_categories_codes(db, cc_type: str = None):
 
@@ -29,71 +34,20 @@ def list_categories_codes(db, cc_type: str = None):
 
     return CommonResponse(success=True, message="", data=grouped_data)
 
-def save_categories_code(db, data):
+def insert_category_process(db, params):
+    try:
+        new_category_code = CategoriesCodesRepository.create(db, params)
+        return new_category_code
+    except Exception as e:
+        db.rollback()
+        return False
 
-    if data.get("id"):
-        # 기존 코드 업데이트
-        category_code = CategoriesCodesRepository.get_category_codes_by_id(db, data["id"])
-        if not category_code:
-            return CommonResponse(success=False, error="카테고리 정보가 조회되지않습니다.", data=None)
-
-        try:
-            exist_category_code = CategoriesCodesRepository.get_category_by_type_and_sort(db, data["type"], data["sort"])
-            if category_code.id != exist_category_code.id and exist_category_code:
-                raise Exception("동일한 타입과 정렬순서의 카테고리 코드가 이미 존재합니다.")
-
-            updated_category_code = CategoriesCodesRepository.update(db, category_code.id, data)
-
-            # SQLAlchemy 객체를 딕셔너리로 변환
-            response_data = CategoryCodeResponse(
-                id=updated_category_code.id,
-                type=updated_category_code.type,
-                code=updated_category_code.code,
-                value=updated_category_code.value,
-                sort=updated_category_code.sort,
-                is_active=updated_category_code.is_active
-            )
-
-        except Exception as e:
-            db.rollback()
-            return CommonResponse(success=False, error=f"{str(e)}", data=None)
-
-        return CommonResponse(success=True, message="카테고리 정보가 성공적으로 업데이트되었습니다.", data=response_data)
-
-    else:
-        # 신규 코드 생성
-        try:
-            params = {
-                "type": data["type"],
-                "value": data["value"],
-                "sort": data.get("sort", 1),
-            }
-
-            exist_category_code = CategoriesCodesRepository.get_category_by_type_and_sort(db, params["type"], params["sort"])
-            if exist_category_code:
-                raise Exception("동일한 타입과 정렬순서의 카테고리 코드가 이미 존재합니다.")
-
-            exist_category_code = CategoriesCodesRepository.get_category_by_type_and_value(db, params["type"], params["value"])
-            if exist_category_code:
-                raise Exception("동일한 타입과 값의 카테고리 코드가 이미 존재합니다.")
-
-            new_category_code = CategoriesCodesRepository.create(db, params)
-
-            # SQLAlchemy 객체를 딕셔너리로 변환
-            response_data = CategoryCodeResponse(
-                id=new_category_code.id,
-                type=new_category_code.type,
-                code=new_category_code.code,
-                value=new_category_code.value,
-                sort=new_category_code.sort,
-                is_active=new_category_code.is_active
-            )
-
-        except Exception as e:
-            db.rollback()
-            return CommonResponse(success=False, error=f"{str(e)}", data=None)
-
-        return CommonResponse(success=True, message="카테고리 정보가 성공적으로 생성되었습니다.", data=response_data)
+def update_category_process(db, category: int, params):
+    try:
+        return CategoriesCodesRepository.update(db, category, params)
+    except Exception as e:
+        db.rollback()
+        return False
 
 def delete_categories_code(db, category_id: int):
     category_code = CategoriesCodesRepository.get_category_codes_by_id(db, category_id)
@@ -101,7 +55,7 @@ def delete_categories_code(db, category_id: int):
         return CommonResponse(success=False, error="카테고리 정보가 조회되지않습니다.", data=None)
 
     try:
-        CategoriesCodesRepository.update(db, category_code.id, {"is_active": "N"})
+        CategoriesCodesRepository.update(db, category_code, {"is_active": "N"})
 
     except Exception as e:
         db.rollback()

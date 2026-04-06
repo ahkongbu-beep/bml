@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import styles from './MyPageScreen.styles';
+import React, { useState, useCallback } from 'react';
+import styles from './MyProfileScreen.styles';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Image,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../components/Header';
@@ -19,14 +20,21 @@ import { LoadingPage } from '../components/Loading';
 import Layout from '../components/Layout';
 import { getStaticImage } from '../libs/utils/common';
 
-export default function MyPageScreen({ navigation }: any) {
+export default function MyProfileScreen({ navigation }: any) {
   const { user, isLoading } = useAuth();
   const [viewType, setViewType] = useState<'grid' | 'list'>('grid');
 
   // 훅은 항상 최상단에서 조건 없이 호출해야 함 (Rules of Hooks)
-  const { data: myFeedsData, isLoading: feedsLoading } = useMyFeeds();
-  const { data: myInfoData, isLoading: myInfoLoading } = useGetMyInfo(user?.view_hash || '');
+  const { data: myFeedsData, isLoading: feedsLoading, refetch: refetchFeeds } = useMyFeeds();
+  const { data: myInfoData, isLoading: myInfoLoading, refetch: refetchMyInfo } = useGetMyInfo(user?.view_hash || '');
   const myFeeds = Array.isArray(myFeedsData?.data) ? myFeedsData.data : [];
+
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const onRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    await Promise.all([refetchFeeds(), refetchMyInfo()]);
+    setIsRefreshing(false);
+  }, [refetchFeeds, refetchMyInfo]);
 
   if (isLoading) {
     return (
@@ -51,7 +59,17 @@ export default function MyPageScreen({ navigation }: any) {
     <Layout>
       <View style={styles.container}>
         <Header title="마이페이지" showMenu={true} />
-        <ScrollView style={styles.content}>
+        <ScrollView
+          style={styles.content}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={onRefresh}
+              tintColor="#FF9AA2"
+              colors={['#FF9AA2']}
+            />
+          }
+        >
           {/* 프로필 섹션 */}
           <View style={styles.profileSection}>
             <Image
@@ -68,16 +86,10 @@ export default function MyPageScreen({ navigation }: any) {
 
             {/* 통계 */}
             <View style={styles.statsContainer}>
-              <View style={styles.statItem}>
-                <Text style={styles.statNumber}>{myInfoLoading ? 0 : (myInfoData?.feed_count || 0)}</Text>
-                <Text style={styles.statLabel}>피드</Text>
-              </View>
-
               <View style={styles.statDivider} />
-
               <View style={styles.statItem}>
                 <TouchableOpacity
-                  onPress={() => navigation.navigate('FeedLikeList')}
+                  onPress={() => navigation.getParent()?.navigate('FeedLikeList')}
                 >
                     <Text style={styles.statNumber}>{myInfoLoading ? 0 : (myInfoData?.like_count || 0)}</Text>
                     <Text style={styles.statLabel}>좋아요</Text>
@@ -120,10 +132,10 @@ export default function MyPageScreen({ navigation }: any) {
             </View>
 
             <MyFeedGrid
-              feeds={myFeeds}
+              meals={myFeeds}
               isLoading={feedsLoading}
               viewType={viewType}
-              onFeedPress={(feedId) => navigation.navigate('FeedDetail', { feedId })}
+              onFeedPress={(mealHash) => navigation.navigate('MealMyDetail', { userHash: user.view_hash, mealHash })}
             />
           </View>
         </ScrollView>

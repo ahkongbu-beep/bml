@@ -106,13 +106,12 @@ export default function RegistChildScreen({ navigation, route }: any) {
         throw new Error(result.error || '자녀 정보 등록에 실패했습니다.');
       }
 
-      // 사용자 정보 갱신하여 user_childs 업데이트
       await refreshUser();
 
       setIsLoading(false);
 
       toastSuccess('자녀 정보가 등록되었습니다!');
-      navigation.navigate('Tabs', { screen: 'MealPlan' });
+      navigation.navigate('Tabs', { screen: 'MenuList' });
     } catch (error: any) {
       setIsLoading(false);
       toastError(error?.message || '자녀 정보 등록 중 오류가 발생했습니다.');

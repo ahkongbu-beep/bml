@@ -36,9 +36,12 @@ export interface LoginRequest {
 
 export interface LoginResponse {
   success: boolean;
-  token: string;
-  user: User;
   message?: string;
+  data: {
+    user: User;
+    token: string;
+    refresh_token: string;
+  };
 }
 
 export interface RegisterRequest {

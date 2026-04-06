@@ -1,10 +1,35 @@
 from datetime import datetime
 import pytz
+from sqlalchemy import text
 from app.libs.hash_utils import generate_sha256_hash
 from app.libs.password_utils import hash_password, verify_password
 from app.models.users import Users
 
 class UserRepository:
+    # 타 repository 에서 호출을 하는건 비효울적이라 직접쿼리를 작성
+    @staticmethod
+    def get_user_like_count(session, user_id: int):
+        query = text("""
+        SELECT
+            COUNT(DISTINCT fl.id) AS like_count,
+            COUNT(DISTINCT mc.id) AS meal_calendar_count
+        FROM `users` u
+        LEFT JOIN `feeds_likes` fl ON u.id = fl.user_id
+        LEFT JOIN `meals_calendars` mc ON u.id = mc.user_id
+        WHERE u.id = :user_id
+        """)
+        result = session.execute(query, {"user_id": user_id}).fetchone()
+        return {
+            "like_count": result.like_count if result.like_count else 0,
+            "meal_count": result.meal_calendar_count if result.meal_calendar_count else 0
+        }
+
+    @staticmethod
+    def get_user_by_nickname(session, nickname: str):
+        """
+        닉네임으로 회원 조회
+        """
+        return session.query(Users).filter(Users.nickname == nickname).first()
 
     @staticmethod
     def get_user_by_sns_account(session, sns_login_type: str, sns_id: str):
@@ -152,7 +177,7 @@ class UserRepository:
 
             if is_commit:
                 session.commit()
-            session.refresh(user_instance)
+
             return user_instance
 
         except Exception as e:
@@ -188,3 +213,61 @@ class UserRepository:
             session.refresh(user)
 
         return user
+
+    @staticmethod
+    def apply_filters(query, params: dict):
+        from sqlalchemy.inspection import inspect
+        mapper = inspect(Users)
+        columns = {column.key for column in mapper.columns}
+
+        for key, value in params.items():
+            if key in columns and value is not None:
+                query = query.filter(getattr(Users, key) == value)
+
+        # 생성일로 조회
+        if params.get("created_at_start") and params.get("created_at_end"):
+            query = query.filter(
+                Users.created_at.between(
+                    params["created_at_start"],
+                    params["created_at_end"]
+                )
+            )
+
+        # 수정일로 조회
+        if params.get("updated_at_start") and params.get("updated_at_end"):
+            query = query.filter(
+                Users.updated_at.between(
+                    params["updated_at_start"],
+                    params["updated_at_end"]
+                )
+            )
+
+        return query
+
+    @staticmethod
+    def get_count(session, params: dict):
+        query = session.query(Users).filter(Users.deleted_at == None)
+        query = UserRepository.apply_filters(query, params)
+        return query.count()
+
+    @staticmethod
+    def get_list(session, params: dict = {}):
+
+        query = session.query(Users).filter(Users.deleted_at == None)
+
+        # 모델 컬럼 목록 가져오기
+        query = UserRepository.apply_filters(query, params)
+
+        # 정렬
+        order_by = params.get("order_by", "id")
+        order_direction = params.get("order_direction", "desc")
+
+        if hasattr(Users, order_by):
+            col = getattr(Users, order_by)
+            query = query.order_by(col.desc() if order_direction == "desc" else col.asc())
+
+        # 페이징
+        if params.get("offset") is not None and params.get("limit") is not None:
+            query = query.offset(params["offset"]).limit(params["limit"])
+
+        return query.all()

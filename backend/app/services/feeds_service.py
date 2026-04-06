@@ -1,20 +1,17 @@
 from app.repository.feed_repository import FeedRepository
-from app.repository.feeds_tags_mappers_repository import FeedsTagsMappersRepository
-from app.repository.users_childs_allergies_repository import UsersChildsAllergiesRepository
-
 from app.schemas.common_schemas import CommonResponse
-from app.schemas.feeds_schemas import FeedsResponse, FeedsUserResponse, FeedLikeResponseData, FeedListRequest
-from app.schemas.users_schemas import AllergyItemSchema, UserChildItemSchema
+from app.schemas.feeds_schemas import FeedListRequest
 
 from app.services.categories_codes_service import get_category_code_by_id
 from app.services.meals_comments_service import build_comment_tree, get_comment_list_by_user_meal_id, get_meal_comments_by_hash, create_meal_comment, delete_meal_comment
-from app.services.users_service import validate_user, validate_user_id
-from app.services.meals_likes_service import get_list_of_likes_by_user, get_meal_like_by_calendar_and_user, create_meal_like, delete_meal_like
-from app.services.meals_service import validate_meal_calendar_id, get_meal_calendar_by_id, get_user_meal_calendar, create_meal_calendar
+from app.services.users_service import validate_user
+from app.services.meals_likes_service import get_list_of_likes_by_user
+from app.services.meals_service import generate_meal_calendar_hash, validate_meal_calendar_id, get_meal_calendar_by_id, get_user_meal_calendar, insert_meal_proccess
 from app.services.ingredients_service import get_ingredient_by_similar_keyword, get_ingredient_list
 from app.services.users_childs_service import get_agent_childs, validate_agent_childs
 from app.services.denies_users_service import get_denies_user_id_list
 from app.services.attaches_files_service import copy_attache_file, get_attache_files_by_model_id, save_upload_file
+from app.services.users_childs_allergies_service import get_user_child_allergies
 
 """
 부모 hash 가 넘어오면 부모 id 를 반환
@@ -37,138 +34,13 @@ def increase_view_count(db, feed, is_commit=True):
         db.flush()  # 변경사항을 DB에 반영하지만 커밋하지는 않음
     return
 
-"""
-좋아요 증가 및 감소 함수
-"""
-def increase_meal_like_count(db, meal_calendar):
-    meal_calendar.like_count += 1
-
-def decrease_meal_like_count(db, meal_calendar):
-    meal_calendar.like_count = max(0, meal_calendar.like_count - 1)
-
-def set_toggle_like_process(db, user_id: int, meal_calendar):
-
-    existing_like = get_meal_like_by_calendar_and_user(db, meal_calendar, user_id)
-
-    # 좋아요가 이미 존재하면 취소(삭제), 없으면 추가
-    try:
-        if existing_like:
-            # 좋아요 삭제
-            delete_meal_like(db, meal_calendar, user_id)
-            # 식단의 좋아요 카운트 감소
-            decrease_meal_like_count(db, meal_calendar)
-            is_liked = False
-        else:
-            # 좋아요 추가
-            create_meal_like(db, meal_calendar, user_id)
-            # 식단의 좋아요 카운트 증가
-            increase_meal_like_count(db, meal_calendar)  # 좋아요 카운트 증가
-            is_liked = True
-
-        # 한 번에 커밋
-        db.commit()
-
-    except Exception as e:
-        db.rollback()
-        return CommonResponse(success=False, error=f"좋아요 처리 중 오류가 발생했습니다: {str(e)}", data=None)
-
-    data = FeedLikeResponseData(
-        meal_id=meal_calendar.id,
-        like_count=meal_calendar.like_count,
-        is_liked=is_liked
-    )
-
-    return CommonResponse(success=True, message="좋아요 상태가 성공적으로 변경되었습니다.", data=data)
-
-def toggle_feed_like(db, meal_id: int, user_hash: str):
-
-    try:
-        target_user = validate_user(db, user_hash)
-        meal_calendar = validate_meal_calendar_id(db, meal_id)
-    except Exception as e:
-        return CommonResponse(success=False, error=str(e), data=None)
-
-    return set_toggle_like_process(db, target_user.id, meal_calendar)
 
 def get_child_and_allergies(db, user_id):
     child = get_agent_childs(db, {"user_id": user_id})
-    allergies = UsersChildsAllergiesRepository.get_list_by_user_and_child(db, user_id, child.id) if child else []
+    allergies = get_user_child_allergies(db, user_id, child.id) if child else []
     return child, allergies
 
-def feed_detail_response(meal_calendar, user, category, tags, images, child, allergies, comments, viewer_hash):
-    return FeedsResponse(
-        id=meal_calendar.id,
-        user_id=meal_calendar.user_id,
-        title=meal_calendar.title,
-        content=meal_calendar.contents,
-        is_published=meal_calendar.is_public,
-        view_count=meal_calendar.view_count,
-        like_count=meal_calendar.like_count,
-        meal_condition=meal_calendar.meal_condition,
-        created_at=meal_calendar.created_at,
-        updated_at=meal_calendar.updated_at,
-        category_id=meal_calendar.category_code,
-        category_name=getattr(category, "value", None),
-        tags=tags,
-        images=images,
-        user_hash=viewer_hash,
-        user=FeedsUserResponse(
-            id=user.id,
-            nickname=user.nickname,
-            profile_image=user.profile_image,
-            user_hash=user.view_hash,
-        ),
-        childs=UserChildItemSchema(
-            child_id=getattr(child, "id", None),
-            child_name=getattr(child, "child_name", None),
-            child_birth=getattr(child, "child_birth", None),
-            child_gender=getattr(child, "child_gender", None),
-            is_agent=getattr(child, "is_agent", None),
-            allergies=[
-                AllergyItemSchema(allergy_code=a.allergy_code, allergy_name=a.allergy_name)
-                for a in (allergies or [])
-            ]
-        ),
-        comments=comments
-    )
-
-# 피드 상세보기
-def get_feed_detail(db, meal_id: int, user_hash: str):
-    try:
-        user = validate_user(db, user_hash)  # 인증된 사용자만 접근 가능
-        meal_calendar = validate_meal_calendar_id(db, meal_id)
-
-    except Exception as e:
-        return CommonResponse(success=False, error=str(e), data=None)
-
-    target_user = validate_user_id(db, meal_calendar.user_id)
-
-    # 조회수 증가
-    increase_view_count(db, meal_calendar, is_commit=True)
-
-    # 태그 목록 조회
-    tags = FeedsTagsMappersRepository.get_tags_mapper_by_model_and_model_id(db, "Feed", meal_calendar.id)
-    # 이미지 목록 조회
-    images = [f.image_url for f in get_attache_files_by_model_id(db, "Meals", meal_calendar.id)]
-    # 대표자녀 추출 및 알레르기 정보 조회
-    child, allergies = get_child_and_allergies(db, target_user.id)
-
-    category = get_category_code_by_id(db, meal_calendar.category_code) if meal_calendar.category_code else None
-
-    comment_params = {
-        "meal_id": meal_calendar.id,
-        "user_id": user.id,
-    }
-    comment_list = get_comment_list_by_user_meal_id(db, comment_params, extra={})
-    comments = build_comment_tree(comment_list)
-
-    feed_data = feed_detail_response(
-        meal_calendar, target_user, category, tags, images, child, allergies, comments, user_hash
-    )
-
-    return CommonResponse(success=True, message="", data=feed_data)
-
-def copy_feed(db, user_hash: str, params):
+async def copy_feed(db, user_hash: str, params):
     try:
         user = validate_user(db, user_hash)  # 인증된 사용자만 접근 가능
 
@@ -192,23 +64,28 @@ def copy_feed(db, user_hash: str, params):
         if exist_calendar:
             return CommonResponse(success=False, error="해당 날짜에 이미 식단이 존재합니다.", data=None)
 
-        new_calcendar = create_meal_calendar(db, {
+        view_hash = await generate_meal_calendar_hash(user.id, params.input_date, category_code.id, user_childs.id)
+
+        new_calcendar = await insert_meal_proccess(db, user, category_code, {
             "user_id": user.id,
-            "title": params.title,
+            "child_id": user_childs.id,
             "refer_feed_id": target_meal.id,
+            "is_pre_made": target_meal.is_pre_made,
+            "category_code": category_code.id,
+            "title": params.title,
             "month": params.input_date[:7],
             "input_date": params.input_date,
-            "child_id": user_childs.id,
-            "contents": target_meal.contents,
-            "category_code": category_code.id,
-            "is_public": "Y"
-        }, is_commit=False)
+            "contents": params.memo,
+            "view_hash": view_hash,
+            "is_public": "N"
+        })
 
         if not new_calcendar:
             raise Exception("식단 복사에 실패했습니다.")
 
         # 이미지 복사 - 기존 이미지의 파일을 물리적으로 복사하여 새로운 식단에 연결
         attache_files = get_attache_files_by_model_id(db, "Meals", target_meal.id)
+        print(f"⭕⭕복사할 이미지1: {attache_files}")
 
         for feeds_image in attache_files:
 
@@ -220,13 +97,14 @@ def copy_feed(db, user_hash: str, params):
             )
 
             if result == False:
-                raise Exception("피드 이미지 복사에 실패했습니다.")
+                raise Exception("이미지 복사에 실패했습니다.")
 
-            save_upload_file(db, model="Meals", model_id=new_calcendar.id, result=result)
+            await save_upload_file(db, model="Meals", model_id=new_calcendar.id, result=result)
 
         db.commit()
         return CommonResponse(success=True, message="피드가 성공적으로 복사되었습니다.", data=None)
     except Exception as e:
+        db.rollback()
         return CommonResponse(success=False, error=f"피드 복사 중 오류가 발생했습니다: {str(e)}", data=None)
 
 def validate_feed_params(db, filters: FeedListRequest, user_hash: str, type: str = "list"):
@@ -295,7 +173,7 @@ def list_feeds(db, user_hash: str, filters: FeedListRequest):
 """
 def list_ingredients(db, user_hash: str, category: str):
     try:
-        user = validate_user(db, user_hash) if user_hash else None
+        validate_user(db, user_hash) if user_hash else None
         ingredients = get_ingredient_list(db, {"category": category})
 
         # category 별로 묶음
@@ -320,6 +198,8 @@ def list_ingredients(db, user_hash: str, category: str):
 
 
         return CommonResponse(success=True, message="", data=tree_build_ingredients)
+    except ValueError as ve:
+        return CommonResponse(success=False, error=f"잘못된 입력값입니다: {str(ve)}", data=None)
     except Exception as e:
         return CommonResponse(success=False, error=f"재료 검색 중 오류가 발생했습니다: {str(e)}", data=None)
 """
@@ -424,18 +304,18 @@ def list_feed_likes(db, user_hash: str, limit: int, offset: int):
         if not user:
             raise Exception("존재하지 않는 사용자입니다.")
 
-        feed_like_list = []
-        feed_like_result = get_list_of_likes_by_user(db, user.id, limit, offset)
+        like_list = []
+        like_result = get_list_of_likes_by_user(db, user.id, limit, offset)
 
-        for item in feed_like_result:
+        for item in like_result:
             data = {
-                "feed_id": item.feed_id,
-                "content": item.content,
-                "feed_image_url": item.feed_image_url,
+                "meal_id": item.meal_id,
+                "contents": item.contents,
+                "image_url": item.image_url,
                 "liked_at": item.liked_at
             }
-            feed_like_list.append(data)
+            like_list.append(data)
 
-        return CommonResponse(success=True, message="", data=feed_like_list)
+        return CommonResponse(success=True, message="", data=like_list)
     except Exception as e:
         return CommonResponse(success=False, error=f"사용자 조회 중 오류가 발생했습니다: {str(e)}", data=None)

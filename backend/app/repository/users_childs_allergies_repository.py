@@ -39,4 +39,5 @@ class UsersChildsAllergiesRepository:
 
         if is_commit:
             session.commit()
+        session.flush()
         return

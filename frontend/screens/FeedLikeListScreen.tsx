@@ -11,6 +11,7 @@ import {
   Text,
   StyleSheet,
   FlatList,
+  ScrollView,
   Image,
   TouchableOpacity,
   ActivityIndicator,
@@ -22,14 +23,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import Layout from '../components/Layout';
 import Header from '../components/Header';
-import { useLikedFeeds, useToggleLike } from '../libs/hooks/useFeeds';
-import { getLikedFeeds } from '../libs/api/feedsApi';
+import { useToggleLike, useLikedFeeds, mealKeys } from '../libs/hooks/useMeals';
 import { useAuth } from '../libs/contexts/AuthContext';
 import { formatDate, getStaticImage } from '@/libs/utils/common';
 import { LikedFeed } from '../libs/types/FeedType';
-
-const { width } = Dimensions.get('window');
-const API_BASE_URL = process.env.STATIC_BASE_URL;
+import { toastSuccess } from '@/libs/utils/toast';
 
 interface LikedFeedItem extends LikedFeed {}
 
@@ -37,6 +35,7 @@ export default function FeedLikeListScreen() {
   const navigation = useNavigation();
   const { user } = useAuth();
   const [allFeeds, setAllFeeds] = useState<LikedFeedItem[]>([]);
+
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -45,28 +44,23 @@ export default function FeedLikeListScreen() {
   // 좋아요한 피드 목록 조회 (초기 로드만)
   // 항상 offset 0으로 초기 데이터만 가져옴
   const { data: likedFeeds, isLoading, isError, refetch } = useLikedFeeds(limit, 0);
-
   // 좋아요 토글 mutation
   const toggleLikeMutation = useToggleLike();
 
   // 좋아요 취소 핸들러
-  const handleToggleLike = useCallback((feedId: number, e: any) => {
+  const handleToggleLike = useCallback((mealHash: string, e: any) => {
     e.stopPropagation(); // 피드 상세로 이동하는 것 방지
-
     if (!user?.view_hash) return;
-
-    toggleLikeMutation.mutate(
-      { feedId, userHash: user.view_hash },
-      {
-        onSuccess: () => {
-          // 로컬 상태에서 해당 피드 제거
-          setAllFeeds(prev => prev.filter(feed => feed.feed_id !== feedId));
-        },
-        onError: (error) => {
-          console.error('Toggle like error:', error);
-        },
-      }
-    );
+    setAllFeeds(prev => prev.filter(meal => meal.like_hash !== mealHash));
+    toggleLikeMutation.mutate(mealHash, {
+      onSuccess: () => {
+        // 로컬 상태에서 해당 피드 제거
+        toastSuccess('반영되었습니다.');
+      },
+      onError: (error) => {
+        console.error('Toggle like error:', error);
+      },
+    });
   }, [user?.view_hash, toggleLikeMutation]);
 
   // 초기 로딩 시 데이터 설정
@@ -109,32 +103,35 @@ export default function FeedLikeListScreen() {
         setAllFeeds(prev => [...prev, ...result]);
       }
     } catch (error) {
-      console.error('Load more error:', error);
     } finally {
       setIsLoadingMore(false);
     }
   }, [isLoadingMore, allFeeds.length, limit]);
 
   // 피드 상세로 이동
-  const handleFeedPress = (feedId: number) => {
-    navigation.navigate('FeedDetail' as never, { feedId } as never);
+  const handleFeedPress = (mealHash: string, userHash: string) => {
+    if (user.view_hash === userHash) {
+      navigation.navigate('MealMyDetail', { mealHash, userHash: userHash });
+    } else {
+      navigation.navigate('MealUserDetail', { mealHash, userHash: userHash });
+    }
   };
 
   // 렌더링: 각 피드 아이템
   const renderFeedItem = ({ item }: { item: LikedFeedItem }) => {
-    const imageUrl = item.feed_image_url
-      ? getStaticImage('medium', item.feed_image_url)
+    const imageUrl = item.image_url
+      ? getStaticImage('medium', item.image_url)
       : null;
 
     return (
       <TouchableOpacity
         style={styles.feedItem}
-        onPress={() => handleFeedPress(item.feed_id)}
+        onPress={() => handleFeedPress(item.like_hash, item.user_hash)}
         activeOpacity={0.7}
       >
         {imageUrl && (
           <Image
-            source={{ uri: getStaticImage("medium", item.feed_image_url) || '' }}
+            source={{ uri: imageUrl || '' }}
             style={styles.feedImage}
             resizeMode="cover"
           />
@@ -142,7 +139,7 @@ export default function FeedLikeListScreen() {
 
         <View style={styles.feedContent}>
           <Text style={styles.feedDescription} numberOfLines={2}>
-            {item.content}
+            {item.contents}
           </Text>
           <View style={styles.feedFooter}>
             <View style={styles.likeInfo}>
@@ -156,7 +153,7 @@ export default function FeedLikeListScreen() {
 
         <TouchableOpacity
           style={styles.likeButton}
-          onPress={(e) => handleToggleLike(item.feed_id, e)}
+          onPress={(e) => handleToggleLike(item.like_hash, e)}
           activeOpacity={0.7}
         >
           <Ionicons name="heart" size={24} color="#FF6B6B" />
@@ -196,12 +193,17 @@ export default function FeedLikeListScreen() {
           showBack
           onBackPress={() => navigation.goBack()}
         />
-        <View style={styles.centerContainer}>
+        <ScrollView
+          contentContainerStyle={styles.centerContainer}
+          refreshControl={
+            <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
+          }
+        >
           <Text style={styles.errorText}>데이터를 불러오는 중 오류가 발생했습니다.</Text>
           <TouchableOpacity style={styles.retryButton} onPress={handleRefresh}>
             <Text style={styles.retryButtonText}>다시 시도</Text>
           </TouchableOpacity>
-        </View>
+        </ScrollView>
       </Layout>
     );
   }
@@ -215,10 +217,15 @@ export default function FeedLikeListScreen() {
           showBack
           onBackPress={() => navigation.goBack()}
         />
-        <View style={styles.centerContainer}>
+        <ScrollView
+          contentContainerStyle={styles.centerContainer}
+          refreshControl={
+            <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
+          }
+        >
           <Ionicons name="heart-outline" size={64} color="#CCC" />
           <Text style={styles.emptyText}>좋아요한 피드가 없습니다.</Text>
-        </View>
+        </ScrollView>
       </Layout>
     );
   }

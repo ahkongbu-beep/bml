@@ -1,5 +1,8 @@
 from app.repository.users_childs_repository import UsersChildsRepository
 
+def child_list(db, params):
+    return UsersChildsRepository.get_child_list(db, params)
+
 def get_agent_childs(db, params):
     if params.get("user_id"):
         return UsersChildsRepository.get_agent_childs_by_user_id(db, params.get("user_id"))
@@ -7,8 +10,8 @@ def get_agent_childs(db, params):
 def get_child_by_id(db, child_id):
     return UsersChildsRepository.get_child_by_id(db, child_id)
 
-def get_child_by_id_and_name(db, child_id, child_name):
-    return UsersChildsRepository.get_child_by_id_and_name(db, child_id, child_name)
+def get_child_by_user_id_and_name(db, user_id, child_name):
+    return UsersChildsRepository.get_child_by_user_id_and_name(db, user_id, child_name)
 
 def validate_agent_childs(db, params):
     child = get_agent_childs(db, params)

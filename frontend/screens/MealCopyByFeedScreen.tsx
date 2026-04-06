@@ -48,12 +48,12 @@ LocaleConfig.locales['kr'] = {
 LocaleConfig.defaultLocale = 'kr';
 
 export default function MealCopyByFeedScreen({ route, navigation }: any) {
-  const { feedId, userHash } = route.params || {};
+  const { mealId, mealHash, userHash } = route.params || {};
   const { user } = useAuth();
   const { data: categoryCodes } = useCategoryCodes('MEALS_GROUP');
 
-  // TODO: feedId와 userHash를 사용하여 피드 상세 정보 조회
-  const { data: feed, isLoading: isFeedLoading } = useFeed(feedId);
+  // TODO: mealHash와 userHash를 사용하여 피드 상세 정보 조회
+  const { data: feed, isLoading: isFeedLoading } = useFeed(mealHash, userHash);
 
   // 복사 mutation
   const copyFeedMutation = useCopyFeed();
@@ -82,7 +82,7 @@ export default function MealCopyByFeedScreen({ route, navigation }: any) {
     }
 
     const copyData = {
-      targetFeedId: feedId,
+      targetMealId: mealId,
       targetUserHash: userHash,
       memo: memo.trim(),
       categoryCode: selectedCategory,
