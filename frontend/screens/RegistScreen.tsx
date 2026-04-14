@@ -1,7 +1,7 @@
 // 회원가입페이지 - 3단계 스텝
 // frontend/screens/RegistScreen.tsx
 import React, { useState } from 'react';
-import styles from './RegistScreen.styles';
+import styles from '../styles/screens/RegistScreen.styles';
 import {
   View,
   Text,
@@ -158,7 +158,6 @@ export default function RegistScreen({ navigation }: any) {
           try {
             // 로그인
             await login({ email, password });
-
             // 로그인 성공 후 자녀 등록 페이지로 이동하거나
             // 여기서 바로 자녀 정보를 등록할 수 있습니다
             toastSuccess('회원가입이 완료되었습니다.');

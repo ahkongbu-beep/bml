@@ -64,6 +64,7 @@ async def update_community(
     title: str = Form(...),
     contents: str = Form(...),
     is_secret: str = Form('N'),
+    existing_images: list[str] = Form(default=[]),
     files: list[UploadFile] = File(None),
     db: Session = Depends(get_db)
 ) -> CommonResponse:
@@ -71,7 +72,7 @@ async def update_community(
     if not user_hash:
         return CommonResponse(success=False, message="로그인이 필요합니다.")
 
-    return await communities_service.update_community(db, user_hash, community_hash, title, contents, is_secret, files)
+    return await communities_service.update_community(db, user_hash, community_hash, title, contents, is_secret, files, existing_images)
 
 """ 커뮤니티 좋아요 API"""
 @router.post("/like/{community_hash}")

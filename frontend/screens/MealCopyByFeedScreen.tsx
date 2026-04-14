@@ -6,6 +6,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import '@/libs/utils/calendarLocale';
 import {
   View,
   Text,
@@ -17,35 +18,28 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Calendar, LocaleConfig } from 'react-native-calendars';
+import { Calendar } from 'react-native-calendars';
 import Header from '../components/Header';
 import Layout from '@/components/Layout';
 import { useAuth } from '../libs/contexts/AuthContext';
 import { MEAL_CATEGORIES } from '../libs/utils/codes/MealCalendarCode';
+import {
+  CATEGORY_ICONS,
+  CATEGORY_LABELS,
+  INGREDIENT_AMOUNT_OPTIONS,
+  getAmountCircles,
+  getAmountColor,
+  getBorderColor,
+} from '../libs/utils/codes/IngredientCode';
 import { useCategoryCodes } from '../libs/hooks/useCategories';
 import { getToday, getStaticImage } from '../libs/utils/common';
-import { useFeed, useCopyFeed } from '../libs/hooks/useFeeds';
+import { useFeed, useCopyFeed, useIngredientList } from '../libs/hooks/useFeeds';
 import { LoadingPage } from '../components/Loading';
 import { toastError, toastInfo, toastSuccess } from '@/libs/utils/toast';
-import styles from './MealCopyByFeedScreen.styles';
-
-// 한국어 설정
-LocaleConfig.locales['kr'] = {
-  monthNames: [
-    '1월', '2월', '3월', '4월', '5월', '6월',
-    '7월', '8월', '9월', '10월', '11월', '12월',
-  ],
-  monthNamesShort: [
-    '1월', '2월', '3월', '4월', '5월', '6월',
-    '7월', '8월', '9월', '10월', '11월', '12월',
-  ],
-  dayNames: ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'],
-  dayNamesShort: ['일', '월', '화', '수', '목', '금', '토'],
-  today: '오늘',
-};
-LocaleConfig.defaultLocale = 'kr';
+import styles from '../styles/screens/MealCopyByFeedScreen.styles';
 
 export default function MealCopyByFeedScreen({ route, navigation }: any) {
   const { mealId, mealHash, userHash } = route.params || {};
@@ -53,7 +47,8 @@ export default function MealCopyByFeedScreen({ route, navigation }: any) {
   const { data: categoryCodes } = useCategoryCodes('MEALS_GROUP');
 
   // TODO: mealHash와 userHash를 사용하여 피드 상세 정보 조회
-  const { data: feed, isLoading: isFeedLoading } = useFeed(mealHash, userHash);
+  const { data: mealData, isLoading: isFeedLoading } = useFeed(mealHash, userHash);
+  const { data: ingredientListData, isLoading: ingredientListLoading } = useIngredientList('');
 
   // 복사 mutation
   const copyFeedMutation = useCopyFeed();
@@ -64,12 +59,66 @@ export default function MealCopyByFeedScreen({ route, navigation }: any) {
   const [selectedDate, setSelectedDate] = useState(getToday('YYYY-MM-DD'));
   const [showCalendar, setShowCalendar] = useState(false);
 
+  // 재료 관련 상태
+  const [ingredients, setIngredients] = useState<string[]>([]);
+  const [ingredientAmounts, setIngredientAmounts] = useState<Record<string, number>>({});
+  const [ingredientAmountModalVisible, setIngredientAmountModalVisible] = useState(false);
+  const [selectedIngredientNameForAmount, setSelectedIngredientNameForAmount] = useState<string | null>(null);
+  const [selectedIngredientCategory, setSelectedIngredientCategory] = useState<string | null>(null);
+  const [ingredientSearch, setIngredientSearch] = useState('');
+
   // 피드 정보로 초기값 설정
   useEffect(() => {
-    if (feed) {
-      setFeedHash(feed.feed_hash || '');
+    if (mealData) {
+      setFeedHash(mealData.feed_hash || '');
+
+      // tags에서 재료 미리 선택
+      if (Array.isArray(mealData.tags) && mealData.tags.length > 0) {
+        const names = mealData.tags.map((t: any) => t.mapped_tags).filter(Boolean);
+        const amounts: Record<string, number> = {};
+        mealData.tags.forEach((t: any) => {
+          if (t.mapped_tags) {
+            amounts[t.mapped_tags] = parseFloat(t.mapped_score) || 0.6;
+          }
+        });
+        setIngredients(names);
+        setIngredientAmounts(amounts);
+      }
     }
-  }, [feed]);
+  }, [mealData]);
+
+  const handleRemoveIngredient = (index: number) => {
+    const target = ingredients[index];
+    setIngredients(ingredients.filter((_, i) => i !== index));
+    if (target) {
+      setIngredientAmounts((prev) => {
+        const next = { ...prev };
+        delete next[target];
+        return next;
+      });
+    }
+  };
+
+  const handleOpenIngredientAmountModal = (ingredientName: string) => {
+    setSelectedIngredientNameForAmount(ingredientName);
+    setIngredientAmountModalVisible(true);
+  };
+
+  const handleSelectIngredientAmount = (amountValue: number) => {
+    if (!selectedIngredientNameForAmount) return;
+    const ingredientName = selectedIngredientNameForAmount;
+    if (!ingredients.includes(ingredientName)) {
+      setIngredients((prev) => [...prev, ingredientName]);
+    }
+    setIngredientAmounts((prev) => ({ ...prev, [ingredientName]: amountValue }));
+    setIngredientAmountModalVisible(false);
+    setSelectedIngredientNameForAmount(null);
+  };
+
+  const handleCloseIngredientAmountModal = () => {
+    setIngredientAmountModalVisible(false);
+    setSelectedIngredientNameForAmount(null);
+  };
 
   const handleCopyFeed = async () => {
     if (!selectedCategory) {
@@ -81,12 +130,31 @@ export default function MealCopyByFeedScreen({ route, navigation }: any) {
       return;
     }
 
+    const ingredientIdByName = new Map<string, number>();
+    if (Array.isArray(ingredientListData)) {
+      ingredientListData.forEach((category: any) => {
+        (category?.ingredients ?? []).forEach((ing: any) => {
+          ingredientIdByName.set(ing.name, Number(ing.id));
+        });
+      });
+    }
+
+    const ingredientList = ingredients
+      .map((name) => {
+        const ingredientId = ingredientIdByName.get(name);
+        if (!ingredientId) return null;
+        return { id: ingredientId, name, score: ingredientAmounts[name] ?? 0.6 };
+      })
+      .filter((item): item is { id: number; name: string; score: number } => item !== null);
+
     const copyData = {
       targetMealId: mealId,
       targetUserHash: userHash,
       memo: memo.trim(),
       categoryCode: selectedCategory,
       inputDate: selectedDate,
+      title: '',
+      ingredients: ingredientList,
     };
 
     copyFeedMutation.mutate(copyData, {
@@ -150,7 +218,7 @@ export default function MealCopyByFeedScreen({ route, navigation }: any) {
             showsVerticalScrollIndicator={false}
           >
             {/* 원본 피드 이미지 미리보기 */}
-            {feed?.images && feed.images.length > 0 && (
+            {mealData?.images && mealData.images.length > 0 && (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>원본 이미지</Text>
                 <ScrollView
@@ -158,7 +226,7 @@ export default function MealCopyByFeedScreen({ route, navigation }: any) {
                   showsHorizontalScrollIndicator={false}
                   style={styles.imageScroll}
                 >
-                  {feed.images.map((imageUri: string, index: number) => (
+                  {mealData.images.map((imageUri: string, index: number) => (
                     <View key={index} style={styles.imageWrapper}>
                       <Image source={{ uri: getStaticImage("small", imageUri) }} style={styles.previewImage} />
                       <View style={styles.imageOverlay}>
@@ -244,6 +312,137 @@ export default function MealCopyByFeedScreen({ route, navigation }: any) {
               </ScrollView>
             </View>
 
+            {/* 재료 선택 */}
+            {(() => {
+              const catData = (ingredientListData as any[])?.find(
+                (c: any) => c.category === selectedIngredientCategory
+              );
+              const filtered = selectedIngredientCategory
+                ? (catData?.ingredients ?? []).filter(
+                    (ing: any) => ingredientSearch === '' || ing.name.includes(ingredientSearch)
+                  )
+                : [];
+              return (
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>재료 선택 (선택사항)</Text>
+
+                  {/* 대카테고리 칩 */}
+                  {Array.isArray(ingredientListData) && (
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      style={{ marginBottom: 14 }}
+                      contentContainerStyle={{ gap: 8, paddingVertical: 2 }}
+                    >
+                      {(ingredientListData as any[]).map((cat: any) => {
+                        const isActive = selectedIngredientCategory === cat.category;
+                        return (
+                          <TouchableOpacity
+                            key={cat.category}
+                            onPress={() => {
+                              setSelectedIngredientCategory(isActive ? null : cat.category);
+                              setIngredientSearch('');
+                            }}
+                            style={[styles.ingredientCatChip, isActive && styles.ingredientCatChipActive]}
+                          >
+                            <Text style={styles.ingredientCatIcon}>
+                              {CATEGORY_ICONS[cat.category] ?? '🍴'}
+                            </Text>
+                            <Text style={[styles.ingredientCatLabel, isActive && styles.ingredientCatLabelActive]}>
+                              {CATEGORY_LABELS[cat.category] ?? cat.category}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
+                  )}
+
+                  {/* 재료 검색 + 리스트 */}
+                  {selectedIngredientCategory && (
+                    <View style={styles.ingredientListBox}>
+                      <View style={styles.ingredientSearchRow}>
+                        <Ionicons name="search" size={15} color="#FF9AA2" />
+                        <TextInput
+                          style={styles.ingredientSearchInput}
+                          placeholder={`${CATEGORY_LABELS[selectedIngredientCategory] ?? ''} 재료 검색`}
+                          placeholderTextColor="#C8C8C8"
+                          value={ingredientSearch}
+                          onChangeText={setIngredientSearch}
+                        />
+                        {ingredientSearch.length > 0 && (
+                          <TouchableOpacity onPress={() => setIngredientSearch('')}>
+                            <Ionicons name="close-circle" size={16} color="#C8C8C8" />
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                      <View style={styles.ingredientListDivider} />
+                      <ScrollView
+                        style={styles.ingredientScrollList}
+                        nestedScrollEnabled
+                        showsVerticalScrollIndicator={false}
+                        keyboardShouldPersistTaps="handled"
+                      >
+                        {filtered.length === 0 ? (
+                          <View style={styles.ingredientEmptyRow}>
+                            <Text style={styles.ingredientEmptyText}>검색 결과가 없습니다.</Text>
+                          </View>
+                        ) : (
+                          filtered.map((ing: any) => {
+                            const isSelected = ingredients.includes(ing.name);
+                            return (
+                              <TouchableOpacity
+                                key={ing.id}
+                                onPress={() => {
+                                  if (isSelected) {
+                                    setIngredients(ingredients.filter((n) => n !== ing.name));
+                                    setIngredientAmounts((prev) => {
+                                      const next = { ...prev };
+                                      delete next[ing.name];
+                                      return next;
+                                    });
+                                  } else {
+                                    handleOpenIngredientAmountModal(ing.name);
+                                  }
+                                }}
+                                style={[styles.ingredientRow, isSelected && styles.ingredientRowSelected]}
+                                activeOpacity={0.7}
+                              >
+                                <View style={[styles.ingredientCheckCircle, isSelected && styles.ingredientCheckCircleActive]}>
+                                  {isSelected && <Ionicons name="checkmark" size={12} color="#FFFFFF" />}
+                                </View>
+                                <Text style={[styles.ingredientRowText, isSelected && styles.ingredientRowTextSelected]}>
+                                  {ing.name}
+                                </Text>
+                                {ing.allergy_risk === 'Y' && (
+                                  <View style={styles.allergyBadge}>
+                                    <Text style={styles.allergyBadgeText}>알레르기</Text>
+                                  </View>
+                                )}
+                              </TouchableOpacity>
+                            );
+                          })
+                        )}
+                      </ScrollView>
+                    </View>
+                  )}
+
+                  {/* 선택된 재료 태그 */}
+                  {ingredients.length > 0 && (
+                    <View style={styles.tagList}>
+                      {ingredients.map((item, index) => (
+                        <View key={index} style={[styles.tag, { backgroundColor: getAmountColor(ingredientAmounts[item] ?? 0.6), borderColor: getBorderColor(ingredientAmounts[item] ?? 0.6) }]}>
+                          <Text style={styles.tagText}>{item} {getAmountCircles(ingredientAmounts[item] ?? 0.6)}</Text>
+                          <TouchableOpacity onPress={() => handleRemoveIngredient(index)} style={styles.tagRemoveButton}>
+                            <Ionicons name="close" size={14} color="#FF6B7A" />
+                          </TouchableOpacity>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              );
+            })()}
+
             {/* 메모 입력 */}
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>메모</Text>
@@ -285,6 +484,43 @@ export default function MealCopyByFeedScreen({ route, navigation }: any) {
             </TouchableOpacity>
           </ScrollView>
         </KeyboardAvoidingView>
+
+        {/* 재료 정량 모달 */}
+        <Modal
+          visible={ingredientAmountModalVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={handleCloseIngredientAmountModal}
+        >
+          <View style={styles.amountModalOverlay}>
+            <View style={styles.amountModalContainer}>
+              <Text style={styles.amountModalTitle}>재료 정량 선택</Text>
+              <Text style={styles.amountModalDescription}>
+                {selectedIngredientNameForAmount ?? ''} 을(를) 얼마나 사용하셨나요?
+              </Text>
+              <View style={styles.amountButtonRow}>
+                {INGREDIENT_AMOUNT_OPTIONS.map((option) => (
+                  <TouchableOpacity
+                    key={option.value}
+                    style={[styles.amountButton, { borderColor: getAmountColor(option.value) }]}
+                    onPress={() => handleSelectIngredientAmount(option.value)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.amountButtonCircles}>{getAmountCircles(option.value)}</Text>
+                    <Text style={styles.amountButtonLabel}>{option.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <TouchableOpacity
+                style={styles.amountModalCancelButton}
+                onPress={handleCloseIngredientAmountModal}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.amountModalCancelText}>닫기</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
       </View>
     </Layout>
   );

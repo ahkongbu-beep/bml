@@ -29,17 +29,19 @@ class MealsCalendars(Base):
     deleted_at = Column(DateTime, nullable=True, comment="삭제일")
     view_hash = Column(String(255), nullable=False, default="", comment="뷰 해시")
 
-    # 인덱스 & 유니크키
     __table_args__ = (
         UniqueConstraint(
             "user_id",
-            "child_id",
             "input_date",
             "category_code",
+            "child_id",
+            "is_active",
             name="uniq_user_date_type"
         ),
         Index("idx_month", "month"),
         Index("idx_user_date", "user_id", "input_date"),
         Index("idx_input_date", "input_date"),
         Index("idx_user", "user_id"),
+        Index("idx_view_hash", "view_hash"),
+        Index("idx_refer_feed_id", "refer_feed_id"),
     )

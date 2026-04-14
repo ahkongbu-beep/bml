@@ -5,7 +5,7 @@
  * 사용자가 존재하면 인증코드 발송 화면으로 이동
  */
 import React, { useState } from 'react';
-import styles from './UserSearchPassword.styles';
+import styles from '../styles/screens/UserSearchPassword.styles';
 import {
   View,
   Text,

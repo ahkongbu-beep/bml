@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import Header from '../components/Header';
 import Layout from '../components/Layout';
-import styles from './FeedSaveScreen.styles';
+import styles from '../styles/screens/FeedSaveScreen.styles';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { useCreateFeed, useUpdateFeed, useSearchTags } from '../libs/hooks/useFeeds';

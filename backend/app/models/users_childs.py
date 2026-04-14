@@ -27,14 +27,5 @@ class UsersChilds(Base):
     child_gender = Column(CHAR(1), nullable=False, comment="M/W")
     is_agent = Column(CHAR(1), nullable=False, default="N", comment="대표 자녀 여부")
 
-    created_at = Column(
-        DateTime,
-        nullable=False,
-        server_default=func.current_timestamp()
-    )
-    updated_at = Column(
-        DateTime,
-        nullable=False,
-        server_default=func.current_timestamp(),
-        onupdate=func.current_timestamp()
-    )
+    created_at = Column(DateTime, nullable=False, server_default=func.current_timestamp())
+    updated_at = Column(DateTime, nullable=False, server_default=func.current_timestamp(), onupdate=func.current_timestamp())

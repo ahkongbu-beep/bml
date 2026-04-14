@@ -8,6 +8,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.repository.meals_mappers_repository import MealsMappersRepository
+from app.repository.user_repository import UserRepository
 
 from app.models.users import Users
 
@@ -39,7 +40,9 @@ def email_login(db: Session, email: str, password: str) -> CommonResponse:
 
 
 async def google_login(db: Session, id_token: str, access_token: Optional[str] = None, refresh_token: Optional[str] = None) -> CommonResponse:
-    """구글 로그인"""
+    """
+    구글 로그인
+    """
     try:
         # 구글 ID 토큰 검증
         from google.oauth2 import id_token as google_id_token
@@ -104,7 +107,9 @@ async def google_login(db: Session, id_token: str, access_token: Optional[str] =
 
 
 async def kakao_login(db: Session, access_token: str) -> CommonResponse:
-    """카카오 로그인"""
+    """
+    카카오 로그인
+    """
     try:
         # 카카오 사용자 정보 API 호출
         async with httpx.AsyncClient() as client:
@@ -381,3 +386,23 @@ def refresh_access_token(db: Session, refresh_token: str) -> CommonResponse:
             "token": new_access_token
         }
     )
+
+
+def register_fcm_token(db: Session, user_hash: str, fcm_token: str) -> CommonResponse:
+    """FCM 토큰 등록"""
+    user = validate_user(db, user_hash)
+    if not user:
+        return CommonResponse(success=False, message="사용자를 찾을 수 없습니다.", data=None)
+
+    UserRepository.update_fcm_token(db, user.id, fcm_token)
+    return CommonResponse(success=True, message="FCM 토큰이 등록되었습니다.", data=None)
+
+
+def unregister_fcm_token(db: Session, user_hash: str, fcm_token: str) -> CommonResponse:
+    """FCM 토큰 삭제"""
+    user = validate_user(db, user_hash)
+    if not user:
+        return CommonResponse(success=False, message="사용자를 찾을 수 없습니다.", data=None)
+
+    UserRepository.clear_fcm_token(db, user.id, fcm_token)
+    return CommonResponse(success=True, message="FCM 토큰이 삭제되었습니다.", data=None)

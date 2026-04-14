@@ -2,6 +2,14 @@ import json
 from app.models.meals_summaries import MealsSummaries
 
 class MealsSummariesRepository:
+
+    @staticmethod
+    def get_meal_summary_by_id(session, summary_id):
+        """
+        ID로 식단 요약 정보 조회
+        """
+        return session.query(MealsSummaries).filter(MealsSummaries.id == summary_id).first()
+
     @staticmethod
     def get_meal_summary_by_view_hash(session, view_hash):
         """

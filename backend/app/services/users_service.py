@@ -19,9 +19,15 @@ from app.services.categories_codes_service import get_category_code_by_id
 from app.services.foods_items_service import get_allergy_details_by_codes
 from app.services.users_childs_allergies_service import bulk_create_user_child_allergies, delete_user_child_allergies
 
+def get_users_last_login(db, days: int, is_push_agree: int = None):
+    """
+    마지막 로그인 시간이 days일 이상인 사용자 조회
+    """
+    return UserRepository.get_users_last_login(db, days, is_push_agree)
+
 def get_user_like_count(db, user_id):
     """
-    사용자 좋아요 수 조회
+    회원의 좋아요 수 조회
     """
     return UserRepository.get_user_like_count(db, user_id)
 
@@ -311,15 +317,13 @@ async def update_user(db, data):
         db.rollback()
         return CommonResponse(success=False, error=f"회원 정보 수정 중 오류가 발생했습니다: {str(e)}", data=None)
 
-
 # 자녀등록
 async def create_user_child(db, user_hash, children):
-
     try:
-        user = validate_user(db, user_hash)
-
         if not children:
-            raise Exception("등록할 자녀 정보가 없습니다.")
+            raise ValueError("등록할 자녀 정보가 없습니다.")
+
+        user = validate_user(db, user_hash)
 
         for child in children:
             # 딕셔너리와 객체 모두 지원
@@ -440,6 +444,8 @@ def get_deny_users_list(db, user_hash):
 
 # 회원 프로필 조회
 def get_user_profile(db, user_hash, target_hash=None):
+    from app.services.users_childs_service import child_and_allergy_list
+
     try:
         user = validate_user(db, user_hash)
 
@@ -461,6 +467,14 @@ def get_user_profile(db, user_hash, target_hash=None):
         # 직렬화
         user_response = UserResponse.model_validate(user_response).model_dump()
 
+        # 자녀정보 조회 (직렬화 후 추가 - UserResponse 스키마에 없으므로 마지막에 붙임)
+        child_params = {
+            "user_id": search_user.id,
+            "order_by": "is_agent",
+            "order_direction": "desc"
+        }
+        user_response["user_childs"] = child_and_allergy_list(db, child_params)
+
         return CommonResponse(success=True, message="", data=user_response)
 
     except ValueError as e:
@@ -469,9 +483,10 @@ def get_user_profile(db, user_hash, target_hash=None):
     except Exception as e:
         return CommonResponse(success=False, error=str(e), data=None)
 
-
-""" 회원 검증 email or phone """
 def confirm_user(db, search_type, user_email: str = None, user_phone: str = None) -> CommonResponse:
+    """
+    회원 검증 email or phone
+    """
     from app.models.users import Users
     query = db.query(Users)
 
@@ -527,44 +542,56 @@ def reset_password(db, data):
 
 """ 회원 로그인 """
 def user_login(db, data):
-
-    user = UserRepository.get_user_by_email(db, data.get("email"))
-    if not user:
-        return CommonResponse(success=False, error="일치하는 회원 정보를 찾을 수 없습니다.", data=None)
-
+    from app.services.users_childs_service import child_and_allergy_list
+    from app.libs.jwt_utils import create_access_token
     from app.libs.password_utils import verify_password
 
-    if not verify_password(user.password, data.get("password")):
-        return CommonResponse(success=False, error="비밀번호가 일치하지 않습니다.", data=None)
+    try:
+        user = validate_user_email(db, data.get("email"))
 
-    # JWT 토큰 생성
-    from app.libs.jwt_utils import create_access_token
-    token_data = {
-        "user_id": user.id,
-        "user_hash": user.view_hash,
-        "email": user.email,
-        "nickname": user.nickname,
-        "role": user.role.value if hasattr(user.role, 'value') else user.role
-    }
-    access_token = create_access_token(token_data)
+        if not verify_password(user.password, data.get("password")):
+            raise ValueError("이메일 또는 비밀번호가 일치하지 않습니다.")
 
-    # 마지막 로그인 시간 업데이트
-    UserRepository.update_last_login(db, user.id)
+        # JWT 토큰 생성
+        token_data = {
+            "user_id": user.id,
+            "user_hash": user.view_hash,
+            "email": user.email,
+            "nickname": user.nickname,
+            "role": user.role.value if hasattr(user.role, 'value') else user.role
+        }
 
-    # 식단 선호도 조회
-    meals_mapper = meal_mapper_list_by_id(db, user.id).serialize()
-    meal_group_ids = [mapper.category_id for mapper in meals_mapper]
+        access_token = create_access_token(token_data)
 
-    user_response = UserResponse.model_validate(user)
-    user_response_dict = user_response.model_dump()
-    user_response_dict["meal_group"] = meal_group_ids
+        # 마지막 로그인 시간 업데이트
+        UserRepository.update_last_login(db, user.id)
 
-    data = {
-        "user": user_response_dict,
-        "token": access_token
-    }
+        # 식단 선호도 조회
+        meals_mapper = meal_mapper_list_by_id(db, user.id).serialize()
+        meal_group_ids = [mapper.category_id for mapper in meals_mapper]
 
-    return CommonResponse(success=True, message="로그인에 성공했습니다.", data=data)
+        user_response = UserResponse.model_validate(user)
+        user_response_dict = user_response.model_dump()
+        user_response_dict["meal_group"] = meal_group_ids
+
+        # 자녀정보 조회 (직렬화 후 추가 - UserResponse 스키마에 없으므로 마지막에 붙임)
+        child_params = {
+            "user_id": user.id,
+            "order_by": "is_agent",
+            "order_direction": "desc"
+        }
+        user_response["user_childs"] = child_and_allergy_list(db, child_params)
+
+        data = {
+            "user": user_response_dict,
+            "token": access_token
+        }
+
+        return CommonResponse(success=True, message="로그인에 성공했습니다.", data=data)
+    except ValueError as e:
+        return CommonResponse(success=False, error=str(e), data=None)
+    except Exception as e:
+        return CommonResponse(success=False, error=str(e), data=None)
 
 async def change_password(db, user_hash, data) -> CommonResponse:
     try:

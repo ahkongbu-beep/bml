@@ -1,12 +1,11 @@
 import datetime
 import pytz
-from sqlalchemy import Column, Integer, Text, DateTime, ForeignKey, case
+from sqlalchemy import Column, Index, Integer, Text, DateTime, ForeignKey, case
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.core.database import Base
 from app.models.users import Users
 from app.libs.hash_utils import generate_sha256_hash
-from app.core.config import settings
 
 class CommunitiesComments(Base):
     __tablename__ = "communities_comments"
@@ -23,7 +22,12 @@ class CommunitiesComments(Base):
 
     # 관계(Relationship) 설정
     parent = relationship("CommunitiesComments", remote_side=[id], backref="children")
-
+    # 🔥 Unique 및 Index 설정
+    __table_args__ = (
+        Index("idx_community_id", "community_id"),
+        Index("idx_parent_id", "parent_id"),
+        Index("idx_view_hash", "view_hash"),
+    )
     @staticmethod
     def find_by_view_hash(session, view_hash: str):
         return session.query(CommunitiesComments).filter(CommunitiesComments.view_hash == view_hash).first()

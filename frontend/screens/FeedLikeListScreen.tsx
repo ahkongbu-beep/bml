@@ -18,7 +18,7 @@ import {
   RefreshControl,
   Dimensions,
 } from 'react-native';
-import styles from './FeedLikeListScreen.styles';
+import styles from '../styles/screens/FeedLikeListScreen.styles';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import Layout from '../components/Layout';

@@ -7,6 +7,7 @@ from sqlalchemy import case
 
 class MealsCommentsRepository:
 
+    @staticmethod
     def list_by_user_id(session, user_id: int):
         return session.query(MealsComments).filter(MealsComments.user_id == user_id).all()
 
@@ -18,6 +19,11 @@ class MealsCommentsRepository:
     def get_comment_by_view_hash(session, view_hash: str):
         return session.query(MealsComments).filter(MealsComments.view_hash == view_hash).first()
 
+    @staticmethod
+    def delete_comments_by_meal_calendar_id(session, meal_calendar_id: int):
+        session.query(MealsComments).filter(MealsComments.meal_id == meal_calendar_id).delete()
+        session.flush()
+        return True
 
     @staticmethod
     def soft_delete(session, comment, is_commit=True):

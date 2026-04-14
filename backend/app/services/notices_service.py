@@ -8,7 +8,18 @@ def get_notice_by_view_hash(db, view_hash: str):
     return notice
 
 def get_notice_list(db, params = {}):
-    notice_list = NoticesRepository.get_list(db, params=params)
+    """
+    공지사항 목록 조회
+    """
+    from app.serializer.notices_serialize import serialize_notice
+    notice_data = NoticesRepository.get_list(db, params=params)
+
+    notice_list = []
+    for row in notice_data:
+        notice, category_text = row[0], row[1]
+        data = serialize_notice(notice, category_text)
+        notice_list.append(data)
+
     return notice_list
 
 def get_notice_count(db, params = {}):
@@ -16,6 +27,9 @@ def get_notice_count(db, params = {}):
     return notice_count
 
 def list_notices(db, params = {}):
+    """
+    공지사항 목록 조회
+    """
     notice_list = get_notice_list(db, params=params)
     return CommonResponse(success=True, message="", data=notice_list)
 
@@ -66,9 +80,10 @@ def create_notice(notice: NoticesCreateRequest, client_ip: str, db):
 
     return new_notice
 
-""" 공지 수정"""
 def update_notice(notice: NoticesUpdateRequest, view_hash: str, db):
-
+    """
+    공지 수정
+    """
     existing_notice = NoticesRepository.find_by_view_hash(db, view_hash)
 
     if not existing_notice:

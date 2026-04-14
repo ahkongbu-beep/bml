@@ -7,7 +7,8 @@ from app.services.meals_comments_service import build_comment_tree, get_comment_
 from app.services.users_service import validate_user
 from app.services.meals_likes_service import get_list_of_likes_by_user
 from app.services.meals_service import generate_meal_calendar_hash, validate_meal_calendar_id, get_meal_calendar_by_id, get_user_meal_calendar, insert_meal_proccess
-from app.services.ingredients_service import get_ingredient_by_similar_keyword, get_ingredient_list
+from app.services.ingredients_service import get_ingredient_by_similar_keyword, get_ingredient_list, process_tags
+from app.services.ingredients_mappers_service import insert_ingredient_mapper
 from app.services.users_childs_service import get_agent_childs, validate_agent_childs
 from app.services.denies_users_service import get_denies_user_id_list
 from app.services.attaches_files_service import copy_attache_file, get_attache_files_by_model_id, save_upload_file
@@ -100,6 +101,12 @@ async def copy_feed(db, user_hash: str, params):
                 raise Exception("이미지 복사에 실패했습니다.")
 
             await save_upload_file(db, model="Meals", model_id=new_calcendar.id, result=result)
+
+        # 재료 Mapper 등록
+        if params.ingredients:
+            ingredient_result = process_tags(db, params.ingredients)
+            if ingredient_result:
+                insert_ingredient_mapper(db, new_calcendar.id, ingredient_result)
 
         db.commit()
         return CommonResponse(success=True, message="피드가 성공적으로 복사되었습니다.", data=None)

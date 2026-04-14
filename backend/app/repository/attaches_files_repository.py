@@ -9,11 +9,20 @@ class AttachesFilesRepository:
             AttachesFiles.is_active == "Y"
         ).all()
 
-    def delete_attache_files_by_model_id(db, model: str, model_id: int):
+    @staticmethod
+    def hard_delete_attache_files(db, model: str, model_id: int):
         db.query(AttachesFiles).filter(
             AttachesFiles.img_model == model,
             AttachesFiles.img_model_id == model_id
         ).delete()
+        db.flush()
+
+    @staticmethod
+    def soft_delete_attache_files(db, model: str, model_id: int):
+        db.query(AttachesFiles).filter(
+            AttachesFiles.img_model == model,
+            AttachesFiles.img_model_id == model_id
+        ).update({"is_active": "N"})
         db.flush()
 
     @staticmethod

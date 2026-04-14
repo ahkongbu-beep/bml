@@ -1,5 +1,5 @@
 import React from 'react';
-import styles from './NoticeDetailScreen.styles';
+import styles from '../styles/screens/NoticeDetailScreen.styles';
 import {
   View,
   Text,

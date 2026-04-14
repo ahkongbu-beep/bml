@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import styles from './EditProfileScreen.styles';
+import styles from '../styles/screens/EditProfileScreen.styles';
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import {
   Platform,
   SafeAreaView,
   KeyboardAvoidingView,
+  Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -22,6 +23,7 @@ import * as ImagePicker from 'expo-image-picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import PasswordChangeModal from '../components/PasswordChangeModal';
 
+import { getMessaging, hasPermission, AuthorizationStatus } from '@react-native-firebase/messaging';
 import { useAuth } from '../libs/contexts/AuthContext';
 import { useChangePassword } from '../libs/hooks/useUsers';
 import { getStaticImage } from '../libs/utils/common';
@@ -38,7 +40,20 @@ export default function EditProfileScreen({ navigation }: any) {
   const [pushAgree, setPushAgree] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [passwordChangeModalVisible, setPasswordChangeModalVisible] = useState(false);
+  const [notificationPermission, setNotificationPermission] = useState<boolean>(true);
   const changePasswordMutation = useChangePassword();
+
+  // 알림 권한 상태 확인
+  useEffect(() => {
+    const checkPermission = async () => {
+      const status = await hasPermission(getMessaging());
+      setNotificationPermission(
+        status === AuthorizationStatus.AUTHORIZED ||
+        status === AuthorizationStatus.PROVISIONAL
+      );
+    };
+    checkPermission();
+  }, []);
 
   // user 데이터가 로드되면 state 업데이트
   useEffect(() => {
@@ -129,6 +144,35 @@ export default function EditProfileScreen({ navigation }: any) {
     if (!result.canceled && result.assets[0]) {
       setProfileImage(result.assets[0].uri);
     }
+  };
+
+  const pushPermissionBannerStyle = {
+    backgroundColor: '#FFF5F5',
+    borderRadius: 12,
+    padding: 14,
+    marginTop: 4,
+    marginBottom: 4,
+    borderWidth: 1,
+    borderColor: '#FFD6D6',
+  } as const;
+
+  const pushPermissionIconStyle = {
+    backgroundColor: '#FFE5E9',
+    padding: 8,
+    borderRadius: 8,
+  } as const;
+
+  const pushPermissionTitleStyle = {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: '#FF6B6B',
+    marginBottom: 2,
+  };
+
+  const pushPermissionDescStyle = {
+    fontSize: 12,
+    color: '#FF9AA2',
+    lineHeight: 16,
   };
 
   return (
@@ -232,6 +276,26 @@ export default function EditProfileScreen({ navigation }: any) {
                 <View style={[styles.switchThumb, pushAgree && styles.switchThumbActive]} />
               </TouchableOpacity>
             </View>
+
+            {/* 알림 권한 꺼짐 배너 */}
+            {!notificationPermission && (
+              <TouchableOpacity
+                style={pushPermissionBannerStyle}
+                onPress={() => Linking.openSettings()}
+                activeOpacity={0.8}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <View style={pushPermissionIconStyle}>
+                    <Ionicons name="notifications-off" size={18} color="#FF6B6B" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={pushPermissionTitleStyle}>알림 권한이 꺼져 있어요</Text>
+                    <Text style={pushPermissionDescStyle}>휴대폰 설정에서 알림을 켜야 정상적으로 받을 수 있어요</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={16} color="#FF6B6B" />
+                </View>
+              </TouchableOpacity>
+            )}
           </View>
 
         </ScrollView>

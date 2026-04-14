@@ -156,6 +156,11 @@ export default function CommunityModifyScreen({ route, navigation }: any) {
     formData.append('contents', contents.trim());
     formData.append('is_secret', isSecret ? 'Y' : 'N');
 
+    // 기존 유지할 이미지 URL 전송
+    existingImageUrls.forEach((url) => {
+      formData.append('existing_images', url);
+    });
+
     // 새로운 이미지가 선택되었으면 추가 (최대 3장)
     if (imageUris.length > 0) {
       imageUris.forEach((uri, index) => {

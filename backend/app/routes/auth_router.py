@@ -6,7 +6,8 @@ from app.schemas.auth_schemas import (
     GoogleLoginRequest,
     KakaoLoginRequest,
     NaverLoginRequest,
-    RefreshTokenRequest
+    RefreshTokenRequest,
+    FcmTokenRequest,
 )
 from app.schemas.common_schemas import CommonResponse
 from app.services import auth_service
@@ -133,3 +134,40 @@ async def remove_deny_user(
         return CommonResponse(success=False, message="사용자 인증이 필요합니다.", data=None)
 
     return await auth_service.remove_deny_user(db, user_hash)
+
+
+@router.post("/fcm-token", response_model=CommonResponse)
+def register_fcm_token(
+    request: Request,
+    body: FcmTokenRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    FCM 토큰 등록
+
+    - **fcm_token**: Firebase Cloud Messaging 토큰
+    - **platform**: 'android' | 'ios'
+    """
+    user_hash = getattr(request.state, "user_hash", None)
+    if not user_hash:
+        return CommonResponse(success=False, message="사용자 인증이 필요합니다.", data=None)
+
+    return auth_service.register_fcm_token(db, user_hash, body.fcm_token)
+
+
+@router.delete("/fcm-token", response_model=CommonResponse)
+def unregister_fcm_token(
+    request: Request,
+    body: FcmTokenRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    FCM 토큰 삭제 (로그아웃 시)
+
+    - **fcm_token**: 삭제할 FCM 토큰
+    """
+    user_hash = getattr(request.state, "user_hash", None)
+    if not user_hash:
+        return CommonResponse(success=False, message="사용자 인증이 필요합니다.", data=None)
+
+    return auth_service.unregister_fcm_token(db, user_hash, body.fcm_token)

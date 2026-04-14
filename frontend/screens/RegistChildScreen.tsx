@@ -4,13 +4,14 @@
  * StepTwo 컴포넌트를 사용하여 자녀 정보를 등록합니다.
  * RegistScreen에서 회원가입 성공 후 또는 마이페이지에서 접근 가능합니다.
  */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { toastError, toastInfo, toastSuccess } from '@/libs/utils/toast';
 import {
   Alert,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../libs/contexts/AuthContext';
 import Layout from '../components/Layout';
 import Header from '../components/Header';
@@ -32,33 +33,44 @@ interface ChildData {
 export default function RegistChildScreen({ navigation, route }: any) {
   const { user, isLoading: authLoading, refreshUser } = useAuth();
 
-
   // user_childs가 있을 경우 초기값으로 세팅 (ChildData 형식으로 변환)
-  const initialChildren: ChildData[] = user?.user_childs
-    ? user.user_childs.map((child: any) => {
-        // YYYY-MM-DD -> Date로 변환
-        const birthDate = new Date(child.child_birth);
-        return {
-          childName: child.child_name,
-          childBirth: birthDate,
-          childGender: child.child_gender as 'M' | 'W' | '',
-          allergies: child.allergy_codes?.map((code: string, index: number) => ({
-            allergy_code: code,
-            allergy_name: child.allergy_names?.[index] || '',
-          })) || [],
-        };
-      })
-    : [
-        {
-          childName: '',
-          childBirth: new Date(),
-          childGender: '',
-          allergies: [],
-        },
-      ];
+  const initialChildren: ChildData[] = user?.user_childs?.length
+    ? user.user_childs.map((child: any) => ({
+        childName: child.child_name,
+        childBirth: new Date(child.child_birth),
+        childGender: child.child_gender as 'M' | 'W' | '',
+        allergies: (child.allergy_codes ?? []).map((code: string, index: number) => ({
+          allergy_code: code,
+          allergy_name: child.allergy_names?.[index] || '',
+        })),
+      }))
+    : [{ childName: '', childBirth: new Date(), childGender: '', allergies: [] }];
 
   const [childrenData, setChildrenData] = useState<ChildData[]>(initialChildren);
   const [isLoading, setIsLoading] = useState(false);
+
+  // 화면 진입 시 최신 유저 정보 갱신
+  useEffect(() => {
+    refreshUser();
+  }, []);
+
+  // refreshUser 완료 후 user 데이터가 바뀌면 자녀 목록 초기값 재세팅
+  useEffect(() => {
+    if (!user?.user_childs?.length) return;
+    const updated: ChildData[] = user.user_childs.map((child: any) => ({
+      childName: child.child_name,
+      childBirth: new Date(child.child_birth),
+      childGender: child.child_gender as 'M' | 'W' | '',
+      allergies: (child.allergy_codes ?? []).map((code: string, index: number) => ({
+        allergy_code: code,
+        allergy_name: child.allergy_names?.[index] || '',
+      })),
+    }));
+
+    console.log('유저 정보 갱신 - 자녀 데이터 초기화:', updated);
+    setChildrenData(updated);
+  }, [user]);
+
 
   // 나중에 등록하기 (건너뛰기)
   const handleSkip = () => {
@@ -125,23 +137,24 @@ export default function RegistChildScreen({ navigation, route }: any) {
         showBack={true}
         onBackPress={() => navigation.goBack()}
       />
-
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1 }}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 100}
-      >
-        {/* StepTwo 컴포넌트 사용 */}
-        <StepTwo
-          childrenData={childrenData}
-          onChildrenDataChange={setChildrenData}
-          onNext={handleSubmit}
-          onBack={handleSkip}
-          nextButtonText="등록 완료"
-          backButtonText="나중에 등록하기"
-          isLoading={isLoading}
-        />
-      </KeyboardAvoidingView>
+      <SafeAreaView style={{ flex: 1 }}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1 }}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 100}
+        >
+          {/* StepTwo 컴포넌트 사용 */}
+          <StepTwo
+            childrenData={childrenData}
+            onChildrenDataChange={setChildrenData}
+            onNext={handleSubmit}
+            onBack={handleSkip}
+            nextButtonText="등록 완료"
+            backButtonText="나중에 등록하기"
+            isLoading={isLoading}
+          />
+        </KeyboardAvoidingView>
+      </SafeAreaView>
     </Layout>
   );
 }

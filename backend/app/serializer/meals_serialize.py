@@ -5,6 +5,7 @@ from app.schemas.feeds_schemas import FeedsResponse, FeedsUserResponse
 from app.schemas.users_schemas import UserChildItemSchema, AllergyItemSchema
 from app.schemas.meals_schemas import MealItem, MealsCalendarResponse
 from app.schemas.common_schemas import CommonResponse
+from app.schemas.ingredient_schemas import IngredientMapperItemSchema
 
 def meal_serialize(meal):
     return MealItem(
@@ -137,7 +138,7 @@ def feed_detail_response(meal_calendar, user, category, tags, images, child, all
         updated_at=meal_calendar.updated_at,
         category_id=meal_calendar.category_code,
         category_name=getattr(category, "value", None),
-        tags=tags,
+        tags=[IngredientMapperItemSchema(**tag) for tag in tags],
         images=images,
         user_hash=viewer_hash,
         user=FeedsUserResponse(

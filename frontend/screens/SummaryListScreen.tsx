@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import styles from './SummaryListScreen.styles';
+import styles from '../styles/screens/SummaryListScreen.styles';
 import {
   View,
   Text,

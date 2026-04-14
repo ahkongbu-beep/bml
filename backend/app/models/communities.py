@@ -45,4 +45,5 @@ class Communities(Base):
         Index("idx_user_id", "user_id"),
         Index("idx_is_active", "is_active"),
         Index("idx_created_at", "created_at"),
+        Index("idx_view_hash", "view_hash"),
     )

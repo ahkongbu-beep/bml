@@ -117,24 +117,6 @@
         UNIQUE KEY "unique_feed_user" ("feed_id","user_id")
     )
 
-- feeds_comments
-    ```
-    CREATE TABLE "feeds_comments" (
-        "id" int unsigned NOT NULL AUTO_INCREMENT COMMENT '댓글 ID',
-        "feed_id" int unsigned NOT NULL DEFAULT '0' COMMENT '피드 ID (feeds 테이블 참조)',
-        "user_id" int unsigned NOT NULL DEFAULT '0' COMMENT '댓글 작성자 직원 ID',
-        "parent_id" int unsigned DEFAULT NULL COMMENT '부모 댓글 ID (대댓글용)',
-        "comment" text NOT NULL COMMENT '댓글 내용',
-        "created_at" datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '작성 시간',
-        "updated_at" datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '수정 시간',
-        "deleted_at" datetime DEFAULT NULL COMMENT '삭제 시간 (soft delete)',
-        "view_hash" varchar(255) NOT NULL DEFAULT '' COMMENT 'view_hash',
-        "parent_hash" varchar(255) NOT NULL DEFAULT '' COMMENT '부모 해쉬',
-        PRIMARY KEY ("id"),
-        KEY "idx_feed_id" ("feed_id"),
-        KEY "idx_parent_id" ("parent_id")
-    )
-
 - denies_users
     ```
     CREATE TABLE "denies_users" (

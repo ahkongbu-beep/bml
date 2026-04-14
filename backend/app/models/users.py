@@ -55,6 +55,7 @@ class Users(Base):
     updated_at = Column(DateTime, nullable=False, default=datetime(1970,1,1))
     last_login_at = Column(DateTime, nullable=False, default=datetime(1970,1,1))
     referer_token = Column(Text, nullable=True)
+    fcm_token = Column(String(255), nullable=False, default='')
     deleted_at = Column(DateTime, nullable=True, default=None)
     view_hash = Column(String(255), nullable=True, default=None)
 
@@ -65,7 +66,6 @@ class Users(Base):
         UniqueConstraint('email', name='uq_users_email'),
         UniqueConstraint('sns_login_type', 'sns_id', name='uq_users_sns'),
         UniqueConstraint('view_hash', name='uq_users_view_hash'),
-
         Index('idx_users_role', 'role'),
         Index('idx_users_is_active', 'is_active'),
         Index('idx_users_created_at', 'created_at'),

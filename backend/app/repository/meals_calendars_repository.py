@@ -1,3 +1,5 @@
+from sqlalchemy import func
+
 from app.models.meals_calendar import MealsCalendars
 from app.models.categories_codes import CategoriesCodes
 from app.models.ingredients_mappers import IngredientsMappers
@@ -9,6 +11,19 @@ from app.models.users_childs import UsersChilds
 from app.models.users_childs_allergies import UsersChildsAllergies
 
 class MealsCalendarsRepository:
+    @staticmethod
+    def get_deleted_meals(db, is_active: str, search_date: str, target_id: int):
+        query = db.query(MealsCalendars)
+
+        if target_id:
+            query = query.filter(MealsCalendars.id == target_id)
+        else:
+            query = query.filter(
+                MealsCalendars.is_active == is_active,
+                MealsCalendars.deleted_at < search_date
+            )
+        return query.all()
+
     @staticmethod
     def get_calendars_by_user_id(session, user_id: int):
         return session.query(MealsCalendars).filter(
@@ -77,10 +92,20 @@ class MealsCalendarsRepository:
     def soft_delete(session, meal_calendar, is_commit=True):
         try:
             meal_calendar.is_active = "N"
+            meal_calendar.deleted_at = func.now()
             if is_commit:
                 session.commit()
             else:
                 session.flush()  # 변경사항을 DB에 반영하지만 커밋하지는 않음
+            return True
+        except Exception as e:
+            session.rollback()
+            raise e
+
+    @staticmethod
+    def hard_delete_meal(session, meal_calendar):
+        try:
+            session.delete(meal_calendar)
             return True
         except Exception as e:
             session.rollback()

@@ -5,7 +5,7 @@ from app.schemas.common_schemas import CommonResponse
 from app.serializer.communities_comments_serialize import serialize_community_comment
 from app.serializer.communities_serialize import build_community_detail_response, serialize_communities_list
 
-from app.services.users_service import validate_user
+from app.services.users_service import validate_user, validate_user_id
 from app.services.meals_comments_service import build_comment_tree
 from app.services.users_childs_service import get_agent_childs
 from app.services.communities_comments_service import sort_delete_comment, validate_comment_by_hash, update_community_comment, crreate_community_comment, get_community_comments_list
@@ -23,7 +23,6 @@ def get_community_by_hash(db, community_hash):
     community = CommunitiesRepository.find_by_view_hash(db, community_hash)
     if not community:
         return None
-
     return community
 
 def validate_community_by_id(db, community_id):
@@ -100,8 +99,17 @@ def get_community_list(db, user_hash, params) -> CommonResponse:
 
 
 async def create_community(db, user_hash, client_ip, title, contents, category_code, is_secret, files) -> CommonResponse:
+    from app.services.categories_codes_service import get_category_code_by_id
+
     try:
         user = validate_user(db, user_hash)
+
+        category = get_category_code_by_id(db, category_code)
+        if not category:
+            raise ValueError("유효하지 않은 카테고리입니다.")
+
+        if category.type != 'TOPIC_GROUP':
+            raise ValueError("잘못된 카테고리 유형입니다.")
 
         # 커뮤니티 글 생성 (이미지 업로드는 이후 단계에서 처리)
         new_community = CommunitiesRepository.create(db, {
@@ -114,17 +122,23 @@ async def create_community(db, user_hash, client_ip, title, contents, category_c
             "user_ip": client_ip,
         })
 
+
         # 이미지 업로드 처리 (최대 3장)
         if files and len(files) > 0:
             for idx, file in enumerate(files[:3]):  # 최대 3장
                 if file and file.filename:
                     file_result = await upload_file(new_community.id, file, "Communities")
+                    print("⭕⭕", file_result)
+
                     if file_result and "image_url" in file_result:
                         file_result["sort_order"] = idx  # sort_order 추가
                         # DB에 이미지 정보 저장
                         await save_upload_file(db, "Communities", new_community.id, file_result)
 
+        db.commit()
         return CommonResponse(success=True, message="커뮤니티 글이 성공적으로 작성되었습니다.", data=None)
+    except ValueError as ve:
+        return CommonResponse(success=False, message=str(ve))
     except Exception as e:
         return CommonResponse(success=False, message="커뮤니티 글 작성 중 오류가 발생했습니다." + str(e))
 
@@ -140,6 +154,8 @@ def get_community_detail(db, user_hash, community_hash) -> CommonResponse:
         if community.is_active == 'N':
             raise ValueError("삭제된 커뮤니티 글입니다.")
 
+        target_user = validate_user_id(db, community.user_id)
+
         increate_community_view_count(db, community)
 
         db.commit()
@@ -152,7 +168,7 @@ def get_community_detail(db, user_hash, community_hash) -> CommonResponse:
 
         return_data = build_community_detail_response(
             community,
-            user,
+            target_user,
             user_child,
             images
         )
@@ -164,6 +180,7 @@ def get_community_detail(db, user_hash, community_hash) -> CommonResponse:
 
 def delete_community(db, user_hash, community_hash) -> CommonResponse:
     """커뮤니티 글 삭제 서비스 함수"""
+    print("⭕⭕", community_hash)
     try:
         user = validate_user(db, user_hash)
         community = validate_community_by_hash(db, community_hash)
@@ -196,7 +213,7 @@ def delete_community(db, user_hash, community_hash) -> CommonResponse:
 """
 커뮤니티 글 수정 서비스 함수
 """
-async def update_community(db, user_hash, community_hash, title, contents, is_secret, files) -> CommonResponse:
+async def update_community(db, user_hash, community_hash, title, contents, is_secret, files, existing_images=None) -> CommonResponse:
 
     try:
         user = validate_user(db, user_hash)
@@ -208,18 +225,34 @@ async def update_community(db, user_hash, community_hash, title, contents, is_se
         if community.user_id != user.id:
             return CommonResponse(success=False, message="본인이 작성한 글만 수정할 수 있습니다.")
 
-        # 기존 이미지 모두 삭제
-        soft_delete_file_by_model_id(db, "Communities", community.id)
+        # 유지할 이미지 URL 목록 (existing_images)
+        keep_urls = set(existing_images or [])
 
-        # 새 이미지 업로드 (최대 3장)
+        # 기존 이미지 중 유지목록에 없는 것만 삭제
+        all_files = get_attache_files_by_model_id(db, "Communities", community.id)
+        for attache in all_files:
+            img_url = attache.image_url if isinstance(attache, object) and not isinstance(attache, dict) else attache.get('image_url', '')
+            if img_url not in keep_urls:
+                from app.repository.attaches_files_repository import AttachesFilesRepository
+                from app.models.attaches_files import AttachesFiles
+                db.query(AttachesFiles).filter(
+                    AttachesFiles.img_model == "Communities",
+                    AttachesFiles.img_model_id == community.id,
+                    AttachesFiles.image_url == img_url
+                ).delete()
+
+        # 새 이미지 업로드 (최대 3장 제한: 기존 유지 + 신규)
+        current_count = len(keep_urls)
         if files and len(files) > 0:
-            for idx, file in enumerate(files[:3]):  # 최대 3장
+            for idx, file in enumerate(files):
+                if current_count >= 3:
+                    break
                 if file and file.filename:
                     file_result = await upload_file(community.id, file, "Communities")
                     if file_result and "image_url" in file_result:
-                        file_result["sort_order"] = idx  # sort_order 추가
-                        # DB에 이미지 정보 저장
+                        file_result["sort_order"] = current_count
                         await save_upload_file(db, "Communities", community.id, file_result)
+                        current_count += 1
 
         community.title = title
         community.contents = contents
@@ -283,6 +316,8 @@ def create_community_comment(db, user_hash, community_hash, params) -> CommonRes
         if community.is_active != 'Y':
             raise ValueError("삭제된 커뮤니티 글입니다.")
 
+    except ValueError as ve:
+        return CommonResponse(success=False, message=str(ve))
     except Exception as e:
         return CommonResponse(success=False, message=str(e))
 
@@ -307,10 +342,11 @@ def create_community_comment(db, user_hash, community_hash, params) -> CommonRes
         db.commit()
         db.refresh(new_comment)
 
+        return CommonResponse(success=True, message="커뮤니티 댓글이 성공적으로 작성되었습니다.", data=None)
+
     except Exception as e:
         return CommonResponse(success=False, message="커뮤니티 댓글 작성 중 오류가 발생했습니다." + str(e))
 
-    return CommonResponse(success=True, message="커뮤니티 댓글이 성공적으로 작성되었습니다.", data=None)
 
 def delete_community_comment(db, user_hash, comment_hash) -> CommonResponse:
     """

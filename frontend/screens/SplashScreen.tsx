@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import styles from './SplashScreen.styles';
+import styles from '../styles/screens/SplashScreen.styles';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 
 interface SplashScreenProps {

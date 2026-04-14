@@ -39,8 +39,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 16,
     alignSelf: 'flex-start',
-    margin: 16,
-    marginBottom: 8,
+    marginBottom: 12,
   },
   categoryBadgeText: {
     fontSize: 13,
@@ -50,34 +49,48 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#343A40',
-    paddingHorizontal: 16,
-    marginBottom: 12,
+    color: '#212529',
+    lineHeight: 28,
+    marginBottom: 0,
   },
   contents: {
     fontSize: 15,
-    lineHeight: 24,
+    lineHeight: 26,
     color: '#495057',
-    paddingHorizontal: 16,
     marginBottom: 16,
   },
   imageSection: {
-    paddingHorizontal: 16,
-    marginBottom: 16,
-    gap: 8,
+    backgroundColor: '#FFFFFF',
+    marginBottom: 2,
   },
-  contentImage: {
-    width: '100%',
-    height: 250,
-    borderRadius: 12,
-    marginBottom: 8,
+  swiperImage: {
+    height: 300,
+  },
+  dotContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 10,
+    gap: 6,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#DEE2E6',
+  },
+  dotActive: {
+    width: 18,
+    backgroundColor: '#FF9AA2',
   },
   metaInfo: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingBottom: 16,
+    paddingTop: 4,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F3F5',
+    paddingBottom: 4,
   },
   metaItem: {
     flexDirection: 'row',
@@ -173,6 +186,20 @@ const styles = StyleSheet.create({
   commentInputPlaceholder: {
     fontSize: 14,
     color: '#ADB5BD',
+  },
+  postContentCard: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 16,
+    marginBottom: 2,
+  },
+  contentCard: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
+    marginBottom: 2,
   },
 });
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import styles from './MealRegistScreen.styles';
+import styles from '../styles/screens/MealRegistScreen.styles';
 import {
   View,
   Text,
@@ -385,7 +385,6 @@ export default function MealRegistScreen({ route, navigation }: any) {
     };
 
     if (MEAL_STAGE.find(s => s.id === mealStage)?.items.some(i => i.id === mealStageDetail && i.needCode)) {
-      console.log("mealData", mealData)
       if (mealData.ingredients.length === 0) {
         toastInfo('재료를 입력해주세요.');
         return;
@@ -459,7 +458,6 @@ export default function MealRegistScreen({ route, navigation }: any) {
       // 이미지 변경이 없는 경우 - FormData로 보내되 파일 없이
       if (isEditMode) {
         const formData = new FormData();
-        // 나머지 데이터 추가
         // 나머지 데이터 추가
         Object.entries(mealData).forEach(([key, value]) => {
           if (key === 'ingredients' && Array.isArray(value)) {

@@ -27,6 +27,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
+      "googleServicesFile": "./google-services.json",
       "usesCleartextTraffic": true,
       "package": "com.bml.app",
       "intentFilters": [
@@ -54,7 +55,11 @@
     },
     "plugins": [
       "expo-web-browser",
-      "@react-native-google-signin/google-signin"
+      "@react-native-google-signin/google-signin",
+      [
+        "@react-native-firebase/app"
+      ],
+      "@react-native-firebase/messaging"
     ]
   }
 }

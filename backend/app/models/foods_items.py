@@ -11,5 +11,6 @@ class FoodsItems(Base):
     food_name = Column(String(50), nullable=False)
 
     __table_args__ = (
-        UniqueConstraint("food_type", "food_name", name="uq_food_type_food_name"),
+        UniqueConstraint("food_code", name="uq_code"),
+        UniqueConstraint("food_type", "food_name", name="uq_type_name"),
     )

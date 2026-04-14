@@ -1,7 +1,6 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime
+from sqlalchemy import Column, Index, Integer, String, Text, DateTime, UniqueConstraint
 from sqlalchemy.sql import func
 from app.core.database import Base
-
 
 class MealsSummaries(Base):
     __tablename__ = "meals_summaries"
@@ -16,3 +15,8 @@ class MealsSummaries(Base):
     is_active = Column(String(3), nullable=False, default="Y", comment="사용여부")
     is_temp = Column(String(3), nullable=False, default="Y", comment="임시 여부")
     created_at = Column(DateTime, server_default=func.current_timestamp())
+
+    __table_args__ = (
+        UniqueConstraint('view_hash', 'is_temp', 'is_active', name='view_hash'),
+        Index('idx_view_hash', 'view_hash'),
+    )

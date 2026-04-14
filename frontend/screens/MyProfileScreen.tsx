@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import styles from './MyProfileScreen.styles';
+import styles from '../styles/screens/MyProfileScreen.styles';
 import {
   View,
   Text,

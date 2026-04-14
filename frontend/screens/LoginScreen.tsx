@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import styles from './LoginScreen.styles';
+import styles from '../styles/screens/LoginScreen.styles';
 import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
 import {

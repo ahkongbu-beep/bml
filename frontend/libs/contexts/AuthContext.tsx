@@ -23,6 +23,7 @@ import {
   isTokenExpiringSoon,
   getRefreshToken,
 } from '../utils/storage';
+import { useFcmRegister } from '../hooks/useFcm';
 
 interface AuthContextType {
   user: User | null;
@@ -50,6 +51,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
+  // FCM 토큰 등록/해제
+  const { unregister: unregisterFcm } = useFcmRegister(isAuthenticated);
+
   // 초기 로드 시 저장된 사용자 정보 확인 및 백엔드에서 최신 정보 가져오기
   useEffect(() => {
     const checkAuth = async () => {
@@ -59,7 +63,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // 토큰 만료 체크
           const tokenExpired = await isTokenExpired();
           if (tokenExpired) {
-            console.log('토큰이 만료되었습니다. Refresh Token으로 갱신을 시도합니다.');
             const storedRefreshToken = await getRefreshToken();
             if (storedRefreshToken) {
               try {
@@ -71,7 +74,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                   throw new Error('Token refresh failed');
                 }
               } catch {
-                console.log('토큰 갱신 실패. 로그아웃 처리합니다.');
                 await clearStorage();
                 setUser(null);
                 setIsAuthenticated(false);
@@ -79,7 +81,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 return;
               }
             } else {
-              console.log('Refresh Token이 없습니다. 로그아웃 처리합니다.');
               await clearStorage();
               setUser(null);
               setIsAuthenticated(false);
@@ -148,16 +149,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     onSuccess: async (data) => {
 
       if (data.success && data.data) {
-      const { user, token, refresh_token } = data.data;
+        const { user, token, refresh_token } = data.data;
 
-          if (token && user) {
+        if (token && user) {
           await saveToken(token, refresh_token);
           await saveUserInfo(user);
           setUser(user);
           setIsAuthenticated(true);
         }
       } else {
-        throw new Error(data.message || '로그인에 실패했습니다.');}
+        throw new Error(data.message || '로그인에 실패했습니다.');
+      }
     },
   });
 
@@ -189,6 +191,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logoutMutation = useMutation({
     mutationFn: () => logoutApi(user?.view_hash || ''),
     onMutate: async () => {
+      await unregisterFcm();
       await clearStorage();
       setUser(null);
       setIsAuthenticated(false);
@@ -208,6 +211,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const withdrawalMutation = useMutation({
     mutationFn: () => withdrawalApi(),
     onMutate: async () => {
+      await unregisterFcm();
       await clearStorage();
       setUser(null);
       setIsAuthenticated(false);

@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import Optional, List
 from pydantic import BaseModel, Field
 from app.schemas.users_schemas import UserChildItemSchema
+from app.schemas.ingredient_schemas import IngredientMapperItemSchema
 
 class FeedListRequest(BaseModel):
     type: str = "list"
@@ -32,6 +33,7 @@ class FeedCopyRequest(BaseModel):
     title: Optional[str] = None
     target_meal_id: int
     target_user_hash: str
+    ingredients: Optional[list] = []
 
 
 class FeedDeleteRequest(BaseModel):
@@ -81,7 +83,7 @@ class FeedsResponse(BaseModel):
     category_id: Optional[int] = 0
     category_name: Optional[str] = None
     is_liked: Optional[bool] = False
-    tags: List[str] = []
+    tags: List[IngredientMapperItemSchema] = []
     images: List[str] = []
     user_hash: Optional[str] = None
     user: Optional[FeedsUserResponse] = None

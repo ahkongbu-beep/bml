@@ -12,13 +12,12 @@ import {
 import Layout from '../components/Layout';
 import Header from '../components/Header';
 import ConfirmPortal from '../components/ConfirmPortal';
-import styles from './MealMyDetailScreen.style';
+import styles from '../styles/screens/MealMyDetailScreen.style';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../libs/contexts/AuthContext';
 import { diffMonthsFrom, getStaticImage } from '@/libs/utils/common';
 import { LoadingPage } from '../components/Loading';
 import { useUserMealDetail } from '../libs/hooks/useMeals';
-import { useDeleteFeed } from '../libs/hooks/useFeeds';
 import { USER_CHILD_GENDER } from '../libs/utils/codes/UserChildCode';
 import { MEAL_CONDITION } from '../libs/utils/codes/FeedMealCondition';
 import { toastError, toastSuccess } from '@/libs/utils/toast';
@@ -27,11 +26,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function MealUserDetailScreen({ route, navigation }: any) {
   const { mealHash, userHash } = route.params || {};
-  console.log('MealUserDetailScreen에 전달된 params - mealHash:', mealHash, 'userHash:', userHash);
   const resolvedUserHash = userHash;
   const { user } = useAuth();
   const { data: feed, isLoading, isError, error } = useUserMealDetail(resolvedUserHash, mealHash);
-  const deleteFeedMutation = useDeleteFeed(mealHash);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [ deleteConfirmVisible, setDeleteConfirmVisible ] = useState(false);
 
@@ -124,9 +121,9 @@ export default function MealUserDetailScreen({ route, navigation }: any) {
           {/* 태그 */}
           {feed.tags && feed.tags.length > 0 && (
             <View style={styles.tagsSection}>
-              {feed.tags.map((tag, index) => (
+              {feed.tags.map((tag: any, index) => (
                 <View key={index} style={styles.tag}>
-                  <Text style={styles.tagText}>{tag}</Text>
+                  <Text style={styles.tagText}>{tag?.mapped_tags || ''}</Text>
                 </View>
               ))}
             </View>

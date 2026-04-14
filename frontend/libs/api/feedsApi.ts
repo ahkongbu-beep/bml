@@ -48,13 +48,6 @@ export const getIngredientsList = async (query: string): Promise<string[]> => {
   return response.data || [];
 }
 
-/**
- * 피드 삭제
- */
-export const deleteFeed = async (feedId: number): Promise<void> => {
-  console.log("deleteFeed called with id:", feedId);
-  return await fetchDelete<void>(`/feeds/delete/${feedId}`);
-};
 
 /**
  * 피드 좋아요 토글
@@ -96,7 +89,8 @@ export const copyFeed = async (data: CopyFeedRequest): Promise<null> => {
     target_user_hash: data.targetUserHash,
     input_date: data.inputDate,
     memo: data.memo,
-    title: data.title
+    title: data.title,
+    ingredients: data.ingredients ?? [],
   }
 
   console.log("params", params);

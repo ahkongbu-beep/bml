@@ -16,6 +16,10 @@ def build_comment_tree(comments):
 
     return root_comments
 
+def delete_comments_by_meal_calendar_id(db, meal_calendar_id):
+    MealsCommentsRepository.delete_comments_by_meal_calendar_id(db, meal_calendar_id)
+    return True
+
 """
 식단 해시로 댓글 조회
 """

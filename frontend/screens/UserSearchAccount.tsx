@@ -7,7 +7,7 @@
  */
 
 import React, { useState } from 'react';
-import styles from './UserSearchAccount.styles';
+import styles from '../styles/screens/UserSearchAccount.styles';
 import {
   View,
   Text,

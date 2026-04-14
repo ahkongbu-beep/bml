@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, DateTime, ForeignKey, func, UniqueConstraint
+from sqlalchemy import Column, Index, Integer, DateTime, ForeignKey, func, UniqueConstraint
 from app.core.database import Base
 
 class FeedsLikes(Base):
@@ -11,4 +11,5 @@ class FeedsLikes(Base):
 
     __table_args__ = (
         UniqueConstraint('feed_id', 'user_id', name='unique_feed_user'),
+        Index('idx_user_id', 'user_id')
     )

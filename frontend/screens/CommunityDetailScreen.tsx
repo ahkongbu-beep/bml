@@ -13,10 +13,11 @@ import {
   StyleSheet,
   BackHandler,
   KeyboardAvoidingView,
-  Platform
+  Platform,
+  Dimensions,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import styles from './CommunityDetailScreen.styles';
+import styles from '../styles/screens/CommunityDetailScreen.styles';
 import { Ionicons } from '@expo/vector-icons';
 
 import Layout from '../components/Layout';
@@ -61,6 +62,8 @@ export default function CommunityDetailScreen({ route, navigation }: any) {
   const [replyToNickname, setReplyToNickname] = useState<string | null>(null);
   const [parentCommentHash, setParentCommentHash] = useState<string | null>(null);
   const [deleteTargetCommentHash, setDeleteTargetCommentHash] = useState<string | null>(null);
+  const [imageIndex, setImageIndex] = useState(0);
+  const screenWidth = Dimensions.get('window').width;
 
   // 댓글등록
   const createCommunityCommentMutation = useCreateCommunityComment();
@@ -91,7 +94,6 @@ export default function CommunityDetailScreen({ route, navigation }: any) {
         setIsLoading(false);
       },
       onError: (error) => {
-        console.error('Failed to load community:', error);
         toastError('게시글을 불러오는 중 오류가 발생했습니다.', {
           onHide: () => navigation.goBack(),
           onPress: () => navigation.goBack(),
@@ -110,7 +112,19 @@ export default function CommunityDetailScreen({ route, navigation }: any) {
   useFocusEffect(
     useCallback(() => {
       loadCommunityDetail();
-    }, [])
+    }, [viewHash])
+  );
+
+  // 안드로이드 하드웨어 백 버튼 처리
+  useFocusEffect(
+    useCallback(() => {
+      const onBackPress = () => {
+        navigation.navigate('Community');
+        return true;
+      };
+      const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+      return () => subscription.remove();
+    }, [navigation])
   );
 
   useEffect(() => {
@@ -132,26 +146,24 @@ export default function CommunityDetailScreen({ route, navigation }: any) {
   // 댓글 등록 핸들러
   const handleCommentRegister = () => {
     if (!commentInput.trim()) return;
-    createCommunityCommentMutation.mutate(
-      {
-        community_hash: viewHash,
-        comment: commentInput, // 실제로는 입력된 댓글 내용을 사용
-        parent_hash: parentCommentHash
-      },
-      {
-        onSuccess: () => {
-          toastSuccess('댓글이 등록되었습니다.', {
-            onHide: () => {
-              setCommentInput("");
-              refetchComments();
-              // 대댓글 작성 후에는 대댓글 상태 초기화
-              setParentCommentHash(null);
-              setReplyToNickname(null);
-            }
-          });
-        }
+    createCommunityCommentMutation.mutate({
+      community_hash: viewHash,
+      comment: commentInput, // 실제로는 입력된 댓글 내용을 사용
+      parent_hash: parentCommentHash
+    },
+    {
+      onSuccess: () => {
+        toastSuccess('댓글이 등록되었습니다.', {
+          onHide: () => {
+            setCommentInput("");
+            refetchComments();
+            // 대댓글 작성 후에는 대댓글 상태 초기화
+            setParentCommentHash(null);
+            setReplyToNickname(null);
+          }
+        });
       }
-    );
+    });
   }
 
   // 댓글 삭제 모달 핸들러
@@ -337,40 +349,60 @@ export default function CommunityDetailScreen({ route, navigation }: any) {
             </View>
           </View>
 
-          {/* 주제 배지 */}
-          {categoryName && (
-            <View style={styles.categoryBadge}>
-              <Text style={styles.categoryBadgeText}>#{categoryName}</Text>
-            </View>
-          )}
+          {/* 제목 카드 */}
+          <View style={styles.postContentCard}>
+            {categoryName && (
+              <View style={styles.categoryBadge}>
+                <Text style={styles.categoryBadgeText}>#{categoryName}</Text>
+              </View>
+            )}
+            <Text style={styles.title}>{communityData.title}</Text>
+          </View>
 
-          {/* 제목 */}
-          <Text style={styles.title}>{communityData.title}</Text>
-
-          {/* 내용 */}
-          <Text style={styles.contents}>{communityData.contents}</Text>
-
-          {/* 이미지 표시 (여러 장) */}
+          {/* 이미지 스와이퍼 */}
           {communityData.images && communityData.images.length > 0 && (
             <View style={styles.imageSection}>
-              {communityData.images.map((imageUrl, index) => (
-                <Image
-                  key={index}
-                  source={{ uri: getStaticImage('large', imageUrl) || '' }}
-                  style={styles.contentImage}
-                  resizeMode="cover"
-                />
-              ))}
+              <ScrollView
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                onMomentumScrollEnd={(e) => {
+                  const index = Math.round(e.nativeEvent.contentOffset.x / screenWidth);
+                  setImageIndex(index);
+                }}
+              >
+                {communityData.images.map((imageUrl, idx) => (
+                  <Image
+                    key={idx}
+                    source={{ uri: getStaticImage('large', imageUrl) || '' }}
+                    style={[styles.swiperImage, { width: screenWidth }]}
+                    resizeMode="cover"
+                  />
+                ))}
+              </ScrollView>
+              {communityData.images.length > 1 && (
+                <View style={styles.dotContainer}>
+                  {communityData.images.map((_, idx) => (
+                    <View
+                      key={idx}
+                      style={[styles.dot, imageIndex === idx && styles.dotActive]}
+                    />
+                  ))}
+                </View>
+              )}
             </View>
           )}
 
-          {/* 조회수, 작성일 */}
-          <View style={styles.metaInfo}>
-            <View style={styles.metaItem}>
-              <Ionicons name="eye-outline" size={16} color="#868E96" />
-              <Text style={styles.metaText}>{communityData.view_count}</Text>
+          {/* 본문 및 메타 정보 카드 */}
+          <View style={styles.contentCard}>
+            <Text style={styles.contents}>{communityData.contents}</Text>
+            <View style={styles.metaInfo}>
+              <View style={styles.metaItem}>
+                <Ionicons name="eye-outline" size={16} color="#868E96" />
+                <Text style={styles.metaText}>{communityData.view_count}</Text>
+              </View>
+              <Text style={styles.metaText}>{formatDate(communityData.created_at)}</Text>
             </View>
-            <Text style={styles.metaText}>{formatDate(communityData.created_at)}</Text>
           </View>
 
           {/* 구분선 */}

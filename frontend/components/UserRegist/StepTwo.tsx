@@ -51,6 +51,8 @@ export default function StepTwo({
   const [showDatePicker, setShowDatePicker] = useState(false);
   const { data: allergyCategories } = useAllergyCategories();
 
+  console.log('초기 자녀 데이터:', childrenData);
+
   // 자녀 수 변경 시 데이터 초기화
   const handleNumberOfChildrenChange = (count: number) => {
     setNumberOfChildren(count);

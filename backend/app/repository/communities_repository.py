@@ -11,7 +11,9 @@ import pytz
 class CommunitiesRepository:
 
     def increase_view_count(db, community, is_commit=True):
-        """커뮤니티 글 조회수 증가 함수"""
+        """
+        커뮤니티 글 조회수 증가 함수
+        """
         community.view_count += 1
         db.add(community)
 

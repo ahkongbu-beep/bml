@@ -37,3 +37,8 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: dict
+
+class FcmTokenRequest(BaseModel):
+    """FCM 토큰 등록/삭제 요청"""
+    fcm_token: str
+    platform: Optional[str] = None  # 'android' | 'ios'

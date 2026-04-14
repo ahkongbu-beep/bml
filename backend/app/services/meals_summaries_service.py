@@ -20,7 +20,7 @@ def create_ingredient_hash(user_id, input_date, category_code, child_id, content
 
 def create_meal_summary(db, params):
     """
-    임시 식단 요약 정보 성
+    임시 식단 요약 정보
     """
     return MealsSummariesRepository.create_meal_summary(db, params)
 
@@ -30,3 +30,17 @@ def get_meal_summary_by_view_hash(db, view_hash):
     """
     return MealsSummariesRepository.get_meal_summary_by_view_hash(db, view_hash)
 
+def get_meal_summary_by_id(db, summary_id):
+    """
+    ID로 식단 요약 정보 조회
+    """
+    return MealsSummariesRepository.get_meal_summary_by_id(db, summary_id)
+
+def delete_meal_summary_by_id(db, summary_id):
+    """
+    ID로 식단 요약 정보 삭제
+    """
+    meal_summary = get_meal_summary_by_id(db, summary_id)
+    if meal_summary:
+        db.delete(meal_summary)
+    return True

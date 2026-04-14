@@ -22,13 +22,8 @@ class SummariesAgents(Base):
     recipe_hash = Column(String(64), nullable=True, comment="레시피 해시값")
     question = Column(Text, comment="사용자 질의 내용")
     answer = Column(Text, comment="ai 질의 내용")
-
     view_hash = Column(String(255), nullable=True, comment="view_hash")
-    created_at = Column(
-        DateTime,
-        server_default=func.now(),
-        comment="생성일"
-    )
+    created_at = Column(DateTime, server_default=func.now(), comment="생성일")
 
     __table_args__ = (
         Index("idx_model_rows", "model", "model_id"),

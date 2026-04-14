@@ -6,5 +6,8 @@ class IngredientSchema(BaseModel):
     category: str
     allergy_risk: str
 
-
+class IngredientMapperItemSchema(BaseModel):
+    ingredient_id: int
+    mapped_score: float
+    mapped_tags: str
 

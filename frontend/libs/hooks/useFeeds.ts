@@ -4,7 +4,6 @@ import {
   getFeedById,
   createFeed,
   updateFeed,
-  deleteFeed,
   toggleBookmark,
   blockUser,
   getMyFeeds,
@@ -219,24 +218,6 @@ export const useUpdateFeed = () => {
       },
   });
 };
-
-/**
- * 피드 삭제 Mutation
- */
-export const useDeleteFeed = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    // ✅ mutate(id) 로 받음
-    mutationFn: (id: number) => deleteFeed(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['feeds', 'infinite'] });
-      queryClient.invalidateQueries({ queryKey: feedKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: feedKeys.myFeeds() });
-    },
-  });
-};
-
-
 
 /**
  * 찜하기 토글 Mutation

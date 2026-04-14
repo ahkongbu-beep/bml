@@ -1,9 +1,12 @@
 export interface UserChilItem {
   id: number;
+  child_id: number;
   child_name: string;
   child_birth: string;
   child_gender: 'M' | 'W';
   is_agent: string;
+  allergy_codes: string[];
+  allergy_names: string[];
 }
 
 export interface User {

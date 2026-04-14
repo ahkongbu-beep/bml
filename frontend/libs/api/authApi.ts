@@ -189,3 +189,24 @@ export const updateProfile = async (data: UpdateProfileRequest): Promise<ApiResp
 
   return fetchPutFormData<ApiResponse<User>>('/users/update', formData);
 };
+
+/**
+ * FCM 토큰 등록
+ * POST /auth/fcm-token
+ * body: { fcm_token: string, platform: 'android' | 'ios' }
+ */
+export const registerFcmToken = async (fcmToken: string, platform: 'android' | 'ios'): Promise<ApiResponse<null>> => {
+  return fetchPost<ApiResponse<null>>('/auth/fcm-token', {
+    fcm_token: fcmToken,
+    platform,
+  });
+};
+
+/**
+ * FCM 토큰 삭제 (로그아웃 시)
+ * DELETE /auth/fcm-token
+ * body: { fcm_token: string }
+ */
+export const unregisterFcmToken = async (fcmToken: string): Promise<ApiResponse<null>> => {
+  return fetchDelete<ApiResponse<null>>('/auth/fcm-token', { fcm_token: fcmToken });
+};

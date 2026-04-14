@@ -75,6 +75,7 @@ export interface FeedItemProps {
   onEditFeed?: (feed: Feed) => void;
   onTagPress?: (tag: string) => void;
   selectedTags?: string[];
+  isAnalyzing?: boolean;
 }
 
 export interface CopyFeedRequest {
@@ -84,4 +85,5 @@ export interface CopyFeedRequest {
   inputDate: string;
   memo: string;
   title: string;
+  ingredients?: Array<{ id: number | string; name: string; score: number }>;
 }

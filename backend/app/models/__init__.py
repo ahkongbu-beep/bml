@@ -6,7 +6,6 @@ from .users import Users
 from .feeds import Feeds
 from .feeds_images import FeedsImages
 from .communities_comments import CommunitiesComments
-from .communities_images import CommunitiesImages
 from .communities_likes import CommunitiesLikes
 from .communities import Communities
 from .denies_users import DeniesUsers

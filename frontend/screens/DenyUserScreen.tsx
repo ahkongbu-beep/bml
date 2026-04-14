@@ -2,7 +2,7 @@
 // frontend/screens/DenyUserScreen.tsx
 
 // 스타일 임포트
-import styles from './DenyUserScreen.styles';
+import styles from '../styles/screens/DenyUserScreen.styles';
 
 import React from 'react';
 import {

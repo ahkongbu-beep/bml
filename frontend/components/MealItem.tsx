@@ -28,7 +28,6 @@ const MealItem = React.memo(({
   currentImageIndex,
   isLiking,
   onMenuToggle,
-  onImageScroll,
   onViewProfile,
   onBlock,
   onLike,
@@ -39,7 +38,8 @@ const MealItem = React.memo(({
   isMine,
   onEditFeed,
   onTagPress,
-  selectedTags = []
+  selectedTags = [],
+  isAnalyzing = false,
 }: FeedItemProps) => {
   // URL에서 iid 추출하는 함수
   const extractImageId = (imageUrl: string): string => {
@@ -217,9 +217,9 @@ const MealItem = React.memo(({
       <View style={styles.actionButtonsContainer}>
         {onAiSummary && userHash && (
           <TouchableOpacity
-            style={styles.bottomActionButton}
+            style={[styles.bottomActionButton, isAnalyzing && styles.bottomActionButtonDisabled]}
+            disabled={isAnalyzing}
             onPress={() => {
-              const currentIndex = currentImageIndex[item.id] || 0;
               onAiSummary(
                 item.user.user_hash,
                 item.category_id,
@@ -233,8 +233,14 @@ const MealItem = React.memo(({
               );
             }}
           >
-            <Ionicons name="sparkles" size={18} color="#FF9AA2" />
-            <Text style={styles.bottomActionButtonText}>영양분석</Text>
+            {isAnalyzing ? (
+              <ActivityIndicator size={16} color="#FF9AA2" />
+            ) : (
+              <Ionicons name="sparkles" size={18} color="#FF9AA2" />
+            )}
+            <Text style={styles.bottomActionButtonText}>
+              {isAnalyzing ? '분석 중...' : '영양분석'}
+            </Text>
           </TouchableOpacity>
         )}
         {/* 내 피드가 아닐 때 식단 공유버튼 노출 */}
@@ -523,6 +529,9 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingVertical: 12,
     gap: 6,
+  },
+  bottomActionButtonDisabled: {
+    opacity: 0.6,
   },
   bottomActionButtonText: {
     fontSize: 14,

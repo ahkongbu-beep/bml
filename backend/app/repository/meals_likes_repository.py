@@ -5,6 +5,10 @@ from app.models.meals_calendar import MealsCalendars
 from sqlalchemy import func
 
 class MealsLikesRepository:
+    def delete_likes_by_meal_calendar_id(db, meal_calendar_id: int):
+        db.query(MealsLikes).filter(MealsLikes.meal_id == meal_calendar_id).delete()
+        db.flush()
+
     def get_likes_by_user_id(session, user_id: int):
         return session.query(MealsLikes).filter(MealsLikes.user_id == user_id).all()
 

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
-import styles from './FeedListScreen.styles';
+import styles from '../styles/screens/FeedListScreen.styles';
 import {
   View,
   Text,
@@ -104,7 +104,8 @@ export default function FeedListScreen() {
   const feeds = data?.pages
     .flatMap(page => page.data ?? [])
     .filter(Boolean)
-    .filter((item, index, self) => self.findIndex(f => f.id === item.id) === index) ?? [];
+    .filter((item, index, self) => self.findIndex(f => f.id === item.id) === index)
+    .filter(item => item.is_public !== 'N' || item.user.user_hash === user?.view_hash) ?? [];
 
   // Mutations
   const toggleLikeMutation     = useToggleLike();
@@ -118,7 +119,8 @@ export default function FeedListScreen() {
     const currentFeed = feeds?.find(feed => feed.view_hash === mealHash);
     if (!currentFeed) return;
 
-    // 낙관적으로 UI 먼저 업데이트
+    // 낙관적으로 UI 먼저 업데이트 (id 기준으로 저장)
+    const feedId = currentFeed.id;
     const newIsLiked = !currentFeed.is_liked;
     const newLikeCount = newIsLiked
       ? currentFeed.like_count + 1
@@ -126,7 +128,7 @@ export default function FeedListScreen() {
 
     setOptimisticLikes(prev => ({
       ...prev,
-      [mealHash]: {
+      [feedId]: {
         is_liked: newIsLiked,
         like_count: newLikeCount,
       },
@@ -135,16 +137,21 @@ export default function FeedListScreen() {
     // 백그라운드에서 API 호출
     toggleLikeMutation.mutate(mealHash, {
       onSuccess: () => {
-        // 성공 시 서버 데이터로 동기화
-        refetch();
-        toastSuccess('반영되었습니다.');
+        // refetch 완료 후 낙관적 상태 제거 (순서 중요: 먼저 제거하면 깜빡임 발생)
+        refetch().finally(() => {
+          setOptimisticLikes(prev => {
+            const next = { ...prev };
+            delete next[feedId];
+            return next;
+          });
+        });
       },
-      onError: (error) => {
+      onError: () => {
         // 실패 시 롤백
         setOptimisticLikes(prev => {
-          const newState = { ...prev };
-          delete newState[mealHash];
-          return newState;
+          const next = { ...prev };
+          delete next[feedId];
+          return next;
         });
         toastError('좋아요 처리 중 오류가 발생했습니다.');
       },
@@ -163,7 +170,6 @@ export default function FeedListScreen() {
   // 식단캘린더에 복사 추가
   const handleAddToMealCalendar = (userHash: string, mealId: number, mealHash: string) => {
     setMenuVisible(null);
-    console.log("handleAddToMealCalendar called with:", { userHash, mealId, mealHash });
     navigation.navigate('MealCopyByFeed', { mealId, mealHash, userHash });
   }
 
@@ -196,10 +202,7 @@ export default function FeedListScreen() {
     setMenuVisible(prev => prev === id ? null : id);
   }, []);
 
-  const handleImageScroll = useCallback((id: number, index: number) => {
-    setCurrentImageIndex(prev => ({ ...prev, [id]: index }));
-  }, []);
-
+  // 댓글 화면으로 이동
   const handleCommentPress = useCallback((mealId: number) => {
     navigation.navigate('FeedComment', { mealId });
   }, [navigation]);
@@ -317,12 +320,12 @@ export default function FeedListScreen() {
         currentImageIndex={currentImageIndex}
         isLiking={likingFeedId === item.id}
         onMenuToggle={handleMenuToggle}
-        onImageScroll={handleImageScroll}
         onViewProfile={handleProfileView}
         onBlock={handleBlock}
         onLike={handleLike}
         onCommentPress={handleCommentPress}
         onAiSummary={handleAiSummary}
+        isAnalyzing={analyzeMealMutation.isPending}
         onAddToMealCalendar={handleAddToMealCalendar}
         userHash={user?.view_hash}
         isMine={isMine}
@@ -331,7 +334,7 @@ export default function FeedListScreen() {
         selectedTags={ingredientName}
       />
     );
-  }, [menuVisible, currentImageIndex, likingFeedId, optimisticLikes, handleMenuToggle, handleImageScroll, handleProfileView, handleBlock, handleLike, handleCommentPress, handleAiSummary, handleTagPress, user?.view_hash]);
+  }, [menuVisible, currentImageIndex, likingFeedId, optimisticLikes, handleMenuToggle, handleProfileView, handleBlock, handleLike, handleCommentPress, handleAiSummary, handleTagPress, user?.view_hash]);
 
   const renderListHeader = () => (
     <View>

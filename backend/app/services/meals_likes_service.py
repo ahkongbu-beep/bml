@@ -33,7 +33,6 @@ def decrease_meal_like_count(meal_calendar):
     """
     meal_calendar.like_count = max(0, meal_calendar.like_count - 1)
 
-
 def set_toggle_like_process(db, user_id: int, meal_calendar):
 
     existing_like = get_meal_like_by_calendar_and_user(db, meal_calendar, user_id)
@@ -110,3 +109,10 @@ def meal_like_list(db, user_hash: str, limit: int, offset: int):
         return CommonResponse(success=True, message="", data=like_list)
     except Exception as e:
         return CommonResponse(success=False, error=f"사용자 조회 중 오류가 발생했습니다: {str(e)}", data=None)
+
+def delete_meal_like_by_meal_calendar(db, meal_calendar):
+    """
+    식단 캘린더에 해당하는 좋아요 모두 삭제 (식단 삭제 시)
+    """
+    MealsLikesRepository.delete_likes_by_meal_calendar_id(db, meal_calendar.id)
+    return True

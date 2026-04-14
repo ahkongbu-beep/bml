@@ -2,6 +2,9 @@
 from glob import glob
 import os
 
+# 프로젝트 루트 (backend/) — __file__ 기준 3단계 상위
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from app.repository.attaches_files_repository import AttachesFilesRepository
 
 def get_attache_files_by_model_id(db, model: str, model_id: int):
@@ -97,17 +100,16 @@ def delete_attache_files_by_model_id(attache_files: list, is_delete: bool = Fals
     }
 
     for file in attache_files:
-        file_base_path = file.image_url.lstrip('/')
+        abs_base = os.path.join(BASE_DIR, file.image_url.lstrip('/').replace('/', os.sep))
 
         try:
-            matching_files = glob.glob(f"{file_base_path}_*.webp")
+            matching_files = glob(abs_base + '_*.webp')
 
             if not matching_files:
                 result["missing_files"] += 1
                 continue
 
             for file_path in matching_files:
-
                 if not os.path.exists(file_path):
                     result["missing_files"] += 1
                     continue
@@ -157,11 +159,41 @@ def soft_delete_file_by_model_id(session, model: str, model_id: int):
 
     # DB 삭제
     try:
-        AttachesFilesRepository.delete_attache_files_by_model_id(
+        AttachesFilesRepository.soft_delete_attache_files(session, model=model, model_id=model_id)
+        result["db_deleted"] = True
+        result["success"] = True
+
+    except Exception as e:
+        session.rollback()
+        result["error"] = str(e)
+
+    return result
+
+def hard_delete_file(session, model: str, model_id: int):
+
+    result = {
+        "success": False,
+        "deleted_files": 0,
+        "missing_files": 0,
+        "db_deleted": False,
+        "error": None,
+    }
+
+    attache_files = get_attache_files_by_model_id(
+        session, model=model, model_id=model_id
+    )
+
+    # 파일 삭제 (hard delete)
+    file_result = delete_attache_files_by_model_id(attache_files, is_delete=True)
+
+    result["deleted_files"] = file_result["deleted_files"]
+    result["missing_files"] = file_result["missing_files"]
+
+    # DB 삭제
+    try:
+        AttachesFilesRepository.hard_delete_attache_files(
             session, model=model, model_id=model_id
         )
-
-        session.commit()
 
         result["db_deleted"] = True
         result["success"] = True

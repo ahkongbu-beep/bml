@@ -40,6 +40,7 @@ import CommunityDetailScreen from './screens/CommunityDetailScreen';
 import MenuListScreen from './screens/MenuListScreen';
 import { AuthProvider, useAuth } from './libs/contexts/AuthContext';
 import { getNeedChildRegistration, clearNeedChildRegistration } from './libs/utils/storage';
+import { getMessaging, requestPermission, onMessage } from '@react-native-firebase/messaging';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -149,6 +150,26 @@ function MainNavigator() {
 function AppContent() {
   const [showSplash, setShowSplash] = useState(true);
   const { isAuthenticated, isLoading } = useAuth();
+
+  // 알림 권한 요청 (Android 13+ 필수)
+  useEffect(() => {
+    requestPermission(getMessaging());
+  }, []);
+
+  // 포그라운드 상태에서 FCM 메시지 수신
+  useEffect(() => {
+    const unsubscribe = onMessage(getMessaging(), async (remoteMessage) => {
+      const title = remoteMessage.notification?.title ?? '알림';
+      const body = remoteMessage.notification?.body ?? '';
+      Toast.show({
+        type: 'info',
+        text1: title,
+        text2: body,
+        position: 'top',
+      });
+    });
+    return unsubscribe;
+  }, []);
 
   // 스플래시 화면이 끝나면 false로 설정
   const handleSplashFinish = () => {

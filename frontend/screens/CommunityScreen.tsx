@@ -10,7 +10,6 @@
  * 공감 버튼 및 공감 수 표시
  * 댓글등록/수정 모달 및 댓글 수 표시
  */
-
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
@@ -29,7 +28,7 @@ import {
 } from 'react-native';
 import Layout from '../components/Layout';
 import Header from '../components/Header';
-import styles from './CommunityScreen.styles';
+import styles from '../styles/screens/CommunityScreen.styles';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -47,6 +46,7 @@ import { Portal, Dialog, Button } from 'react-native-paper';
 import { CommunityPost } from '../libs/types/CommunitiesType';
 import { getStaticImage, handleViewProfile } from '../libs/utils/common';
 import { toastError, toastInfo, toastSuccess } from '@/libs/utils/toast';
+import { LoadingPage } from '@/components/Loading';
 import ConfirmPortal from '@/components/ConfirmPortal';
 
 export default function CommunityScreen({ navigation }: any) {
@@ -229,7 +229,6 @@ export default function CommunityScreen({ navigation }: any) {
               handleRefresh();
             }
           });
-
           return;
         }
         toastError(response.error || '게시글 삭제에 실패했습니다.');
@@ -514,9 +513,7 @@ export default function CommunityScreen({ navigation }: any) {
 
       {/* 게시글 목록 */}
       {isLoading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#FF9AA2" />
-        </View>
+        <LoadingPage title="커뮤니티 정보를 불러오는 중"/>
       ) : (
         <FlatList
           data={posts}
@@ -538,11 +535,13 @@ export default function CommunityScreen({ navigation }: any) {
             ) : null
           }
           ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Ionicons name="chatbubbles-outline" size={64} color="#DEE2E6" />
-              <Text style={styles.emptyText}>아직 게시글이 없습니다</Text>
-              <Text style={styles.emptySubText}>첫 번째 게시글을 작성해보세요!</Text>
-            </View>
+            !isRefreshing ? (
+              <View style={styles.emptyContainer}>
+                <Ionicons name="chatbubbles-outline" size={64} color="#DEE2E6" />
+                <Text style={styles.emptyText}>아직 게시글이 없습니다</Text>
+                <Text style={styles.emptySubText}>첫 번째 게시글을 작성해보세요!</Text>
+              </View>
+            ) : null
           }
         />
       )}

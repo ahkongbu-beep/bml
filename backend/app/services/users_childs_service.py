@@ -3,6 +3,38 @@ from app.repository.users_childs_repository import UsersChildsRepository
 def child_list(db, params):
     return UsersChildsRepository.get_child_list(db, params)
 
+def child_and_allergy_list(db, params):
+    from app.services.users_childs_allergies_service import get_user_child_allergies
+
+    childs_data = []
+    childs = UsersChildsRepository.get_child_list(db, params)
+    for child in childs:
+
+        child_allergy = get_user_child_allergies(db, params.get("user_id"), child.id)
+
+        child_allergy_data = []
+        for allergy in child_allergy:
+            allergy_data = {
+                "allergy_codes": allergy.allergy_code,
+                "allergy_names": allergy.allergy_name
+            }
+            child_allergy_data.append(allergy_data)
+
+        child_data = {
+            "id": child.id,
+            "child_id": child.id,
+            "child_name": child.child_name,
+            "child_birth": str(child.child_birth),
+            "child_gender": child.child_gender,
+            "is_agent": child.is_agent,
+            "allergy_codes": [a["allergy_codes"] for a in child_allergy_data],
+            "allergy_names": [a["allergy_names"] for a in child_allergy_data],
+            "allergies": child_allergy_data
+        }
+
+        childs_data.append(child_data)
+    return childs_data
+
 def get_agent_childs(db, params):
     if params.get("user_id"):
         return UsersChildsRepository.get_agent_childs_by_user_id(db, params.get("user_id"))

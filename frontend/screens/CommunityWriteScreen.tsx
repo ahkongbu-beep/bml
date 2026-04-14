@@ -22,7 +22,7 @@ import Layout from '../components/Layout';
 import Header from '../components/Header';
 import { useCreateCommunity } from '../libs/hooks/useCommunities';
 import { useCategoryCodes } from '../libs/hooks/useCategories';
-import styles from './CommunityWriteScreen.styles';
+import styles from '../styles/screens/CommunityWriteScreen.styles';
 
 export default function CommunityWriteScreen({ navigation }: any) {
   const { data: topicGroups, isLoading: topicGroupsLoading } = useCategoryCodes("TOPIC_GROUP");
@@ -119,14 +119,13 @@ export default function CommunityWriteScreen({ navigation }: any) {
         if (response.success) {
           Alert.alert('성공', '게시글이 등록되었습니다.', [{
               text: '확인',
-              onPress: () => navigation.goBack(),
+              onPress: () => navigation.navigate('Community'),
           }]);
         } else {
           Alert.alert('오류', response.message || '게시글 등록에 실패했습니다.');
         }
       },
       onError: (error) => {
-        console.error('Failed to create community:', error);
         Alert.alert('오류', '게시글 등록 중 오류가 발생했습니다.');
       },
     });

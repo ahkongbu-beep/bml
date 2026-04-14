@@ -6,7 +6,7 @@ from app.schemas.common_schemas import CommonResponse
 from app.schemas.meals_schemas import FeedListRequest
 from app.libs.hash_utils import generate_sha256_hash
 from app.services.ingredients_service import  process_tags, get_ingredient_by_name
-from app.services.ingredients_mappers_service import insert_ingredient_mapper, delete_ingredient_mapper, get_ingredient_mappers_name_by_meal_id
+from app.services.ingredients_mappers_service import get_ingredient_mappers_by_meal_id, insert_ingredient_mapper, delete_ingredient_mapper
 from app.services.attaches_files_service import get_attache_files_by_model_id, soft_delete_file_by_model_id, upload_file, save_upload_file
 from app.services.users_service import validate_user, validate_user_id
 from app.services.feeds_images_service import create_meal_image
@@ -119,6 +119,18 @@ def get_user_meal_calendar(db, params):
     category_code_id = params.get('category_code_id', None)
 
     return MealsCalendarsRepository.findByUserIdAndDate(db, user_id, input_date, child_id, category_code_id)
+
+def delete_meal_calendar(db, meal_calendar):
+    """
+    식단 캘린더 삭제 (hard delete)
+    """
+    return MealsCalendarsRepository.hard_delete_meal(db, meal_calendar)
+
+def get_deleted_meals(db, params):
+    is_active = params.get('is_active', "N")
+    search_date = params.get('search_date', None)
+    target_id = params.get('target_id', None)
+    return MealsCalendarsRepository.get_deleted_meals(db, is_active, search_date, target_id)
 
 def update_meal_process(db, meal_calendar, body):
     """
@@ -310,7 +322,7 @@ def get_user_calendar_detail(db, user_hash, target_user_hash, meal_hash):
     increase_view_count(db, meal_calendar, is_commit=True)
 
     # 태그 목록 조회
-    tags = get_ingredient_mappers_name_by_meal_id(db, meal_calendar.id)
+    tags = get_ingredient_mappers_by_meal_id(db, meal_calendar.id)
 
     # 이미지 목록 조회
     images = [f.image_url for f in get_attache_files_by_model_id(db, "Meals", meal_calendar.id)]
@@ -551,12 +563,10 @@ async def create_meal(db, body: dict) -> CommonResponse:
 
     except ValueError as e:
         db.rollback()
-        print(f"⭕⭕식단 캘린더 생성 중 오류: {str(e)}")
         return CommonResponse(success=False, error=str(e), data=None)
 
     except Exception as e:
         db.rollback()
-        print(f"⭕⭕식단 캘린더 생성 중 오류: {str(e)}")
         return CommonResponse(success=False, error="식단 캘린더 생성 중 오류가 발생했습니다. " + str(e), data=None)
 
 """ 식단 캘린더 수정 """
@@ -678,7 +688,6 @@ async def delete_meal(db, body: dict) -> CommonResponse:
 
         db.commit()
         return CommonResponse(success=True, message="식단 캘린더가 성공적으로 삭제되었습니다.", data=None)
-
     except ValueError as e:
         db.rollback()
         return CommonResponse(success=False, error=str(e), data=None)

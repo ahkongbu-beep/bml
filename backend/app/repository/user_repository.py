@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 import pytz
 from sqlalchemy import text
 from app.libs.hash_utils import generate_sha256_hash
@@ -6,7 +6,7 @@ from app.libs.password_utils import hash_password, verify_password
 from app.models.users import Users
 
 class UserRepository:
-    # 타 repository 에서 호출을 하는건 비효울적이라 직접쿼리를 작성
+
     @staticmethod
     def get_user_like_count(session, user_id: int):
         query = text("""
@@ -23,6 +23,25 @@ class UserRepository:
             "like_count": result.like_count if result.like_count else 0,
             "meal_count": result.meal_calendar_count if result.meal_calendar_count else 0
         }
+
+    @staticmethod
+    def get_users_last_login(session, days: int, is_push_agree: int = None):
+        """
+        마지막 로그인 시간이 days일 이상인 사용자 조회
+        """
+        kst = pytz.timezone("Asia/Seoul")
+        now = datetime.now(kst)
+        threshold_date = now - timedelta(days=days)
+
+        query = session.query(Users).filter(
+            Users.last_login_at < threshold_date,
+            Users.fcm_token != None,
+            Users.fcm_token != ''
+        )
+
+        if is_push_agree is not None:
+            query = query.filter(Users.push_agree == is_push_agree)
+        return query.all()
 
     @staticmethod
     def get_user_by_nickname(session, nickname: str):
@@ -271,3 +290,32 @@ class UserRepository:
             query = query.offset(params["offset"]).limit(params["limit"])
 
         return query.all()
+
+    @staticmethod
+    def update_fcm_token(session, user_id: int, fcm_token: str, is_commit: bool = True):
+        """
+        FCM 토큰 저장
+        """
+        user = session.query(Users).filter(Users.id == user_id).first()
+        if not user:
+            return None
+        user.fcm_token = fcm_token
+        if is_commit:
+            session.commit()
+            session.refresh(user)
+        return user
+
+    @staticmethod
+    def clear_fcm_token(session, user_id: int, fcm_token: str, is_commit: bool = True):
+        """
+        FCM 토큰 삭제 (토큰값이 일치하는 경우만)
+        """
+        user = session.query(Users).filter(Users.id == user_id).first()
+        if not user:
+            return None
+        if user.fcm_token == fcm_token:
+            user.fcm_token = ''
+        if is_commit:
+            session.commit()
+            session.refresh(user)
+        return user

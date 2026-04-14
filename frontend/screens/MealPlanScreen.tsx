@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import styles from './MealPlanScreen.styles';
+import '@/libs/utils/calendarLocale';
+import styles from '../styles/screens/MealPlanScreen.styles';
 import {
   View,
   Text,
@@ -24,7 +25,7 @@ import MealPlanItem from '../components/MealPlanItem';
 import ConfirmPortal from '../components/ConfirmPortal';
 import MealDetailModal from '../components/MealDetailModal';
 
-import { Calendar, LocaleConfig } from 'react-native-calendars';
+import { Calendar } from 'react-native-calendars';
 import { Dialog, Button, Portal } from 'react-native-paper';
 
 import { useAuth } from '../libs/contexts/AuthContext';
@@ -36,22 +37,6 @@ import { normalizeDate, getStaticImage, calculateAge } from '../libs/utils/commo
 import { toastError, toastSuccess, toastInfo } from '@/libs/utils/toast';
 import { MEAL_CATEGORIES } from '../libs/utils/codes/MealCalendarCode';
 
-
-// 한국어 설정
-LocaleConfig.locales['kr'] = {
-  monthNames: [
-    '1월', '2월', '3월', '4월', '5월', '6월',
-    '7월', '8월', '9월', '10월', '11월', '12월',
-  ],
-  monthNamesShort: [
-    '1월', '2월', '3월', '4월', '5월', '6월',
-    '7월', '8월', '9월', '10월', '11월', '12월',
-  ],
-  dayNames: ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'],
-  dayNamesShort: ['일', '월', '화', '수', '목', '금', '토'],
-  today: '오늘',
-};
-LocaleConfig.defaultLocale = 'kr';
 
 export default function MealPlanScreen({ navigation }: any) {
   const [selectedDate, setSelectedDate] = useState('');
@@ -94,25 +79,6 @@ export default function MealPlanScreen({ navigation }: any) {
 
   // 선택된 날짜의 식단 데이터
   const selectedMeals = selectedDate ? (normalizedMealsData[selectedDate] || []) : [];
-
-  // 마킹된 날짜 (식단이 있는 날)
-  const markedDates = Object.keys(normalizedMealsData).reduce((acc, date) => {
-    acc[date] = {
-      marked: true,
-      dotColor: '#FF9AA2',
-      selected: date === selectedDate,
-      selectedColor: date === selectedDate ? '#FF9AA2' : undefined,
-    };
-    return acc;
-  }, {} as any);
-
-  // 오늘 날짜 마킹
-  if (!markedDates[today]) {
-    markedDates[today] = {};
-  }
-
-  markedDates[today].today = true;
-  markedDates[today].todayTextColor = '#FF9AA2';
 
   const handleEditMeal = (meal: MealItem) => {
     if (meal.refer_feed_id) {
@@ -159,18 +125,33 @@ export default function MealPlanScreen({ navigation }: any) {
   };
 
   const handleDetailFeed = (feedId: number) => {
-    navigation.navigate('FeedDetail', { feedId });
+    const referMeal = selectedMeals.find((meal: any) => meal.refer_feed_id === feedId);
+    const referMealHash = referMeal?.refer_info?.refer_meal_hash;
+    const referUserHash = referMeal?.refer_info?.refer_user_hash;
+
+    if (!referMealHash || !referUserHash) {
+      toastInfo('원본 식단 정보를 찾을 수 없습니다.');
+      return;
+    }
+
+    navigation.navigate('MealUserDetail', {
+      mealHash: referMealHash,
+      userHash: referUserHash,
+    });
   }
 
   // refer_feed_id가 있는 식단은 원본 피드로 이동 (복사된 식단은 상세에서 원본 피드로 이동 가능)
   const handleReferDetailMeal = () => {
-    console.log("⭕⭕handleReferDetailMeal called with selectedMeal:", selectedMeal);
-    if (selectedMeal.refer_info.refer_meal_hash && selectedMeal.refer_info.refer_user_hash) {
+    if (selectedMeal?.refer_info?.refer_meal_hash && selectedMeal?.refer_info?.refer_user_hash) {
+      setDetailModalVisible(false);
       navigation.navigate('MealUserDetail', {
         mealHash: selectedMeal.refer_info.refer_meal_hash,
         userHash: selectedMeal.refer_info.refer_user_hash
       });
+      return;
     }
+
+    toastInfo('원본 식단 정보를 찾을 수 없습니다.');
   }
 
   const handleMealPress = (meal: MealItem) => {
@@ -202,7 +183,6 @@ export default function MealPlanScreen({ navigation }: any) {
   };
 
   const handleViewSourceFromModal = () => {
-    console.log("⭕⭕handleViewSourceFromModal called with refer_feed_id:", selectedMeal);
     if (selectedMeal?.refer_feed_id > 0) {
       setDetailModalVisible(false);
       handleDetailFeed(selectedMeal.refer_feed_id);
@@ -302,7 +282,6 @@ export default function MealPlanScreen({ navigation }: any) {
 
   useEffect(() => {
     const childs = user.user_childs ?? [];
-
     if (childs.length === 0) {
       setSelectedChildId(null);
       return;
@@ -447,9 +426,62 @@ export default function MealPlanScreen({ navigation }: any) {
           {/* 캘린더 */}
           <Calendar
             current={`${currentMonth}-01`}
-            markedDates={markedDates}
             onDayPress={(day) => setSelectedDate(day.dateString)}
             onMonthChange={handleMonthChange}
+            dayComponent={({ date, state }) => {
+              if (!date) return null;
+
+              const dateString = date.dateString;
+              const meals = normalizedMealsData[dateString] || [];
+              const hasData = meals.length > 0;
+              const hasReferFeed = meals.some((meal: any) => (meal?.refer_feed_id ?? 0) > 0);
+              const isSelected = dateString === selectedDate;
+              const isToday = dateString === today;
+              const isDisabled = state === 'disabled';
+
+              const textColor = isSelected
+                ? '#FFFFFF'
+                : isToday
+                  ? '#FF9AA2'
+                  : isDisabled
+                    ? '#C9C9C9'
+                    : '#4A4A4A';
+
+              return (
+                <TouchableOpacity
+                  onPress={() => setSelectedDate(dateString)}
+                  activeOpacity={0.8}
+                  style={{
+                    width: 34,
+                    height: 42,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderWidth: 1,
+                    borderColor: isSelected ? '#FF9AA2' : '#E8E8E8',
+                    borderRadius: 6,
+                    backgroundColor: isSelected ? '#FF9AA2' : '#FFFFFF',
+                    opacity: isDisabled ? 0.75 : 1,
+                    paddingTop: 2,
+                  }}
+                >
+                  <Text style={{ color: textColor, fontWeight: isSelected ? '700' : '500', fontSize: 14 }}>
+                    {date.day}
+                  </Text>
+                  {hasData && (
+                    <View
+                      style={{
+                        position: 'absolute',
+                        bottom: 5,
+                        width: 6,
+                        height: 6,
+                        borderRadius: 3,
+                        backgroundColor: hasReferFeed ? '#2DBE60' : '#FF6B6B',
+                      }}
+                    />
+                  )}
+                </TouchableOpacity>
+              );
+            }}
             theme={{
               backgroundColor: '#FFFFFF',
               calendarBackground: '#FFFFFF',

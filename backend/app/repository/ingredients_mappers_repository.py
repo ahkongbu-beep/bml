@@ -16,7 +16,7 @@ class IngredientsMappersRepository:
         return ingredient_mapper
 
     @staticmethod
-    def delete_mapper(db, meal_id: int, is_commit=True):
+    def delete_mapper(db, meal_id: int):
         try:
             db.query(IngredientsMappers).filter(
                 IngredientsMappers.meal_id == meal_id
@@ -25,8 +25,5 @@ class IngredientsMappersRepository:
             db.rollback()
             return False
 
-        if is_commit:
-            db.commit()
-        else:
-            db.flush()
+        db.flush()
         return True

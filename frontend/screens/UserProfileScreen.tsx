@@ -3,7 +3,7 @@
  * MyPageScreen과 유사하지만, 다른 사용자의 정보를 보여줌
  */
 import React, { useState, useEffect } from 'react';
-import styles from './UserProfileScreen.styles';
+import styles from '../styles/screens/UserProfileScreen.styles';
 import {
   View,
   Text,
@@ -28,20 +28,17 @@ import { getStaticImage } from '../libs/utils/common';
 
 export default function UserProfileScreen({ route, navigation }: any) {
   const { targetHash } = route.params; // 조회할 사용자 Hash
-  console.log('UserProfileScreen에 전달된 params - targetHash:', targetHash);
   const { user: currentUser } = useAuth();
   const [ viewType, setViewType ] = useState<'grid' | 'list'>('grid');
 
   // 사용자 프로필 조회
   const { data: userProfile, isLoading: profileLoading, isError: profileIsError, error: profileError } = useGetUserProfile(targetHash);
-  console.log('조회 대상 사용자 프로필:', userProfile);
   // 사용자의 식단 목록 조회
   const { data: userMealsData, isLoading: mealsLoading } = useUserMeals(targetHash);
   // 식단 데이터
   const userMeals = userMealsData?.data || [];
   // 차단 mutation
   const blockUserMutation = useBlockUser();
-
   // 본인 프로필인 경우 MyPage로 이동
   useEffect(() => {
     if (currentUser?.view_hash === targetHash) {
