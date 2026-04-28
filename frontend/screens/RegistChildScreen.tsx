@@ -6,12 +6,6 @@
  */
 import React, { useState, useEffect } from 'react';
 import { toastError, toastInfo, toastSuccess } from '@/libs/utils/toast';
-import {
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../libs/contexts/AuthContext';
 import Layout from '../components/Layout';
 import Header from '../components/Header';
@@ -137,24 +131,16 @@ export default function RegistChildScreen({ navigation, route }: any) {
         showBack={true}
         onBackPress={() => navigation.goBack()}
       />
-      <SafeAreaView style={{ flex: 1 }}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={{ flex: 1 }}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 100}
-        >
-          {/* StepTwo 컴포넌트 사용 */}
-          <StepTwo
-            childrenData={childrenData}
-            onChildrenDataChange={setChildrenData}
-            onNext={handleSubmit}
-            onBack={handleSkip}
-            nextButtonText="등록 완료"
-            backButtonText="나중에 등록하기"
-            isLoading={isLoading}
-          />
-        </KeyboardAvoidingView>
-      </SafeAreaView>
+      {/* StepTwo 내부에 SafeArea/Keyboard 처리가 포함되어 있어 중복 래핑을 제거합니다. */}
+      <StepTwo
+        childrenData={childrenData}
+        onChildrenDataChange={setChildrenData}
+        onNext={handleSubmit}
+        onBack={handleSkip}
+        nextButtonText="등록 완료"
+        backButtonText="나중에 등록하기"
+        isLoading={isLoading}
+      />
     </Layout>
   );
 }

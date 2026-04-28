@@ -1,6 +1,6 @@
 // 회원가입페이지 - 3단계 스텝
 // frontend/screens/RegistScreen.tsx
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import styles from '../styles/screens/RegistScreen.styles';
 import {
   View,
@@ -10,6 +10,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  BackHandler,
 } from 'react-native';
 import Header from '../components/Header';
 import Layout from '../components/Layout';
@@ -92,10 +93,45 @@ export default function RegistScreen({ navigation }: any) {
 
   // Step 2, 3 이전
   const handleBack = () => {
-    if (currentStep > 1) {
-      setCurrentStep(currentStep - 1);
-    }
+    setCurrentStep((prevStep) => (prevStep > 1 ? prevStep - 1 : prevStep));
   };
+
+  const handleHeaderBack = () => {
+    if (currentStep === 1) {
+      Alert.alert(
+        '회원가입 취소',
+        '정말로 취소하시겠습니까?',
+        [
+          {
+            text: '아니오',
+            style: 'cancel',
+          },
+          {
+            text: '예',
+            style: 'destructive',
+            onPress: () => navigation.goBack(),
+          },
+        ],
+        { cancelable: true }
+      );
+      return;
+    }
+
+    handleBack();
+  };
+
+  useEffect(() => {
+    if (Platform.OS !== 'android') {
+      return;
+    }
+
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      handleHeaderBack();
+      return true;
+    });
+
+    return () => subscription.remove();
+  }, [currentStep, navigation]);
 
   // 최종 회원가입 처리
   const handleSubmit = async () => {
@@ -179,19 +215,14 @@ export default function RegistScreen({ navigation }: any) {
       <Header
         title={getStepTitle()}
         showBack={true}
-        onBackPress={() => {
-          if (currentStep === 1) {
-            navigation.goBack();
-          } else {
-            handleBack();
-          }
-        }}
+        onBackPress={handleHeaderBack}
       />
 
       <KeyboardAvoidingView
         style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 100}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        enabled={Platform.OS === 'ios'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
       >
         {/* 단계 인디케이터 */}
         <View style={styles.stepIndicator}>

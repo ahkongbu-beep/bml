@@ -5,14 +5,16 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  ScrollView,
   Alert,
   Platform,
   ActivityIndicator,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { useAllergyCategories } from '../../libs/hooks/useCategories';
 
 interface AllergyItem {
@@ -165,12 +167,21 @@ export default function StepTwo({
   };
 
   return (
-    <View style={styles.container}>
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps='handled'
-        contentContainerStyle={{ paddingBottom: 40 }}
+    <SafeAreaView style={styles.safeArea} edges={['bottom']}>
+      <KeyboardAvoidingView
+        style={styles.keyboardAvoiding}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        enabled={Platform.OS === 'ios'}
       >
+        <View style={styles.container}>
+          <KeyboardAwareScrollView
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps='handled'
+            enableOnAndroid={true}
+            enableAutomaticScroll={true}
+            extraScrollHeight={24}
+            contentContainerStyle={{ paddingBottom: 40 }}
+          >
         {/* 자녀 수 선택 */}
         <Text style={styles.label}>자녀 수</Text>
         <View style={styles.pickerContainer}>
@@ -182,7 +193,6 @@ export default function StepTwo({
             <Picker.Item label="1명" value={1} />
             <Picker.Item label="2명" value={2} />
             <Picker.Item label="3명" value={3} />
-            <Picker.Item label="4명" value={4} />
           </Picker>
         </View>
 
@@ -335,30 +345,38 @@ export default function StepTwo({
             </View>
           </View>
         )}
-      </ScrollView>
+          </KeyboardAwareScrollView>
 
-      {/* 버튼 */}
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity style={styles.backButton} onPress={onBack}>
-          <Text style={styles.backButtonText}>{backButtonText}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.nextButton, (!canProceed() || isLoading) && styles.nextButtonDisabled]}
-          onPress={onNext}
-          disabled={!canProceed() || isLoading}
-        >
-          {isLoading ? (
-            <ActivityIndicator color="#FFF" />
-          ) : (
-            <Text style={styles.nextButtonText}>{nextButtonText}</Text>
-          )}
-        </TouchableOpacity>
-      </View>
-    </View>
+          {/* 버튼 */}
+          <View style={styles.buttonContainer}>
+            <TouchableOpacity style={styles.backButton} onPress={onBack}>
+              <Text style={styles.backButtonText}>{backButtonText}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.nextButton, (!canProceed() || isLoading) && styles.nextButtonDisabled]}
+              onPress={onNext}
+              disabled={!canProceed() || isLoading}
+            >
+              {isLoading ? (
+                <ActivityIndicator color="#FFF" />
+              ) : (
+                <Text style={styles.nextButtonText}>{nextButtonText}</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+  },
+  keyboardAvoiding: {
+    flex: 1,
+  },
   container: {
     flex: 1,
     padding: 24,

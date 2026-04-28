@@ -10,7 +10,6 @@ export interface MealCalendar {
     is_public: string;
     view_count: number;
     like_count: number;
-    is_pre_made: string;
     mapped_tags: string[];
     refer_feed_id: number;
     meal_stage: number;

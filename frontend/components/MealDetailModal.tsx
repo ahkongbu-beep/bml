@@ -161,7 +161,7 @@ const MealDetailModal: React.FC<MealDetailModalProps> = ({
                 </View>
               )}
 
-              {meal.is_pre_made == "N" && meal.mapped_tags?.length > 0 && (
+              {meal.mapped_tags?.length > 0 && (
                 <View style={styles.infoGrid}>
                   <View style={styles.infoItem}>
                     <View style={styles.infoIconContainer}>

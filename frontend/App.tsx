@@ -38,6 +38,7 @@ import CommunityWriteScreen from './screens/CommunityWriteScreen';
 import CommunityModifyScreen from './screens/CommunityModifyScreen';
 import CommunityDetailScreen from './screens/CommunityDetailScreen';
 import MenuListScreen from './screens/MenuListScreen';
+import GrowthScreen from './screens/GrowthScreen';
 import { AuthProvider, useAuth } from './libs/contexts/AuthContext';
 import { getNeedChildRegistration, clearNeedChildRegistration } from './libs/utils/storage';
 import { getMessaging, requestPermission, onMessage } from '@react-native-firebase/messaging';
@@ -110,6 +111,7 @@ function TabNavigator() {
       <Tab.Screen name="SearchPassword" component={UserSearchPassword} />
       <Tab.Screen name="SearchAccount" component={UserSearchAccount} />
       <Tab.Screen name="RegistChild" component={RegistChildScreen} />
+      <Tab.Screen name="Growth" component={GrowthScreen} />
       <Tab.Screen name="MealCopyByFeed" component={MealCopyByFeedScreen} />
       <Tab.Screen name="Community" component={CommunityScreen} />
       <Tab.Screen name="CommunityWrite" component={CommunityWriteScreen} />
@@ -137,6 +139,7 @@ function MainNavigator() {
       <Stack.Screen name="SearchPassword" component={UserSearchPassword} />
       <Stack.Screen name="SearchAccount" component={UserSearchAccount} />
       <Stack.Screen name="RegistChild" component={RegistChildScreen} />
+      <Stack.Screen name="Growth" component={GrowthScreen} />
       <Stack.Screen name="MealCopyByFeed" component={MealCopyByFeedScreen} />
       <Stack.Screen name="Community" component={CommunityScreen} />
       <Stack.Screen name="CommunityWrite" component={CommunityWriteScreen} />

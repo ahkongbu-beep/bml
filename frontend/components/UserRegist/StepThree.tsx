@@ -6,8 +6,11 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface StepThreeProps {
   marketingAgree: number;
@@ -46,13 +49,19 @@ export default function StepThree({
   const allAgreed = privacyAgree && termsAgree && marketingAgree === 1 && pushAgree === 1;
 
   return (
-    <View style={styles.container}>
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        style={styles.scrollView}
-        keyboardShouldPersistTaps='handled'
-        contentContainerStyle={{ paddingBottom: 40 }}
+    <SafeAreaView style={styles.safeArea} edges={['bottom']}>
+      <KeyboardAvoidingView
+        style={styles.keyboardAvoiding}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        enabled={Platform.OS === 'ios'}
       >
+        <View style={styles.container}>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            style={styles.scrollView}
+            keyboardShouldPersistTaps='handled'
+            contentContainerStyle={{ paddingBottom: 40 }}
+          >
         <Text style={styles.title}>약관 동의</Text>
         <Text style={styles.subtitle}>
           서비스 이용을 위해 아래 약관에 동의해주세요
@@ -157,30 +166,38 @@ export default function StepThree({
             </View>
           </View>
         </TouchableOpacity>
-      </ScrollView>
+          </ScrollView>
 
-      {/* 버튼 */}
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity style={styles.backButton} onPress={onBack} disabled={isLoading}>
-          <Text style={styles.backButtonText}>이전</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.submitButton, !canSubmit() && styles.submitButtonDisabled]}
-          onPress={onSubmit}
-          disabled={!canSubmit() || isLoading}
-        >
-          {isLoading ? (
-            <ActivityIndicator color="#FFF" />
-          ) : (
-            <Text style={styles.submitButtonText}>가입완료</Text>
-          )}
-        </TouchableOpacity>
-      </View>
-    </View>
+          {/* 버튼 */}
+          <View style={styles.buttonContainer}>
+            <TouchableOpacity style={styles.backButton} onPress={onBack} disabled={isLoading}>
+              <Text style={styles.backButtonText}>이전</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.submitButton, !canSubmit() && styles.submitButtonDisabled]}
+              onPress={onSubmit}
+              disabled={!canSubmit() || isLoading}
+            >
+              {isLoading ? (
+                <ActivityIndicator color="#FFF" />
+              ) : (
+                <Text style={styles.submitButtonText}>가입완료</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+  },
+  keyboardAvoiding: {
+    flex: 1,
+  },
   container: {
     flex: 1,
     padding: 24,

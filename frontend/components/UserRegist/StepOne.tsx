@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, Alert, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 interface StepOneProps {
   email: string;
   password: string;
@@ -32,6 +33,8 @@ export default function StepOne({
 }: StepOneProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
+  const insets = useSafeAreaInsets();
+  const bottomSpacing = insets.bottom + 20;
 
   const pickImage = async () => {
     // 권한 요청
@@ -80,122 +83,139 @@ export default function StepOne({
   };
 
   return (
-    <ScrollView
-      style={styles.container}
-      showsVerticalScrollIndicator={false}
-      keyboardShouldPersistTaps='handled'
-      contentContainerStyle={{ paddingBottom: 40 }}
-    >
-      {/* 대표 프로필 이미지 */}
-      <Text style={styles.title}>대표 프로필 이미지</Text>
-      <TouchableOpacity style={styles.imageContainer} onPress={pickImage}>
-        {profileImage ? (
-          <Image source={{ uri: profileImage }} style={styles.profileImage} />
-        ) : (
-          <View style={styles.imagePlaceholder}>
-            <Ionicons name="camera" size={32} color="#999" />
-            <Text style={styles.imagePlaceholderText}>사진 선택</Text>
-          </View>
-        )}
-      </TouchableOpacity>
-
-      <Text style={[styles.title, { marginTop: 24 }]}>이메일</Text>
-      <View style={styles.inputContainer}>
-        <Ionicons name="mail-outline" size={20} color="#999" style={styles.icon} />
-        <TextInput
-          style={styles.input}
-          placeholder="이메일을 입력하세요."
-          value={email}
-          onChangeText={onEmailChange}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
-      </View>
-      {email.length > 0 && !isValidEmail(email) && (
-        <Text style={styles.errorText}>올바른 이메일 형식이 아닙니다</Text>
-      )}
-
-      <Text style={[styles.title, { marginTop: 24 }]}>비밀번호</Text>
-      <View style={styles.inputContainer}>
-        <Ionicons name="lock-closed-outline" size={20} color="#999" style={styles.icon} />
-        <TextInput
-          style={styles.input}
-          placeholder="비밀번호를 입력하세요."
-          value={password}
-          onChangeText={onPasswordChange}
-          secureTextEntry={!showPassword}
-          autoCapitalize="none"
-        />
-        <TouchableOpacity
-          onPress={() => setShowPassword(!showPassword)}
-          style={styles.eyeIcon}
-        >
-          <Ionicons
-            name={showPassword ? 'eye-outline' : 'eye-off-outline'}
-            size={20}
-            color="#999"
-          />
-        </TouchableOpacity>
-      </View>
-      {password.length > 0 && !isValidPassword(password) && (
-        <Text style={styles.errorText}>비밀번호는 6자 이상이어야 합니다</Text>
-      )}
-
-      <Text style={[styles.title, { marginTop: 24 }]}>비밀번호 확인</Text>
-      <View style={styles.inputContainer}>
-        <Ionicons name="lock-closed-outline" size={20} color="#999" style={styles.icon} />
-        <TextInput
-          style={styles.input}
-          placeholder="비밀번호를 입력하세요."
-          value={passwordConfirm}
-          onChangeText={onPasswordConfirmChange}
-          secureTextEntry={!showPasswordConfirm}
-          autoCapitalize="none"
-        />
-        <TouchableOpacity
-          onPress={() => setShowPasswordConfirm(!showPasswordConfirm)}
-          style={styles.eyeIcon}
-        >
-          <Ionicons
-            name={showPasswordConfirm ? 'eye-outline' : 'eye-off-outline'}
-            size={20}
-            color="#999"
-          />
-        </TouchableOpacity>
-      </View>
-      {passwordConfirm.length > 0 && password !== passwordConfirm && (
-        <Text style={styles.errorText}>비밀번호가 일치하지 않습니다</Text>
-      )}
-
-      <Text style={[styles.title, { marginTop: 24 }]}>닉네임</Text>
-      <View style={styles.inputContainer}>
-        <Ionicons name="person-outline" size={20} color="#999" style={styles.icon} />
-        <TextInput
-          style={styles.input}
-          placeholder="닉네임을 입력하세요."
-          value={nickname}
-          onChangeText={onNicknameChange}
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
-      </View>
-      {nickname.length > 0 && !isValidNickname(nickname) && (
-        <Text style={styles.errorText}>닉네임은 최소 2자 이상이어야 합니다</Text>
-      )}
-
-      <TouchableOpacity
-        style={[styles.nextButton, !canProceed() && styles.nextButtonDisabled]}
-        onPress={onNext}
-        disabled={!canProceed()}
+    <SafeAreaView style={styles.safeArea} edges={['bottom']}>
+      <KeyboardAvoidingView
+        style={styles.keyboardAvoiding}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        enabled={Platform.OS === 'ios'}
       >
-        <Text style={styles.nextButtonText}>다음</Text>
-      </TouchableOpacity>
-    </ScrollView>
+        <KeyboardAwareScrollView
+          style={styles.container}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps='handled'
+          enableOnAndroid={true}
+          enableAutomaticScroll={true}
+          extraScrollHeight={24}
+          contentContainerStyle={{ paddingBottom: bottomSpacing }}
+        >
+          {/* 대표 프로필 이미지 */}
+          <Text style={styles.title}>대표 프로필 이미지</Text>
+          <TouchableOpacity style={styles.imageContainer} onPress={pickImage}>
+            {profileImage ? (
+              <Image source={{ uri: profileImage }} style={styles.profileImage} />
+            ) : (
+              <View style={styles.imagePlaceholder}>
+                <Ionicons name="camera" size={32} color="#999" />
+                <Text style={styles.imagePlaceholderText}>사진 선택</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+
+          <Text style={[styles.title, { marginTop: 24 }]}>이메일</Text>
+          <View style={styles.inputContainer}>
+            <Ionicons name="mail-outline" size={20} color="#999" style={styles.icon} />
+            <TextInput
+              style={styles.input}
+              placeholder="이메일을 입력하세요."
+              value={email}
+              onChangeText={onEmailChange}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+          </View>
+          {email.length > 0 && !isValidEmail(email) && (
+            <Text style={styles.errorText}>올바른 이메일 형식이 아닙니다</Text>
+          )}
+
+          <Text style={[styles.title, { marginTop: 24 }]}>비밀번호</Text>
+          <View style={styles.inputContainer}>
+            <Ionicons name="lock-closed-outline" size={20} color="#999" style={styles.icon} />
+            <TextInput
+              style={styles.input}
+              placeholder="비밀번호를 입력하세요."
+              value={password}
+              onChangeText={onPasswordChange}
+              secureTextEntry={!showPassword}
+              autoCapitalize="none"
+            />
+            <TouchableOpacity
+              onPress={() => setShowPassword(!showPassword)}
+              style={styles.eyeIcon}
+            >
+              <Ionicons
+                name={showPassword ? 'eye-outline' : 'eye-off-outline'}
+                size={20}
+                color="#999"
+              />
+            </TouchableOpacity>
+          </View>
+          {password.length > 0 && !isValidPassword(password) && (
+            <Text style={styles.errorText}>비밀번호는 6자 이상이어야 합니다</Text>
+          )}
+
+          <Text style={[styles.title, { marginTop: 24 }]}>비밀번호 확인</Text>
+          <View style={styles.inputContainer}>
+            <Ionicons name="lock-closed-outline" size={20} color="#999" style={styles.icon} />
+            <TextInput
+              style={styles.input}
+              placeholder="비밀번호를 입력하세요."
+              value={passwordConfirm}
+              onChangeText={onPasswordConfirmChange}
+              secureTextEntry={!showPasswordConfirm}
+              autoCapitalize="none"
+            />
+            <TouchableOpacity
+              onPress={() => setShowPasswordConfirm(!showPasswordConfirm)}
+              style={styles.eyeIcon}
+            >
+              <Ionicons
+                name={showPasswordConfirm ? 'eye-outline' : 'eye-off-outline'}
+                size={20}
+                color="#999"
+              />
+            </TouchableOpacity>
+          </View>
+          {passwordConfirm.length > 0 && password !== passwordConfirm && (
+            <Text style={styles.errorText}>비밀번호가 일치하지 않습니다</Text>
+          )}
+
+          <Text style={[styles.title, { marginTop: 24 }]}>닉네임</Text>
+          <View style={styles.inputContainer}>
+            <Ionicons name="person-outline" size={20} color="#999" style={styles.icon} />
+            <TextInput
+              style={styles.input}
+              placeholder="닉네임을 입력하세요."
+              value={nickname}
+              onChangeText={onNicknameChange}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+          </View>
+          {nickname.length > 0 && !isValidNickname(nickname) && (
+            <Text style={styles.errorText}>닉네임은 최소 2자 이상이어야 합니다</Text>
+          )}
+
+          <TouchableOpacity
+            style={[styles.nextButton, !canProceed() && styles.nextButtonDisabled]}
+            onPress={onNext}
+            disabled={!canProceed()}
+          >
+            <Text style={styles.nextButtonText}>다음</Text>
+          </TouchableOpacity>
+        </KeyboardAwareScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+  },
+  keyboardAvoiding: {
+    flex: 1,
+  },
   container: {
     flex: 1,
     padding: 24,

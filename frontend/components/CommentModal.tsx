@@ -223,6 +223,7 @@ export default function CommentModal({
               style={[
                 styles.sendButton,
                 (!commentText.trim() || isLoading) && styles.sendButtonDisabled,
+                isLoading && styles.sendButtonLoading,
               ]}
               disabled={!commentText.trim() || isLoading}
               onPress={handleSubmit}
@@ -390,6 +391,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   sendButtonDisabled: {
-    backgroundColor: '#ccc',
+    backgroundColor: '#E0E0E0',
+    opacity: 0.6,
+  },
+  sendButtonLoading: {
+    backgroundColor: '#FF7B89',
   },
 });

@@ -14,6 +14,7 @@ import {
   Image,
   Animated,
   Modal,
+  useWindowDimensions,
 } from 'react-native';
 import Header from '../components/Header';
 import Layout from '@/components/Layout';
@@ -27,6 +28,7 @@ import { useAuth } from '../libs/contexts/AuthContext';
 import { useIngredientList } from '../libs/hooks/useFeeds';
 import { useCreateMealWithImage, useUpdateMealWithImage, useUpdateMeal, useAnalyzeMeal } from '../libs/hooks/useMeals';
 import { useCategoryCodes } from '../libs/hooks/useCategories';
+import { useIngredientRequest } from '../libs/hooks/useIngredients';
 
 // 상수 및 utils
 import { getStaticImage } from '../libs/utils/common';
@@ -44,6 +46,7 @@ import {
 } from '../libs/utils/codes/IngredientCode';
 
 export default function MealRegistScreen({ route, navigation }: any) {
+  const { width: screenWidth } = useWindowDimensions();
 
   const { selectedDate: _selectedDate, meal, selectedChildId } = route.params || {};
 
@@ -57,6 +60,10 @@ export default function MealRegistScreen({ route, navigation }: any) {
 
   const { user } = useAuth();
   const { data: categoryCodes } = useCategoryCodes('MEALS_GROUP');
+
+  // 재료 요청
+  const useIngredientRequestMutation = useIngredientRequest();
+
   const createMealWithImageMutation = useCreateMealWithImage();
   const updateMealWithImageMutation = useUpdateMealWithImage();
   const updateMealMutation = useUpdateMeal();
@@ -70,7 +77,7 @@ export default function MealRegistScreen({ route, navigation }: any) {
   const [existingImageUrl, setExistingImageUrl] = useState<string | null>(null);
   const [imageChanged, setImageChanged] = useState(false);
   const [mealCondition, setMealCondition] = useState<string>('0');
-  const [isPreMade, setIsPreMade] = useState<'Y' | 'N'>('N');
+
   const [mealStage, setMealStage] = useState<number>(0); // 1: 이유식, 2: 유아식, 3: 일반식
   const [mealStageDetail, setMealStageDetail] = useState<string>(''); // 세부 단계 선택값
   const [isPublic, setIsPublic] = useState<'Y' | 'N'>('Y');
@@ -78,6 +85,8 @@ export default function MealRegistScreen({ route, navigation }: any) {
   const [ingredientAmounts, setIngredientAmounts] = useState<Record<string, number>>({});
   const [ingredientAmountModalVisible, setIngredientAmountModalVisible] = useState(false);
   const [selectedIngredientNameForAmount, setSelectedIngredientNameForAmount] = useState<string | null>(null);
+  const [ingredientRequestModalVisible, setIngredientRequestModalVisible] = useState(false);
+  const [ingredientRequestText, setIngredientRequestText] = useState('');
   const [ingredientInput, setIngredientInput] = useState('');
   const [childId, setChildId] = useState<number | null>(selectedChildId || null);
   const [selectedIngredientCategory, setSelectedIngredientCategory] = useState<string | null>(null);
@@ -137,7 +146,6 @@ export default function MealRegistScreen({ route, navigation }: any) {
       setContents(meal.contents || '');
       setSelectedCategory(meal.category_id || null);
       setMealCondition(meal.meal_condition || '0');
-      setIsPreMade(meal.is_pre_made || 'N');
       setIsPublic(meal.is_public || 'Y');
       setChildId(meal.childs?.child_id || null);
 
@@ -220,6 +228,43 @@ export default function MealRegistScreen({ route, navigation }: any) {
     setSelectedIngredientNameForAmount(null);
   };
 
+  const handleOpenIngredientRequestModal = () => {
+    setIngredientRequestModalVisible(true);
+  };
+
+  const handleCloseIngredientRequestModal = () => {
+    setIngredientRequestModalVisible(false);
+    setIngredientRequestText('');
+  };
+
+  const handleSubmitIngredientRequest = () => {
+    const requestText = ingredientRequestText.trim();
+    if (!requestText) {
+      toastInfo('추가 요청할 재료를 입력해주세요.');
+      return;
+    }
+
+    requestText.split(',').forEach((name) => {
+      if (!name.trim()) {
+        toastInfo('빈 재료 이름은 요청할 수 없습니다.');
+        return;
+      }
+    });
+
+    const requestArr = requestText.split(',').map(name => name.trim()).filter(name => name.length > 0);
+
+    useIngredientRequestMutation.mutate(requestArr, {
+      onSuccess: () => {
+        toastSuccess('추가재료 요청이 등록되었습니다.');
+        setIngredientRequestText('');
+        setIngredientRequestModalVisible(false);
+      },
+      onError: (error) => {
+        toastError('재료 요청에 실패하였습니다.');
+      },
+    });
+  };
+
   const handlePickImage = async () => {
     // 권한 요청
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -273,6 +318,19 @@ export default function MealRegistScreen({ route, navigation }: any) {
     setShowIngredientInput(item.needCode);
     setMealStageDetail(item.id);
   }
+
+  // 화면 너비에 따른 동적 폰트 사이즈 계산
+  const getResponsiveFontSize = () => {
+    if (screenWidth < 320) {
+      return 8.5;
+    } else if (screenWidth < 375) {
+      return 9;
+    } else {
+      return 10;
+    }
+  };
+
+  const responsiveFontSize = getResponsiveFontSize();
 
   /*
     식단 등록 전 ai 분석
@@ -367,12 +425,11 @@ export default function MealRegistScreen({ route, navigation }: any) {
       input_date: selectedDate,
       ingredientInput: ingredientInput,
       meal_condition: mealCondition,
-      is_pre_made: isPreMade,
       is_public: isPublic,
       child_id: childId,
       meal_stage: mealStage,
       meal_stage_detail: mealStageDetail,
-      ingredients: isPreMade === 'N'
+      ingredients: ingredients
         ? ingredients.map((name) => {
             const ingredientId = ingredientIdByName.get(name) ?? name;
             return {
@@ -623,7 +680,7 @@ export default function MealRegistScreen({ route, navigation }: any) {
             <Text style={styles.sectionTitle}>내용 *</Text>
             <TextInput
               style={[styles.input, styles.textArea]}
-              placeholder="먹은 음식이나 메뉴를 자세히 적어주세요"
+              placeholder="레시피 또는 기록 하실 내용이 있다면 적어주세요."
               placeholderTextColor="#B8B8B8"
               value={contents}
               onChangeText={setContents}
@@ -652,6 +709,7 @@ export default function MealRegistScreen({ route, navigation }: any) {
                   <Text
                     style={[
                       styles.toggleButtonText,
+                      { fontSize: responsiveFontSize },
                       mealCondition === condition.value && styles.toggleButtonTextActive,
                     ]}
                   >
@@ -674,7 +732,7 @@ export default function MealRegistScreen({ route, navigation }: any) {
                   onPress={() => setMealStage(stage.id)}
                   activeOpacity={0.7}
                 >
-                  <Text style={[styles.toggleButtonText, mealStage === stage.id && styles.toggleButtonTextActive]}>
+                  <Text style={[styles.toggleButtonText, { fontSize: responsiveFontSize }, mealStage === stage.id && styles.toggleButtonTextActive]}>
                     {stage.label}
                   </Text>
                 </TouchableOpacity>
@@ -707,6 +765,7 @@ export default function MealRegistScreen({ route, navigation }: any) {
               </View>
             </View>
           )}
+
           {/* 재료선택(기성품 여부가 N 인 경우)start */}
           {showIngredientInput && (() => {
             const catData = (ingredientListData as any[])?.find(
@@ -719,7 +778,17 @@ export default function MealRegistScreen({ route, navigation }: any) {
               : [];
             return (
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>재료 선택</Text>
+                <View style={styles.sectionTitleRow}>
+                  <Text style={[styles.sectionTitle, styles.sectionTitleCompact]}>재료 선택</Text>
+                  <TouchableOpacity
+                    style={styles.requestIngredientButton}
+                    onPress={handleOpenIngredientRequestModal}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="add-circle-outline" size={14} color="#FF6B7A" />
+                    <Text style={styles.requestIngredientButtonText}>추가재료 요청</Text>
+                  </TouchableOpacity>
+                </View>
 
                 {/* 대카테고리 칩 */}
                 {Array.isArray(ingredientListData) && (
@@ -862,33 +931,6 @@ export default function MealRegistScreen({ route, navigation }: any) {
           })()}
           {/* 재료입력 end */}
 
-          {/* 기성품 여부 Y/N | N 인 경우 재료 입력 start */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>기성품 여부</Text>
-            <View style={styles.buttonGroup}>
-              <TouchableOpacity
-                style={[styles.toggleButton, isPreMade === 'Y' && styles.toggleButtonActive]}
-                onPress={() => setIsPreMade('Y')}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.toggleButtonText, isPreMade === 'Y' && styles.toggleButtonTextActive]}>
-                  🏪 기성품
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.toggleButton, isPreMade === 'N' && styles.toggleButtonActive]}
-                onPress={() => setIsPreMade('N')}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.toggleButtonText, isPreMade === 'N' && styles.toggleButtonTextActive]}>
-                  🥣 직접 조리
-                </Text>
-              </TouchableOpacity>
-            </View>
-            <Text style={styles.descriptionText}>구매한 완제품이면 기성품을 선택해주세요.</Text>
-          </View>
-          {/* 기성품 여부 Y/N | N 인 경우 재료 입력 end */}
-
           {/* 공개여부 start */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>공개 여부</Text>
@@ -898,8 +940,8 @@ export default function MealRegistScreen({ route, navigation }: any) {
                 onPress={() => setIsPublic('Y')}
                 activeOpacity={0.7}
               >
-                <Ionicons name="earth" size={18} color={isPublic === 'Y' ? '#FFFFFF' : '#999'} />
-                <Text style={[styles.toggleButtonText, isPublic === 'Y' && styles.toggleButtonTextActive]}>
+                <Ionicons name="earth" size={screenWidth < 375 ? 14 : 16} color={isPublic === 'Y' ? '#FFFFFF' : '#999'} />
+                <Text style={[styles.toggleButtonText, { fontSize: responsiveFontSize }, isPublic === 'Y' && styles.toggleButtonTextActive]}>
                   공개
                 </Text>
               </TouchableOpacity>
@@ -908,8 +950,8 @@ export default function MealRegistScreen({ route, navigation }: any) {
                 onPress={() => setIsPublic('N')}
                 activeOpacity={0.7}
               >
-                <Ionicons name="lock-closed" size={18} color={isPublic === 'N' ? '#FFFFFF' : '#999'} />
-                <Text style={[styles.toggleButtonText, isPublic === 'N' && styles.toggleButtonTextActive]}>
+                <Ionicons name="lock-closed" size={screenWidth < 375 ? 14 : 16} color={isPublic === 'N' ? '#FFFFFF' : '#999'} />
+                <Text style={[styles.toggleButtonText, { fontSize: responsiveFontSize }, isPublic === 'N' && styles.toggleButtonTextActive]}>
                   비공개
                 </Text>
               </TouchableOpacity>
@@ -994,6 +1036,47 @@ export default function MealRegistScreen({ route, navigation }: any) {
               >
                 <Text style={styles.amountModalCancelText}>닫기</Text>
               </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
+        <Modal
+          visible={ingredientRequestModalVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={handleCloseIngredientRequestModal}
+        >
+          <View style={styles.requestModalOverlay}>
+            <View style={styles.requestModalContainer}>
+              <Text style={styles.requestModalTitle}>추가재료 요청</Text>
+              <Text style={styles.requestModalDescription}>주단위 취합 후 추가됩니다.</Text>
+              <Text style={styles.requestModalDescription}>여러 재료 추가 시 콤마(,)로 구분해주세요.</Text>
+
+              <TextInput
+                style={styles.requestModalInput}
+                placeholder="추가하고 싶은 재료명을 입력하세요"
+                placeholderTextColor="#BFBFBF"
+                value={ingredientRequestText}
+                onChangeText={setIngredientRequestText}
+                maxLength={40}
+              />
+
+              <View style={styles.requestModalButtonRow}>
+                <TouchableOpacity
+                  style={styles.requestModalCancelButton}
+                  onPress={handleCloseIngredientRequestModal}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.requestModalCancelText}>취소</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.requestModalSubmitButton}
+                  onPress={handleSubmitIngredientRequest}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.requestModalSubmitText}>등록</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         </Modal>

@@ -463,7 +463,7 @@ export default function MealCopyByFeedScreen({ route, navigation }: any) {
               <Ionicons name="information-circle" size={20} color="#FF9AA2" />
               <Text style={styles.infoText}>
                 원본 피드의 이미지와 내용이 복사됩니다.{'\n'}
-                제목과 메모는 자유롭게 수정할 수 있습니다.
+                메모는 자유롭게 수정할 수 있습니다.
               </Text>
             </View>
 
