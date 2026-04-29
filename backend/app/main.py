@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from app.routes import auth_router, notices_router, categories_codes_router, users_router, feeds_router, meals_router, summary_router, communities_router, attaches_router, likes_router, admin_router
+from app.routes import auth_router, notices_router, categories_codes_router, users_router, feeds_router, meals_router, summary_router, communities_router, attaches_router, likes_router, admin_router, ingredients_router, growths_router
 from app.middleware import JWTAuthMiddleware
 from fastapi.exceptions import RequestValidationError
 import os
@@ -54,6 +54,8 @@ app.include_router(likes_router, prefix="/likes", tags=["likes"])
 app.include_router(summary_router, prefix="/summaries", tags=["summary"])
 app.include_router(communities_router, prefix="/communities", tags=["communities"])
 app.include_router(attaches_router, prefix="/attaches", tags=["attaches"])
+app.include_router(ingredients_router, prefix="/ingredients", tags=["ingredients"])
+app.include_router(growths_router, prefix="/growths", tags=["growths"])
 @app.get("/")
 def root():
     return {"message": "Welcome to the BML Backend API"}

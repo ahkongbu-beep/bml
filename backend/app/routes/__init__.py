@@ -9,6 +9,8 @@ from app.routes.communities_router import router as communities_router
 from app.routes.attaches_router import router as attaches_router
 from app.routes.likes_router import router as likes_router
 from app.routes.admin_router import router as admin_router
+from app.routes.ingredients_router import router as ingredients_router
+from app.routes.growths_router import router as growths_router
 
 __all__ = [
     "auth_router",
@@ -21,5 +23,7 @@ __all__ = [
     "communities_router",
     "attaches_router",
     "likes_router",
-    "admin_router"
+    "admin_router",
+    "ingredients_router",
+    "growths_router"
 ]

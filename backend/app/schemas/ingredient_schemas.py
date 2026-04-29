@@ -11,3 +11,5 @@ class IngredientMapperItemSchema(BaseModel):
     mapped_score: float
     mapped_tags: str
 
+class IngredientRequestSchema(BaseModel):
+    names: list[str]

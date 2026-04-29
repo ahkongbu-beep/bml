@@ -26,3 +26,4 @@ from .summaries_agents import SummariesAgents
 from .users_childs import UsersChilds
 from .password_reset_token import PasswordResetToken
 from .users_childs_allergies import UsersChildsAllergies
+from .ingredients_requests import IngredientsRequests

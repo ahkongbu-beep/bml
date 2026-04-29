@@ -53,7 +53,6 @@ class MealsCalendarsRepository:
                 user_id=params.get("user_id", 0),
                 meal_stage=params.get("meal_stage", 0),
                 meal_stage_detail=params.get("meal_stage_detail", ""),
-                is_pre_made=params.get("is_pre_made", "N"),
                 is_public=params.get("is_public", "N"),
                 is_active=params.get("is_active", "Y"),
                 view_count=params.get("view_count", 0),

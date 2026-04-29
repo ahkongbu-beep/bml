@@ -23,9 +23,9 @@ def delete_comments_by_meal_calendar_id(db, meal_calendar_id):
 """
 식단 해시로 댓글 조회
 """
-def get_meal_comments_by_hash(db, meal_hash: str):
-    comments = MealsCommentsRepository.get_comment_by_view_hash(db, meal_hash)
-    return build_comment_tree(comments)
+def get_meal_comment_by_hash(db, meal_hash: str):
+    # view_hash is unique, so this lookup returns a single comment object.
+    return MealsCommentsRepository.get_comment_by_view_hash(db, meal_hash)
 
 """
 댓글 생성

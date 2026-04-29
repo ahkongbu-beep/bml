@@ -14,6 +14,7 @@ export default function Navbar({ currentRoute, onNavigate }: NavbarProps) {
     { name: 'MealPlan', icon: 'calendar', label: '식단' },
     { name: 'FeedList', icon: 'home', label: '피드' },
     { name: 'Community', icon: 'people', label: '커뮤니티' },
+    { name: 'Growth', icon: 'trending-up', label: '성장발달' },
     { name: 'MyProfile', icon: 'person', label: '마이' },
   ];
 

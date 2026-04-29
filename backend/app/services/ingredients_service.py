@@ -1,5 +1,8 @@
 from app.repository.ingredients_repository import IngredientsRepository
+from app.repository.ingredients_requests_repository import IngredientsRequestRepository
 from app.serializer.ingredient_serialize import build_ingredient_response
+from app.schemas.common_schemas import CommonResponse
+from app.services.users_service import validate_user
 
 def process_tags(db, ingredients):
     """
@@ -56,3 +59,43 @@ def get_ingredient_by_name(db, ingredient_name):
 
 def get_ingredients_join_nutrient(db):
     return IngredientsRepository.get_ingredients_join_nutrient(db)
+
+def ingredient_request(db, user_hash, body):
+    """
+    사용자 요청으로 새로운 재료 추가
+    """
+    # 새로운 재료 추가
+    try:
+        user = validate_user(db, user_hash)
+
+        ingredient_names = body.names.split(',')
+
+        err_message = []
+        for ingredient_name in ingredient_names:
+            ingredient_name = ingredient_name.strip()
+            if not ingredient_name:
+                err_message.append("재료 이름은 필수입니다.")
+
+            # 이미 존재하는지 확인
+            existing = IngredientsRequestRepository.get_ingredient_request(db, user.id, ingredient_name)
+            if existing:
+                if existing.status == 'Y':
+                    err_message.append("이미 존재하는 재료입니다.")
+                    continue
+                else:
+                    err_message.append("이미 요청되어 승인 대기 중입니다.")
+                    continue
+
+            new_ingredient = IngredientsRequestRepository.create_ingredient_request(db, user.id, ingredient_name)
+            if not new_ingredient:
+                err_message.append("재료 요청 생성 실패")
+                continue
+
+        if err_message:
+            raise Exception(", ".join(err_message))
+
+        db.commit()
+        return CommonResponse(success=True, message="재료 요청되었습니다.", data=None)
+    except Exception as e:
+        db.rollback()
+        return CommonResponse(success=False, message=str(e), data=None)

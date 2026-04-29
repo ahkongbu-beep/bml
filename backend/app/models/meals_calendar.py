@@ -20,7 +20,6 @@ class MealsCalendars(Base):
     like_count = Column(Integer, nullable=False, default=0, comment="좋아요 수")
     view_count = Column(Integer, nullable=False, default=0, comment="조회 수")
     input_date = Column(Date, nullable=False, comment="식사일")
-    is_pre_made = Column(String(2), nullable=False, default="N", comment="기성품 여부 Y/N")
     is_public = Column(String(2), nullable=False, default="N", comment="공개 여부 Y/N")
     is_active = Column(String(2), nullable=False, default="Y", comment="활성 여부 Y/N")
     meal_condition = Column(String(2), nullable=True, default="", comment="식사 상태")

@@ -3,7 +3,7 @@ from app.schemas.common_schemas import CommonResponse
 from app.schemas.feeds_schemas import FeedListRequest
 
 from app.services.categories_codes_service import get_category_code_by_id
-from app.services.meals_comments_service import build_comment_tree, get_comment_list_by_user_meal_id, get_meal_comments_by_hash, create_meal_comment, delete_meal_comment
+from app.services.meals_comments_service import build_comment_tree, get_comment_list_by_user_meal_id, get_meal_comment_by_hash, create_meal_comment, delete_meal_comment
 from app.services.users_service import validate_user
 from app.services.meals_likes_service import get_list_of_likes_by_user
 from app.services.meals_service import generate_meal_calendar_hash, validate_meal_calendar_id, get_meal_calendar_by_id, get_user_meal_calendar, insert_meal_proccess
@@ -21,7 +21,7 @@ def get_parent_id_by_hash(db, parent_hash):
     if not parent_hash:
         return 0
 
-    parent_comment = get_meal_comments_by_hash(db, parent_hash)
+    parent_comment = get_meal_comment_by_hash(db, parent_hash)
     if not parent_comment:
         return 0
 
@@ -71,7 +71,6 @@ async def copy_feed(db, user_hash: str, params):
             "user_id": user.id,
             "child_id": user_childs.id,
             "refer_feed_id": target_meal.id,
-            "is_pre_made": target_meal.is_pre_made,
             "category_code": category_code.id,
             "title": params.title,
             "month": params.input_date[:7],
@@ -86,7 +85,6 @@ async def copy_feed(db, user_hash: str, params):
 
         # 이미지 복사 - 기존 이미지의 파일을 물리적으로 복사하여 새로운 식단에 연결
         attache_files = get_attache_files_by_model_id(db, "Meals", target_meal.id)
-        print(f"⭕⭕복사할 이미지1: {attache_files}")
 
         for feeds_image in attache_files:
 
@@ -282,7 +280,7 @@ def delete_feed_comment(db, comment_hash: str, user_hash: str):
         if not user:
             raise Exception("존재하지 않는 사용자입니다.")
 
-        comment = get_meal_comments_by_hash(db, comment_hash)
+        comment = get_meal_comment_by_hash(db, comment_hash)
         if not comment:
             raise Exception("존재하지 않는 댓글입니다.")
 

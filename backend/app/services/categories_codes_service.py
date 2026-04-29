@@ -10,6 +10,9 @@ def get_category_code_by_type_and_code(db, type: str, code: str):
 
 def get_category_list(db, params):
     from app.serializer.categories_codes_serialize import serialize_category_code
+
+    params['order_by'] = 'sort'
+    params['order_direction'] = 'asc'
     result = CategoriesCodesRepository.get_category_list(db, params)
     return [serialize_category_code(cc) for cc in result]
 
@@ -17,7 +20,6 @@ def get_category_by_type_and_sort(db, type: str, sort: int):
     return CategoriesCodesRepository.get_category_by_type_and_sort(db, type, sort)
 
 def list_categories_codes(db, cc_type: str = None):
-
     params = {}
     if cc_type:
         params["type"] = cc_type

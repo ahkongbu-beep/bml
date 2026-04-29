@@ -77,7 +77,6 @@ async def create_meal(
         'contents': payload.contents,
         'refer_feed_id': 0,
         'ingredients': ingredients_list,
-        'is_pre_made': payload.isPreMade,
         'is_public': payload.is_public,
         'meal_condition': payload.meal_condition,
         'meal_stage': payload.meal_stage,
@@ -126,7 +125,6 @@ async def update_meal(
     meal_condition: Optional[int] = Form(None),
     contents: Optional[str] = Form(None),
     ingredients: Optional[str] = Form(None),
-    isPreMade: Optional[str] = Form(None),
     is_public: Optional[str] = Form(None),
     meal_stage: Optional[int] = Form(None),
     meal_stage_detail: Optional[str] = Form(None),
@@ -164,8 +162,6 @@ async def update_meal(
         body['contents'] = contents
     if ingredients_list is not None:
         body['ingredients'] = ingredients_list
-    if isPreMade is not None:
-        body['is_pre_made'] = isPreMade
     if is_public is not None:
         body['is_public'] = is_public
     if meal_condition is not None:

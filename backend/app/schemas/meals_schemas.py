@@ -9,7 +9,6 @@ class MealsCalendarInsertRequest(BaseModel):
     category_id: int
     input_date: str
     contents: str
-    isPreMade: str = "N"
     ingredients: str = "[]"
     is_public: str = "N"
     meal_condition: int = 0
@@ -24,7 +23,6 @@ class MealsCalendarInsertRequest(BaseModel):
         category_id: int = Form(...),
         input_date: str = Form(...),
         contents: str = Form(...),
-        isPreMade: str = Form("N"),
         ingredients: str = Form("[]"),
         is_public: str = Form("N"),
         meal_condition: int = Form(0),
@@ -37,7 +35,6 @@ class MealsCalendarInsertRequest(BaseModel):
             category_id=category_id,
             input_date=input_date,
             contents=contents,
-            isPreMade=isPreMade,
             ingredients=ingredients,
             is_public=is_public,
             meal_condition=meal_condition,
@@ -128,7 +125,6 @@ class MealsCalendarResponse(BaseModel):
     is_public: str
     view_count: int
     like_count: Optional[int] = 0
-    is_pre_made: str
     mapped_tags: List[MappedTagResponse] = []
     refer_feed_id: int
     refer_info: Optional[dict] = None
@@ -157,7 +153,6 @@ class MealItem(BaseModel):
     view_count: int
     like_count: int
     is_public: str
-    is_pre_made: str
     is_active: str
     created_at: str
     updated_at: str

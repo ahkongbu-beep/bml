@@ -8,8 +8,8 @@ from app.serializer.communities_serialize import build_community_detail_response
 from app.services.users_service import validate_user, validate_user_id
 from app.services.meals_comments_service import build_comment_tree
 from app.services.users_childs_service import get_agent_childs
-from app.services.communities_comments_service import sort_delete_comment, validate_comment_by_hash, update_community_comment, crreate_community_comment, get_community_comments_list
-from app.services.attaches_files_service import soft_delete_file_by_model_id, upload_file, save_upload_file, get_attache_files_by_model_id
+from app.services.communities_comments_service import get_comment_by_hash, sort_delete_comment, validate_comment_by_hash, update_community_comment, crreate_community_comment, get_community_comments_list
+from app.services.attaches_files_service import  upload_file, save_upload_file, get_attache_files_by_model_id
 
 def validate_community_by_hash(db, community_hash):
     community = get_community_by_hash(db, community_hash)
@@ -305,13 +305,16 @@ def like_community(db, user_hash, community_hash) -> CommonResponse:
 
     return CommonResponse(success=True, message="커뮤니티 글에 좋아요를 눌렀습니다.")
 
-def create_community_comment(db, user_hash, community_hash, params) -> CommonResponse:
+def create_community_comment(db, user_hash, community_hash, body) -> CommonResponse:
     """
     커뮤니티 댓글 등록 서비스 함수
     """
     try:
         user = validate_user(db, user_hash)
-        community = validate_community_by_id(db, community_hash)
+        community = get_community_by_hash(db, community_hash)
+
+        if not community:
+            raise ValueError("존재하지 않는 커뮤니티 글입니다.")
 
         if community.is_active != 'Y':
             raise ValueError("삭제된 커뮤니티 글입니다.")
@@ -322,17 +325,23 @@ def create_community_comment(db, user_hash, community_hash, params) -> CommonRes
         return CommonResponse(success=False, message=str(e))
 
     try:
-        # parent_hash가 있으면 parent_id 찾기
-        parent_hash = params.parent_hash if params.parent_hash else None
-        parent_id = get_parent_id_by_hash(db, parent_hash)
-
         params = {
             "community_id": community.id,
             "user_id": user.id,
-            "parent_id": parent_id,
-            "comment": params.comment,
-            "parent_hash": parent_hash,
+            "comment": body.comment,
         }
+
+
+        # parent_hash가 있으면 parent_id 찾기
+        parent_hash = body.parent_hash if body.parent_hash else None
+
+        if parent_hash:
+            parent_community = get_comment_by_hash(db, parent_hash)
+            if not parent_community:
+                raise ValueError("유효하지 않은 부모 댓글입니다.")
+
+            params["parent_id"] = parent_community.id
+            params["parent_hash"] = parent_community.view_hash
 
         new_comment = crreate_community_comment(db, params, is_commit=False)
 
@@ -398,20 +407,22 @@ def get_community_comments(db, user_hash, params) -> CommonResponse:
     try:
         validate_user(db, user_hash)
         community = validate_community_by_hash(db, params.get("community_hash"))
+        limit = params.get("limit", 100)
 
-        params = {
+        query_params = {
             "community_id": community.id,
         }
 
         extra = {
-            "limit": params.get("limit", 100),
+            "limit": limit,
         }
 
-        comment_list = serialize_community_comment(get_community_comments_list(db, params, extra))
+        comments = get_community_comments_list(db, query_params, extra)
+        comment_list = [serialize_community_comment(c) for c in comments]
         tree_data = build_comment_tree(comment_list)
 
         return CommonResponse(success=True, data={
-            "comments": tree_data,
+            "comments": [c.to_dict() for c in tree_data],
         })
     except Exception as e:
         return CommonResponse(success=False, message=str(e))

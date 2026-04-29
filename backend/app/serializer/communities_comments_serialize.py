@@ -1,6 +1,18 @@
 class CommunityCommentData:
     def __init__(self, data: dict):
         self._data = data
+        self.children = []
+
+    def __getattr__(self, name):
+        try:
+            return self._data[name]
+        except KeyError:
+            raise AttributeError(f"'CommunityCommentData' object has no attribute '{name}'")
+
+    def to_dict(self) -> dict:
+        result = dict(self._data)
+        result["children"] = [c.to_dict() for c in self.children]
+        return result
 
 def serialize_community_comment(comment) -> CommunityCommentData:
     return CommunityCommentData({

@@ -26,6 +26,7 @@ class CommunitiesCommentsRepository:
     def create(session, params: dict, is_commit: bool = True):
         kst = pytz.timezone("Asia/Seoul")
         now = datetime.datetime.now(kst)
+
         # view_hash 생성
         view_hash = generate_sha256_hash(
             params['community_id'],
