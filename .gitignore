@@ -10,7 +10,7 @@ pnpm-debug.log*
 # Python
 venv/
 backend/venv/
-backend/attaches/
+# backend/attaches/
 __pycache__/
 *.py[cod]
 *.pyc
