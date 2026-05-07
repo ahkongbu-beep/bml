@@ -20,7 +20,6 @@ export const useDenyUsers = () => {
   });
 };
 
-// TODO: 차단 해제 API 연동 필요
 export const useUnblockUser = () => {
   const queryClient = useQueryClient();
 

@@ -16,6 +16,7 @@ from app.services.categories_codes_service import get_category_code_by_id
 from app.services.meals_calendars_images_service import get_user_month_image_map, delete_calendar_image_by_month, upload_calendar_image
 from app.services.meals_comments_service import build_comment_tree, get_comment_list_by_user_meal_id
 from app.serializer.meals_serialize import feed_detail_response, get_feed_type_calendars_data
+from app.repository.ads_repository import AdsRepository
 
 def get_meals_count(db, params={}):
     return MealsCalendarsRepository.get_count(db, params)
@@ -363,6 +364,49 @@ def get_feed_type_calendar(db, user_hash, filters: FeedListRequest) -> CommonRes
         meal_list = get_meals_list(db, search_params, include=["user", "category", "image", "tags", "child"])
         meal_result = get_feed_type_calendars_data(meal_list)
 
+        # 광고 데이터를 조회
+        # meal_list 7개당 광고 1개 삽입
+        from datetime import date
+        today = date.today()
+
+        params = {
+            "period_date": today,
+            "is_active": "Y",
+        }
+        ads_list, total_count = AdsRepository.get_ads_list(db, params)
+        if total_count > 0:
+            # 광고 데이터 리스트 생성
+            ads_to_insert = []
+            for ad, account_image, account_name, company, advertiser_view_hash, account_id, ad_images in ads_list:
+                ad_data = {
+                    "is_ad": True,
+                    "id": ad.id,
+                    "contents": ad.contents,
+                    "image_url": ad_images.split(","),
+                    "view_hash": ad.view_hash,
+                    "target_link": ad.target_link,
+                    "user": {
+                        "profile_image": account_image,
+                        "nickname": company,
+                        "id": account_id,
+                        "user_hash": advertiser_view_hash
+                    }
+                }
+                ads_to_insert.append(ad_data)
+
+            # 7개마다 광고 1개씩 분산 삽입
+            if ads_to_insert:
+                final_result = []
+                ad_index = 0
+                for i, meal in enumerate(meal_result):
+                    final_result.append(meal)
+                    # 7개의 식단 후에 광고 삽입 (광고가 남아있을 경우)
+                    if (i + 1) % 7 == 0 and ad_index < len(ads_to_insert):
+                        final_result.append(ads_to_insert[ad_index])
+                        ad_index += 1
+
+                meal_result = final_result
+
         return CommonResponse(success=True, error=None, data=meal_result)
     except ValueError as e:
         return CommonResponse(success=False, error=str(e), data=None)
@@ -568,8 +612,11 @@ async def create_meal(db, body: dict) -> CommonResponse:
         db.rollback()
         return CommonResponse(success=False, error="식단 캘린더 생성 중 오류가 발생했습니다. " + str(e), data=None)
 
-""" 식단 캘린더 수정 """
 async def update_meal(db, body: dict) -> CommonResponse:
+    """
+    식단 캘린더 수정
+    """
+
     try:
         # -------------------------
         # 1. 사용자 & 대상 조회
@@ -663,8 +710,10 @@ async def update_meal(db, body: dict) -> CommonResponse:
         db.rollback()
         return CommonResponse(success=False, error=str(e), data=None)
 
-""" 식단 켈린더 삭제 """
 async def delete_meal(db, body: dict) -> CommonResponse:
+    """
+    식단 캘린더 삭제
+    """
     try:
         # -------------------------
         # 1. 사용자 & 대상 조회

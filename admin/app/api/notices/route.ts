@@ -6,7 +6,8 @@ import { BACKEND_ROUTES } from "@/libs/utils/apiRouter";
 import { NextRequest } from "next/server";
 
 export async function GET(request: NextRequest) {
-  const callURL = BACKEND_ROUTES.NOTICES() + '/list';
+  const callURL = BACKEND_ROUTES.NOTICES();
+  console.log("callURL:", callURL);
   try {
     const data = await apiCall(callURL, 'GET');
     return createSuccessResponse("공지사항 조회 성공하였습니다", data.data);
@@ -50,8 +51,10 @@ export async function PUT(request: NextRequest) {
     callURL = `${BACKEND_ROUTES.NOTICES()}/toggle_status/${viewHash}`;
   } else {
 
-    callURL = `${BACKEND_ROUTES.NOTICES()}/update/${viewHash}`;
+    callURL = `${BACKEND_ROUTES.NOTICES()}/${viewHash}`;
   }
+
+  console.log("callURL:", callURL);
 
   try {
     const data = await apiCall(callURL, 'PUT', null, body);

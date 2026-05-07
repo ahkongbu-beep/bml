@@ -53,11 +53,13 @@ export interface UserListResponse {
   message?: string;
   error?: string;
   data: {
-    users: User[];
+    users?: User[];
+    user_list?: User[];
     total: number;
-    page: number;
+    page?: number;
+    offset?: number;
     limit: number;
-    total_pages: number;
+    total_pages?: number;
   };
 }
 

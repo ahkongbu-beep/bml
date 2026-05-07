@@ -29,7 +29,7 @@ export function useNotice() {
         throw new Error('공지사항 데이터가 없습니다.')
       }
 
-      const noticeList = resultData.data.map((notice: NoticeItem) => ({
+      const noticeList = resultData.data.notice_list.map((notice: NoticeItem) => ({
         id: notice.id,
         title: notice.title,
         content: notice.content,
@@ -123,6 +123,7 @@ export function useNotice() {
         content: params.content,
         category_id: params.category,
         is_important: params.isImportant ? 'Y' : 'N',
+        status: params.isActive ? 'active' : 'inactive',
       }
 
       const apiURL = `${FRONTEND_ROUTES.NOTICES()}`;
@@ -130,10 +131,6 @@ export function useNotice() {
 
       if (!resultData.success) {
         throw new Error(resultData.error || '공지사항 수정에 실패했습니다.')
-      }
-
-      if (!resultData.data) {
-        throw new Error('공지사항 데이터가 없습니다.')
       }
 
       // 목록 새로고침

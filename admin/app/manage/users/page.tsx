@@ -9,6 +9,7 @@ import UserDetailModal from '@/components/manage/modals/UserDetailModal';
 
 export default function UsersManagePage() {
   const { users, total, currentPage, totalPages, loading, fetchUsers, updateUserStatus, resetPassword } = useUsers();
+  const userList = Array.isArray(users) ? users : [];
 
   const [searchParams, setSearchParams] = useState<UserSearchParams>({
     sns_id: '',
@@ -34,6 +35,7 @@ export default function UsersManagePage() {
   // 초기 로드
   useEffect(() => {
     loadUsers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleSearch = (e: React.FormEvent) => {
@@ -209,20 +211,20 @@ export default function UsersManagePage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-800">
-              {loading && users.length === 0 ? (
+              {loading && userList.length === 0 ? (
                 <tr>
                   <td colSpan={10} className="px-6 py-8 text-center text-gray-400">
                     로딩 중...
                   </td>
                 </tr>
-              ) : users.length === 0 ? (
+              ) : userList.length === 0 ? (
                 <tr>
                   <td colSpan={10} className="px-6 py-8 text-center text-gray-400">
                     검색 결과가 없습니다
                   </td>
                 </tr>
               ) : (
-                users.map((user) => (
+                userList.map((user) => (
                   <tr key={user.view_hash} className="hover:bg-gray-800 transition-colors">
                     <td className="px-4 md:px-6 py-4 whitespace-nowrap">
                       <span className="px-3 py-1 text-xs font-medium bg-indigo-600/20 text-indigo-400 rounded-full">

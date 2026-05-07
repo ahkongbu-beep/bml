@@ -34,12 +34,28 @@ export const useUsers = () => {
 
       const url = FRONTEND_ROUTES.USERS() + (queryParams.toString() ? `?${queryParams.toString()}` : '');
       const result = await apiCall(url, 'GET') as UserListResponse;
-
       if (result.success && result.data) {
-        setUsers(result.data.users);
-        setTotal(result.data.total);
-        setCurrentPage(result.data.page);
-        setTotalPages(result.data.total_pages);
+        const listFromUsers = Array.isArray(result.data.users) ? result.data.users : null;
+        const listFromUserList = Array.isArray((result.data as unknown as { user_list?: User[] }).user_list)
+          ? (result.data as unknown as { user_list: User[] }).user_list
+          : null;
+        const safeUsers = listFromUsers ?? listFromUserList ?? [];
+
+        const total = Number(result.data.total ?? 0);
+        const limit = Number((result.data as unknown as { limit?: number }).limit ?? params.limit ?? 20);
+        const page = Number(
+          (result.data as unknown as { page?: number }).page
+          ?? ((Number((result.data as unknown as { offset?: number }).offset ?? 0) / Math.max(limit, 1)) + 1)
+        );
+        const totalPages = Number(
+          (result.data as unknown as { total_pages?: number }).total_pages
+          ?? Math.ceil(total / Math.max(limit, 1))
+        );
+
+        setUsers(safeUsers);
+        setTotal(total);
+        setCurrentPage(page);
+        setTotalPages(totalPages);
         return result;
       } else {
         throw new Error(result.error || '회원 목록을 불러오는데 실패했습니다.');

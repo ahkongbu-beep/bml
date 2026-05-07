@@ -106,11 +106,8 @@ export default function NoticesPage() {
 
   // 공지사항 수정 모달 열기
   const handleEdit = (notice: NoticeUpdateRequest) => {
-    console.log("notice", notice);
     // 카테고리 텍스트로 카테고리 id 찾기
     const matchedCategory = categories.find((cat: NoticeCategoryItem) => cat.value === notice.categoryText)
-
-    console.log("handleEdit - notice.viewHash:", notice.viewHash)
 
     setFormData({
       viewHash: notice.viewHash,

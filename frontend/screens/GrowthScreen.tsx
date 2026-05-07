@@ -105,7 +105,6 @@ function PercentileProgressCard({
                   { left: `${item.rank}%` },
                 ]}
               >
-                <View style={styles.markerDot} />
                 <Text style={styles.markerRank}>{item.rank}%</Text>
               </View>
             ))}
@@ -482,13 +481,6 @@ const styles = StyleSheet.create({
     top: 0,
     marginLeft: -8,
     alignItems: 'center',
-  },
-  markerDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#404040',
-    marginBottom: 2,
   },
   markerRank: {
     fontSize: 10,

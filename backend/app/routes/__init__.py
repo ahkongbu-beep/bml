@@ -11,6 +11,8 @@ from app.routes.likes_router import router as likes_router
 from app.routes.admin_router import router as admin_router
 from app.routes.ingredients_router import router as ingredients_router
 from app.routes.growths_router import router as growths_router
+from app.routes.advertisers_router import router as advertisers_router
+from app.routes.ads_router import router as ads_router
 
 __all__ = [
     "auth_router",
@@ -25,5 +27,7 @@ __all__ = [
     "likes_router",
     "admin_router",
     "ingredients_router",
-    "growths_router"
+    "growths_router",
+    "advertisers_router",
+    "ads_router",
 ]

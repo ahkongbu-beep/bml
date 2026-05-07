@@ -85,7 +85,6 @@ def validate_user(db, user_hash):
         raise ValueError("회원 정보를 찾을 수 없습니다.")
     return user
 
-
 def get_sns_user(db, sns_login_type, sns_id):
     return UserRepository.get_user_by_sns_account(db, sns_login_type, sns_id)
 

@@ -95,8 +95,6 @@ def init_stat(db) -> CommonResponse:
 # 공지사항 service
 # ====================================================================================
 def notices(db, params: NoticeListRequest) -> CommonResponse:
-    from app.serializer.notices_serialize import serialize_notice
-
     """
     공지사항 리스트 조회 서비스 함수
     """
@@ -127,11 +125,7 @@ def notices(db, params: NoticeListRequest) -> CommonResponse:
 
         filter_params = params.model_dump(exclude_none=True)
         total = get_notice_count(db, filter_params)
-        result = get_notice_list(db, filter_params)
-
-        notice_list = [
-            serialize_notice(notice, category_text) for notice, category_text in result
-        ]
+        notice_list = get_notice_list(db, filter_params)
 
         data = NoticeListResponse(
             total=total,

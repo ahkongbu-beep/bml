@@ -8,6 +8,7 @@ def serialize_community(community) -> CommunityData:
     images = community.images.split(",") if community.images else []
 
     return CommunityData({
+        "is_ad": False,
         "id": community.id,
         "view_hash": community.view_hash,
         "category_code": community.category_code,

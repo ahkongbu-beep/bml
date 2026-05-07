@@ -10,6 +10,7 @@ from app.services.meals_comments_service import build_comment_tree
 from app.services.users_childs_service import get_agent_childs
 from app.services.communities_comments_service import get_comment_by_hash, sort_delete_comment, validate_comment_by_hash, update_community_comment, crreate_community_comment, get_community_comments_list
 from app.services.attaches_files_service import  upload_file, save_upload_file, get_attache_files_by_model_id
+from app.repository.ads_repository import AdsRepository
 
 def validate_community_by_hash(db, community_hash):
     community = get_community_by_hash(db, community_hash)
@@ -83,13 +84,56 @@ def get_community_list(db, user_hash, params) -> CommonResponse:
         community_list = CommunitiesRepository.get_community_list(db, user.id, db_params)
         communities = [item._data for item in serialize_communities_list(community_list)]
 
-        total_count = CommunitiesRepository.get_community_count(db, user.id, db_params)
+        total_cummunity_count = CommunitiesRepository.get_community_count(db, user.id, db_params)
+
+        # 광고 데이터를 조회
+        # meal_list 7개당 광고 1개 삽입
+        from datetime import date
+        today = date.today()
+
+        params = {
+            "period_date": today,
+            "is_active": "Y",
+        }
+        ads_list, total_count = AdsRepository.get_ads_list(db, params)
+
+        if total_count > 0:
+            # 광고 데이터 리스트 생성
+            ads_to_insert = []
+            for ad, account_image, account_name, company, advertiser_view_hash, account_id, ad_images in ads_list:
+                ad_data = {
+                    "is_ad": True,
+                    "id": ad.id,
+                    "contents": ad.contents,
+                    "images": ad_images.split(","),
+                    "view_hash": ad.view_hash,
+                    "target_link": ad.target_link,
+                    "user": {
+                        "profile_image": account_image,
+                        "nickname": company,
+                        "user_hash": advertiser_view_hash
+                    }
+                }
+                ads_to_insert.append(ad_data)
+
+            # 7개마다 광고 1개씩 분산 삽입
+            if ads_to_insert:
+                final_result = []
+                ad_index = 0
+                for i, meal in enumerate(communities):
+                    final_result.append(meal)
+                    # 7개의 식단 후에 광고 삽입 (광고가 남아있을 경우)
+                    if (i + 1) % 7 == 0 and ad_index < len(ads_to_insert):
+                        final_result.append(ads_to_insert[ad_index])
+                        ad_index += 1
+
+                communities = final_result
 
         return CommonResponse(
             success=True,
             data={
                 "communities": communities,
-                "total_count": total_count,
+                "total_count": total_cummunity_count,
                 "cursor": communities[-1]['id'] if communities else None,
             }
         )
@@ -121,7 +165,6 @@ async def create_community(db, user_hash, client_ip, title, contents, category_c
             "user_nickname": user.nickname,
             "user_ip": client_ip,
         })
-
 
         # 이미지 업로드 처리 (최대 3장)
         if files and len(files) > 0:

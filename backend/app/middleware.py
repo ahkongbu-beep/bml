@@ -11,11 +11,32 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
     """
     JWT 토큰을 검증하고 request.state에 사용자 정보를 저장하는 미들웨어
     """
+    EXCLUDE_PATHS = {
+        "/docs",
+        "/ads",
+        "/advertisers",
+        "/openapi.json",
+        "/redoc",
+    }
+
+    EXCLUDE_PREFIXES = (
+        "/advertisers/add",
+        "/advertisers/",
+    )
 
     async def dispatch(self, request: Request, call_next):
+        path = request.url.path
+
+        # exact path 제외
+        if path in self.EXCLUDE_PATHS:
+            return await call_next(request)
+
+        # prefix path 제외
+        if any(path.startswith(prefix) for prefix in self.EXCLUDE_PREFIXES):
+            return await call_next(request)
+
         # Authorization 헤더에서 토큰 추출
         authorization: str = request.headers.get("Authorization")
-
 
         if authorization and authorization.startswith("Bearer "):
             token = authorization.replace("Bearer ", "")

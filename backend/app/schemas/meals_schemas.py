@@ -112,6 +112,7 @@ class MappedTagResponse(BaseModel):
     mapper_id: Optional[str] = None
 
 class MealsCalendarResponse(BaseModel):
+    is_ad: bool = False
     id:int
     contents: str
     tags: List[str] = []

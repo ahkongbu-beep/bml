@@ -5,11 +5,10 @@ import { NextRequest } from "next/server";
 export async function GET(request: NextRequest) {
   const searchParams = new URL(request.url).searchParams;
   const query = searchParams.toString();
-  const callURL = BACKEND_ROUTES.USERS() + "/list" + (query ? `?${query}` : '');
+  const callURL = BACKEND_ROUTES.USERS() + (query ? `?${query}` : '');
   try {
-    console.log("callURL:", callURL);
     const data = await apiCall(callURL, 'GET');
-
+  console.log("users", JSON.stringify(data));
     if (!data.success) {
       throw new Error(data.error || '회원 목록 조회에 실패했습니다.');
     }

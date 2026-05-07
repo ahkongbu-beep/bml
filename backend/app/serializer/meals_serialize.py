@@ -40,6 +40,7 @@ def get_feed_type_calendars_data(result):
     try:
         return [
             MealsCalendarResponse(
+                is_ad=getattr(v, 'is_ad', False),
                 id=v.id,
                 title=v.title,
                 contents=v.contents,

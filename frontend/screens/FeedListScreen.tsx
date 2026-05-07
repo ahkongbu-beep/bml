@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   TouchableOpacity,
+  Linking
 } from 'react-native';
 import ConfirmPortal from '@/components/ConfirmPortal';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,11 +23,12 @@ import Layout from '../components/Layout';
 import Header from '../components/Header';
 import UserHeader from '../components/UserHeader';
 import SearchBar from '../components/SearchBar';
-import BannerCarousel from '../components/BannerCarousel';
 import MealItem from '../components/MealItem';
+import AdItem, { AdFeedItem } from '../components/AdItem';
 import AiSummaryMealModal from '../components/AiSummaryMealModal';
 import { LoadingPage } from '../components/Loading';
 import { ErrorPage } from '../components/ErrorPage';
+import { useAdClick } from '@/libs/hooks/useAds';
 
 import {
   useInfiniteFeeds,
@@ -41,6 +43,12 @@ import {
 } from '../libs/hooks/useMeals';
 
 import { toastError, toastSuccess, toastInfo } from '@/libs/utils/toast';
+
+type FeedListItem = MealCalendar | AdFeedItem;
+
+const isAdFeedItem = (item: FeedListItem): item is AdFeedItem => {
+  return (item as AdFeedItem).is_ad === true;
+};
 
 export default function FeedListScreen() {
   const appName = process.env.EXPO_PUBLIC_APP_NAME || "";
@@ -101,23 +109,53 @@ export default function FeedListScreen() {
   });
 
   // 모든 페이지의 피드를 평탄화 (id 기준 중복 제거)
-  const feeds = data?.pages
+  const feeds: FeedListItem[] = data?.pages
     .flatMap(page => page.data ?? [])
     .filter(Boolean)
-    .filter((item, index, self) => self.findIndex(f => f.id === item.id) === index)
-    .filter(item => item.is_public !== 'N' || item.user.user_hash === user?.view_hash) ?? [];
+    .filter((item, index, self) => {
+      const key = `${item.is_ad ? 'ad' : 'feed'}-${item.id}`;
+      return self.findIndex(f => `${f.is_ad ? 'ad' : 'feed'}-${f.id}` === key) === index;
+    })
+    .filter(item => {
+      if (item.is_ad) return true;
+      return item.is_public !== 'N' || item.user.user_hash === user?.view_hash;
+    }) ?? [];
 
   // Mutations
   const toggleLikeMutation     = useToggleLike();
   const analyzeMealMutation    = useAnalyzeMeal();
   const blockUserMutation      = useBlockUser();
   const toggleBookmarkMutation = useToggleBookmark();
+  const adClickMutation        = useAdClick();
+
+  const handleAdClick = useCallback((view_hash: string) => {
+    adClickMutation.mutate(view_hash, {
+      onSuccess: (response) => {
+        const targetLink = response?.data?.target_link;
+        if (!targetLink) {
+          toastInfo('유효하지 않은 광고 링크입니다.');
+          return;
+        }
+        // 광고 클릭 후 링크가 있는 경우 링크 열기 시도
+        Linking.canOpenURL(targetLink).then(canOpen => {
+          if (canOpen) {
+            Linking.openURL(targetLink);
+          } else {
+            toastError('광고 링크를 열 수 없습니다.');
+          }
+        });
+      },
+      onError: (error) => {
+        toastError('광고 클릭 처리 중 오류가 발생했습니다.');
+      }
+    });
+  }, [adClickMutation]);
 
   // 좋아요 처리 (낙관적 업데이트)
   const handleLike = useCallback((mealHash: string) => {
     // 현재 피드 찾기
-    const currentFeed = feeds?.find(feed => feed.view_hash === mealHash);
-    if (!currentFeed) return;
+    const currentFeed = feeds?.find(feed => !isAdFeedItem(feed) && feed.view_hash === mealHash);
+    if (!currentFeed || isAdFeedItem(currentFeed)) return;
 
     // 낙관적으로 UI 먼저 업데이트 (id 기준으로 저장)
     const feedId = currentFeed.id;
@@ -278,7 +316,9 @@ export default function FeedListScreen() {
     handleViewProfile(navigation, user?.view_hash || '', userHash);
   }, [navigation, user?.view_hash]);
 
-  const keyExtractor = useCallback((item: MealCalendar) => item.id.toString(), []);
+  const keyExtractor = useCallback((item: FeedListItem) => {
+    return `${item.is_ad ? 'ad' : 'feed'}-${item.id}`;
+  }, []);
 
   // 리스트 끝에 도달했을 때 다음 페이지 로드
   const onEndReached = useCallback(() => {
@@ -302,7 +342,11 @@ export default function FeedListScreen() {
     setIsFilterExpanded(false);
   }, []);
 
-  const renderFeed = useCallback(({ item }: { item: MealCalendar }) => {
+  const renderFeed = useCallback(({ item }: { item: FeedListItem }) => {
+    if (isAdFeedItem(item)) {
+      return <AdItem item={item} onAdClick={handleAdClick} />;
+    }
+
     // 낙관적 업데이트가 있으면 그것을 우선 사용
     const optimisticState = optimisticLikes[item.id];
     const feedItem = optimisticState ? {
@@ -334,7 +378,20 @@ export default function FeedListScreen() {
         selectedTags={ingredientName}
       />
     );
-  }, [menuVisible, currentImageIndex, likingFeedId, optimisticLikes, handleMenuToggle, handleProfileView, handleBlock, handleLike, handleCommentPress, handleAiSummary, handleTagPress, user?.view_hash]);
+  }, [
+    menuVisible,
+    currentImageIndex,
+    likingFeedId,
+    optimisticLikes,
+    handleMenuToggle,
+    handleProfileView,
+    handleBlock,
+    handleLike,
+    handleCommentPress,
+    handleAiSummary,
+    handleTagPress,
+    user?.view_hash,
+  ]);
 
   const renderListHeader = () => (
     <View>
@@ -546,3 +603,4 @@ const activeFilterStyles = StyleSheet.create({
     textDecorationLine: 'underline',
   },
 });
+
