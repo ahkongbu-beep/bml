@@ -49,22 +49,25 @@ export const normalizeDate = (dateString: string): string => {
   return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
 };
 
-export const getStaticImage = (type: string, imagePath?: string | null): string => {
+export const getStaticImage = (type: string, imagePath?: unknown): string => {
 
-  if (!imagePath) return '';
+  if (typeof imagePath !== 'string') return '';
+
+  const safePath = imagePath.trim();
+  if (!safePath) return '';
 
   if (
-    imagePath.startsWith('http') ||
-    imagePath.startsWith('file://') ||
-    imagePath.startsWith('content://') ||
-    imagePath.startsWith('data:') ||
-    imagePath.startsWith('asset://') ||
-    imagePath.startsWith('ph://')
+    safePath.startsWith('http') ||
+    safePath.startsWith('file://') ||
+    safePath.startsWith('content://') ||
+    safePath.startsWith('data:') ||
+    safePath.startsWith('asset://') ||
+    safePath.startsWith('ph://')
   ) {
-    return imagePath;
+    return safePath;
   }
 
-  const normalizedPath = imagePath.startsWith('/') ? imagePath : '/' + imagePath;
+  const normalizedPath = safePath.startsWith('/') ? safePath : '/' + safePath;
   const STATIC_BASE_URL = process.env.EXPO_PUBLIC_STATIC_BASE_URL || '';
 
   return `${STATIC_BASE_URL}${normalizedPath}_${type}.webp`;

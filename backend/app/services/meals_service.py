@@ -65,6 +65,9 @@ def get_meals_list(db, params={}, include=[]):
             meal.allergy_names = row_dict.get("allergy_names")
             meal.allergy_codes = row_dict.get("allergy_codes")
 
+        if "comment_count" in include:
+            meal.comment_count = row_dict.get("comment_count", 0)
+
         if row_dict.get("is_liked") is not None:
             meal.is_liked = row_dict.get("is_liked")
         else:
@@ -361,7 +364,7 @@ def get_feed_type_calendar(db, user_hash, filters: FeedListRequest) -> CommonRes
             "order_by": filters.sort_by if filters.sort_by else "created_at_desc",
         })
 
-        meal_list = get_meals_list(db, search_params, include=["user", "category", "image", "tags", "child"])
+        meal_list = get_meals_list(db, search_params, include=["user", "category", "image", "tags", "child", "comment_count"])
         meal_result = get_feed_type_calendars_data(meal_list)
 
         # 광고 데이터를 조회
@@ -433,7 +436,9 @@ def list_calendar(db, params: dict) -> CommonResponse:
         else:
             search_params['user_id'] = user.id
 
+        print("⭕⭕⭕⭕⭕조회 파라미터:", search_params)
         calendar_data = get_meals_list(db, search_params, include=["user", "category", "image", "tags", "child"])
+        print("⭕⭕⭕⭕⭕조회된 캘린더 수:", len(calendar_data))
 
         result = get_feed_type_calendars_data(calendar_data)  # 데이터 가공 (피드 형태로 변환)
         # 조회된 데이터를 날짜 기준 리스트로 정렬
@@ -452,8 +457,10 @@ def list_calendar(db, params: dict) -> CommonResponse:
         return CommonResponse(success=True, error=None, data=data)
 
     except ValueError as e:
+        print("⭕⭕⭕⭕⭕ValueError:", str(e))
         return CommonResponse(success=False, error=str(e), data=None)
     except Exception as e:
+        print("⭕⭕⭕⭕⭕Exception:", str(e))
         return CommonResponse(success=False, error="식단 캘린더 조회 중 오류가 발생했습니다. " + str(e), data=None)
 
 def check_daily_meal(db, params: dict) -> CommonResponse:
@@ -616,7 +623,6 @@ async def update_meal(db, body: dict) -> CommonResponse:
     """
     식단 캘린더 수정
     """
-
     try:
         # -------------------------
         # 1. 사용자 & 대상 조회
@@ -689,6 +695,7 @@ async def update_meal(db, body: dict) -> CommonResponse:
         # -------------------------
         # 6. 이미지 처리 (완전 교체)
         # -------------------------
+
         if body.get('attaches'):
             # 기존 이미지 삭제
             soft_delete_file_by_model_id(db, "Meals", meal_calendar.id)

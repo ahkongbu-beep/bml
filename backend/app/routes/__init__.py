@@ -13,6 +13,7 @@ from app.routes.ingredients_router import router as ingredients_router
 from app.routes.growths_router import router as growths_router
 from app.routes.advertisers_router import router as advertisers_router
 from app.routes.ads_router import router as ads_router
+from app.routes.image_router import router as image_router
 
 __all__ = [
     "auth_router",
@@ -30,4 +31,5 @@ __all__ = [
     "growths_router",
     "advertisers_router",
     "ads_router",
+    "image_router",
 ]

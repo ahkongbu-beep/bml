@@ -17,7 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 /* 상수 및 유틸리티 함수 정의 */
 import { Feed, FeedItemProps } from '../libs/types/FeedType';
 import { formatDate, diffMonthsFrom, getStaticImage } from '@/libs/utils/common';
-import { USER_CHILD_GENDER } from '../libs/utils/codes/UserChildCode';
+import { USER_CHILD_GENDER, USER_CHILD_GENDER_COLOR } from '../libs/utils/codes/UserChildCode';
 import { getAmountColor, getBorderColor } from '../libs/utils/codes/IngredientCode';
 
 const { width } = Dimensions.get('window');
@@ -116,9 +116,24 @@ const MealItem = React.memo(({
           <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}>
             <Text style={styles.nickname}>{item.user.nickname}</Text>
             {item.childs && (
-              <Text style={styles.timestamp}>
-                {diffMonthsFrom(item.childs.child_birth)}개월 · {USER_CHILD_GENDER[item.childs.child_gender]}
-              </Text>
+              <View style={styles.childMetaRow}>
+                <Text style={styles.timestamp}>{diffMonthsFrom(item.childs.child_birth)}개월</Text>
+                <View
+                  style={[
+                    styles.genderLabel,
+                    { borderColor: USER_CHILD_GENDER_COLOR[item.childs.child_gender] },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.genderLabelText,
+                      { color: USER_CHILD_GENDER_COLOR[item.childs.child_gender] },
+                    ]}
+                  >
+                    {USER_CHILD_GENDER[item.childs.child_gender]}
+                  </Text>
+                </View>
+              </View>
             )}
           </View>
           {allergy_info.length > 0 && (
@@ -209,7 +224,7 @@ const MealItem = React.memo(({
           onPress={() => onCommentPress(item.id)}
         >
           <Ionicons name="chatbubble-outline" size={14} color="#FF9AA2" />
-          <Text style={styles.actionButtonText}>댓글</Text>
+          <Text style={styles.actionButtonText}>댓글 {item.comment_count > 0 ? `+${item.comment_count}` : ''}</Text>
         </TouchableOpacity>
       </View>
 
@@ -250,7 +265,7 @@ const MealItem = React.memo(({
             onPress={() => onAddToMealCalendar(item.user.user_hash, item.id, item.view_hash)}
           >
             <Ionicons name="calendar-outline" size={18} color="#FF9AA2" />
-            <Text style={styles.bottomActionButtonText}>식단 캘린더에 추가</Text>
+            <Text style={styles.bottomActionButtonText}>식단 저장하기</Text>
           </TouchableOpacity>
         )}
 
@@ -395,6 +410,23 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#919191',
     marginTop: 0,
+  },
+  childMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  genderLabel: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  genderLabelText: {
+    fontSize: 10,
+    fontWeight: '700',
+    lineHeight: 14,
   },
   categoryLabel: {
     alignSelf: 'center',

@@ -14,6 +14,7 @@ import ConfirmPortal from '../components/ConfirmPortal';
 import AiSummaryMealModal from '../components/AiSummaryMealModal';
 import styles from '../styles/screens/MealMyDetailScreen.style';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../libs/contexts/AuthContext';
 import { diffMonthsFrom, getStaticImage } from '@/libs/utils/common';
 import { LoadingPage } from '../components/Loading';
@@ -26,10 +27,11 @@ import { toastError, toastSuccess } from '@/libs/utils/toast';
 import { ErrorPage } from '../components/ErrorPage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getAmountColor, getBorderColor } from '../libs/utils/codes/IngredientCode';
+
 export default function MealMyDetailScreen({ route, navigation }: any) {
   const { mealHash, userHash } = route.params || {};
   const { user } = useAuth();
-  const { data: mealData, isLoading, isError, error } = useMyMealDetail(userHash, mealHash);
+  const { data: mealData, isLoading, isError, error, refetch } = useMyMealDetail(userHash, mealHash);
   const deleteMealMutation = useDeleteMeal(mealHash);
   const analyzeMealMutation = useAnalyzeMeal();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -44,83 +46,12 @@ export default function MealMyDetailScreen({ route, navigation }: any) {
     contents?: string;
   } | null>(null);
 
-  console.log("mealData", JSON.stringify(mealData, null, 2));
-  /*
-    * mealData
-{
-  "id": 45,
-  "user_id": 56,
-  "title": "",
-  "content": "",
-  "is_published": "N",
-  "meal_condition": "",
-  "view_count": 8,
-  "like_count": 0,
-  "created_at": "2026-04-07T13:58:52",
-  "updated_at": "2026-04-09T14:53:19",
-  "meal_stage": 0,
-  "meal_stage_detail": "",
-  "category_id": 18,
-  "category_name": "점심",
-  "is_liked": false,
-  "tags": [
-    {
-      "ingredient_id": 27,
-      "mapped_score": 1,
-      "mapped_tags": "명태"
-    },
-    {
-      "ingredient_id": 13,
-      "mapped_score": 0.6,
-      "mapped_tags": "시금치"
-    },
-    {
-      "ingredient_id": 16,
-      "mapped_score": 0.6,
-      "mapped_tags": "완두콩"
-    },
-    {
-      "ingredient_id": 24,
-      "mapped_score": 0.6,
-      "mapped_tags": "달걀흰자"
-    },
-    {
-      "ingredient_id": 26,
-      "mapped_score": 0.6,
-      "mapped_tags": "대구"
-    },
-    {
-      "ingredient_id": 15,
-      "mapped_score": 0.3,
-      "mapped_tags": "콩"
-    }
-  ],
-  "images": [
-    "/attaches/Meals/45/45/aa9b0b434ef85668aa0a95ffed2e872bd6698a3dff5c85b7f7338f0ca959deb2_shared"
-  ],
-  "user_hash": "c99ebe8d4a50387312b8e19c077c3936ac6175ff282088a66ee9db3bb3d8d632",
-  "user": {
-    "id": 56,
-    "nickname": "임영 민2",
-    "profile_image": "https://lh3.googleusercontent.com/a/ACg8ocJjNJhAmGL_BGJhWMFZGAFJt-Fy7ilIO6xRUAT-cb37lZGjgA=s96-c",
-    "user_hash": "c99ebe8d4a50387312b8e19c077c3936ac6175ff282088a66ee9db3bb3d8d632"
-  },
-  "childs": {
-    "child_id": 82,
-    "child_name": "랑구",
-    "child_birth": "2026-03-17",
-    "child_gender": "M",
-    "is_agent": "Y",
-    "allergies": [
-      {
-        "allergy_code": "ALLERGY_000004",
-        "allergy_name": "새우"
-      }
-    ]
-  },
-  "comments": []
-}
-    */
+  useFocusEffect(
+    useCallback(() => {
+      refetch();
+    }, [refetch]),
+  );
+
   // 삭제 모달 제거
   const cancelDeleteConfirm = () => {
     setDeleteConfirmVisible(false);
@@ -149,7 +80,7 @@ export default function MealMyDetailScreen({ route, navigation }: any) {
   };
 
   const handleEdit = () => {
-    navigation.navigate('FeedSave', { mealData });
+    navigation.navigate('FeedSave', { feed: mealData, mealData });
   };
 
   const handleAiSummary = useCallback(() => {

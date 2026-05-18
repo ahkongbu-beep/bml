@@ -10,154 +10,26 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { GrowthPercentileData } from '../types/GrowthTypes';
+import { GrowthData, GrowthPercentileData } from '../types/GrowthTypes';
 import { PERCENTILES } from '../libs/utils/codes/GrowthCode';
 import Layout from '@/components/Layout';
 import Header from '../components/Header';
-import { useGrowth } from '../libs/hooks/useGrowths';
-export interface GrowthPoint {
-  months: number;
-  value: number;
-}
-
-function getNearestValue(points: GrowthPoint[], month: number): number | null {
-  if (!Array.isArray(points) || points.length === 0) return null;
-  const nearest = [...points].sort((a, b) => Math.abs(a.months - month) - Math.abs(b.months - month))[0];
-  return nearest?.value ?? null;
-}
-
-function estimatePercentile(
-  userValue: number,
-  values: Array<{ rank: number; value: number | null }>,
-): number | null {
-  const valid = values
-    .filter((v): v is { rank: number; value: number } => v.value !== null)
-    .sort((a, b) => a.rank - b.rank);
-
-  if (valid.length < 2) return null;
-
-  if (userValue <= valid[0].value) return valid[0].rank;
-  if (userValue >= valid[valid.length - 1].value) return valid[valid.length - 1].rank;
-
-  for (let i = 0; i < valid.length - 1; i++) {
-    const low = valid[i];
-    const high = valid[i + 1];
-    if (userValue >= low.value && userValue <= high.value) {
-      const gap = high.value - low.value;
-      if (gap <= 0) return low.rank;
-      const ratio = (userValue - low.value) / gap;
-      return low.rank + ratio * (high.rank - low.rank);
-    }
-  }
-
-  return null;
-}
-
-function PercentileProgressCard({
-  title,
-  unit,
-  data,
-  month,
-  myValue,
-}: {
-  title: string;
-  unit: string;
-  data: GrowthPercentileData;
-  month: number;
-  myValue: number | null;
-}) {
-  const values = useMemo(() => {
-    return PERCENTILES.map((p) => ({
-      ...p,
-      value: getNearestValue(data[p.key] ?? [], month),
-    }));
-  }, [data, month]);
-
-  const hasValues = values.some((v) => v.value !== null);
-  const myPercentile = useMemo(() => {
-    if (myValue === null || Number.isNaN(myValue)) return null;
-    return estimatePercentile(myValue, values);
-  }, [myValue, values]);
-
-  const myTopPercent = myPercentile === null ? null : Math.max(0, 100 - myPercentile);
-
-  return (
-    <View style={styles.card}>
-      <Text style={styles.cardTitle}>{title}</Text>
-
-      {!hasValues ? (
-        <Text style={styles.emptyText}>데이터가 없습니다.</Text>
-      ) : (
-        <>
-          <View style={styles.progressWrap}>
-            <LinearGradient
-              colors={['#7EC8FF', '#73E0B5', '#F8D779', '#FF9AA2']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.progressBar}
-            />
-
-            {values.map((item) => (
-              <View
-                key={item.key}
-                style={[
-                  styles.marker,
-                  { left: `${item.rank}%` },
-                ]}
-              >
-                <Text style={styles.markerRank}>{item.rank}%</Text>
-              </View>
-            ))}
-
-            {myPercentile !== null && (
-              <View style={[styles.myMarker, { left: `${myPercentile}%` }]}>
-                <View style={styles.myMarkerDot} />
-                <Ionicons name="arrow-down" size={12} color="#FF4D60" style={styles.myMarkerIcon} />
-              </View>
-            )}
-          </View>
-
-          <View style={styles.guideRow}>
-            <Text style={styles.guideText}>하위권</Text>
-            <Text style={styles.guideText}>평균권</Text>
-            <Text style={styles.guideText}>상위권</Text>
-          </View>
-
-          <View style={styles.rankTable}>
-            {values
-              .slice()
-              .reverse()
-              .map((item) => (
-                <View key={`${title}-${item.key}`} style={styles.rankRow}>
-                  <Text style={styles.rankLabel}>상위 {100 - item.rank}%</Text>
-                  <Text style={styles.rankValue}>
-                    {item.value === null ? '-' : `${item.value.toFixed(1)}${unit}`}
-                  </Text>
-                </View>
-              ))}
-          </View>
-
-          {myPercentile !== null && myTopPercent !== null && (
-            <View style={styles.mySummaryBox}>
-              <Text style={styles.mySummaryText}>
-                내 수치 {myValue?.toFixed(1)}{unit} 는 또래 대비 상위 {myTopPercent.toFixed(1)}% 수준입니다.
-              </Text>
-            </View>
-          )}
-        </>
-      )}
-    </View>
-  );
-}
+import { useCreateGrowthReports, useGrowth } from '../libs/hooks/useGrowths';
+import { useAuth } from '../libs/contexts/AuthContext';
+import { toastError, toastSuccess } from '@/libs/utils/toast';
+import GrowthChildSelectModal from '../components/GrowthChildSelectModal';
+import PercentileProgressCard, { getNearestValue, estimatePercentile } from '../components/PercentileProgressCard';
 
 export default function GrowthScreen({ navigation }: any) {
+  const { user } = useAuth();
   const [gender, setGender] = useState<'M' | 'W'>('M');
   const [months, setMonths] = useState('');
   const [myHeight, setMyHeight] = useState('');
   const [myWeight, setMyWeight] = useState('');
   const [myHeader, setMyHeader] = useState('');
   const [requestedMonth, setRequestedMonth] = useState<number | null>(null);
-
+  const [childSelectVisible, setChildSelectVisible] = useState(false);
+  const createGrowthReportsMutation = useCreateGrowthReports();
   const { data: growthResponse, isLoading: growthLoading } = useGrowth(
     {
       gender,
@@ -176,10 +48,103 @@ export default function GrowthScreen({ navigation }: any) {
   const isValidMonths = Number.isInteger(parsedMonths) && parsedMonths >= 0 && parsedMonths <= 71;
   const isValidHeight = !Number.isNaN(parsedHeight);
   const isValidWeight = !Number.isNaN(parsedWeight);
+  const isValidHeader = !Number.isNaN(parsedHeader);
 
   const heightData: GrowthPercentileData = hasGrowthData ? growthData!.height[gender] : {};
   const weightData: GrowthPercentileData = hasGrowthData ? growthData!.weight[gender] : {};
   const headerData: GrowthPercentileData = hasGrowthData ? growthData!.header[gender] : {};
+
+  const userChilds = user?.user_childs ?? [];
+  const hasMultipleChildren = userChilds.length > 1;
+
+  // 단일 자녀면 자동 선택, 다중 자녀면 기본값으로 대표 자녀
+  const defaultChildId = useMemo(() => {
+    if (!userChilds.length) return null;
+    const agentChild = userChilds.find((c) => c.is_agent === 'Y');
+    return agentChild?.id ?? userChilds[0].id;
+  }, [userChilds]);
+
+  const getTopPercent = (value: number, data: GrowthPercentileData, month: number): number | null => {
+    const values = PERCENTILES.map((p) => ({
+      rank: p.rank,
+      value: getNearestValue(data[p.key] ?? [], month),
+    }));
+    const percentile = estimatePercentile(value, values);
+    if (percentile === null) return null;
+    return Math.max(0, 100 - percentile);
+  };
+
+  const canSubmitReport =
+    isValidMonths &&
+    isValidHeight &&
+    isValidWeight &&
+    requestedMonth !== null &&
+    hasGrowthData &&
+    defaultChildId !== null &&
+    !createGrowthReportsMutation.isPending;
+
+  const doSave = async (childId: number) => {
+    const monthValue = parsedMonths;
+    const heightPercent = getTopPercent(parsedHeight, heightData, monthValue);
+    const weightPercent = getTopPercent(parsedWeight, weightData, monthValue);
+    const headerPercent = isValidHeader ? getTopPercent(parsedHeader, headerData, monthValue) : null;
+
+    if (heightPercent === null || weightPercent === null) {
+      toastError('분포 퍼센트를 계산할 수 없습니다. 다시 시도해주세요.');
+      return;
+    }
+
+    const reports: Array<{ type: 'height' | 'weight' | 'head'; months: number; value: number; percent: number }> = [
+      {
+        type: 'height',
+        months: monthValue,
+        value: parsedHeight,
+        percent: Number(heightPercent.toFixed(1)),
+      },
+      {
+        type: 'weight',
+        months: monthValue,
+        value: parsedWeight,
+        percent: Number(weightPercent.toFixed(1)),
+      },
+    ];
+
+    if (isValidHeader && headerPercent !== null) {
+      reports.push({
+        type: 'head',
+        months: monthValue,
+        value: parsedHeader,
+        percent: Number(headerPercent.toFixed(1)),
+      });
+    }
+
+    try {
+      const response = await createGrowthReportsMutation.mutateAsync({
+        childId,
+        payload: { reports },
+      });
+
+      if (response.success) {
+        toastSuccess('성장 기록이 저장되었습니다.');
+      } else {
+        toastError(response.error || '성장 기록 저장에 실패했습니다.');
+      }
+    } catch (error: any) {
+      toastError(error?.message || '성장 기록 저장 중 오류가 발생했습니다.');
+    }
+  };
+
+  const handleSaveGrowthReport = () => {
+    if (!canSubmitReport) {
+      toastError('개월수, 키, 체중을 입력하고 또래 분포를 먼저 조회해주세요.');
+      return;
+    }
+    if (hasMultipleChildren) {
+      setChildSelectVisible(true);
+    } else {
+      doSave(defaultChildId!);
+    }
+  };
 
   return (
     <Layout>
@@ -226,7 +191,7 @@ export default function GrowthScreen({ navigation }: any) {
             <View style={styles.inputRow2Col}>
               <View style={{ flex: 1 }}>
                 <View style={styles.labelRow}>
-                  <Text style={styles.fieldLabel}>개월수</Text>
+                  <Text style={styles.fieldLabel}>아이 개월수</Text>
                   <Text style={styles.requiredMark}>*</Text>
                 </View>
                 <View style={styles.inputRow}>
@@ -247,7 +212,7 @@ export default function GrowthScreen({ navigation }: any) {
 
               <View style={{ flex: 1 }}>
                 <View style={styles.labelRow}>
-                  <Text style={styles.fieldLabel}>아이 키</Text>
+                  <Text style={styles.fieldLabel}>아이 키(cm)</Text>
                   <Text style={styles.requiredMark}>*</Text>
                 </View>
                 <View style={styles.inputRow}>
@@ -267,7 +232,7 @@ export default function GrowthScreen({ navigation }: any) {
             <View style={styles.inputRow2Col}>
               <View style={{ flex: 1 }}>
                 <View style={styles.labelRow}>
-                  <Text style={styles.fieldLabel}>아이 체중</Text>
+                  <Text style={styles.fieldLabel}>아이 체중(kg)</Text>
                   <Text style={styles.requiredMark}>*</Text>
                 </View>
                 <View style={styles.inputRow}>
@@ -313,6 +278,34 @@ export default function GrowthScreen({ navigation }: any) {
               >
                 <Ionicons name="analytics-outline" size={18} color="#FFF" />
                 <Text style={styles.searchBtnText}>또래 분포 보기</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+
+            <GrowthChildSelectModal
+              visible={childSelectVisible}
+              children={userChilds as any}
+              onSelect={(childId) => {
+                setChildSelectVisible(false);
+                doSave(childId);
+              }}
+              onClose={() => setChildSelectVisible(false)}
+            />
+
+            <TouchableOpacity onPress={handleSaveGrowthReport} activeOpacity={0.85}>
+              <LinearGradient
+                colors={canSubmitReport ? ['#73C8A9', '#57B38F'] : ['#DDD', '#CCC']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.recordBtn}
+              >
+                {createGrowthReportsMutation.isPending ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Ionicons name="save-outline" size={18} color="#FFF" />
+                )}
+                <Text style={styles.searchBtnText}>
+                  {createGrowthReportsMutation.isPending ? '저장 중...' : '우리아이 성장 기록하기'}
+                </Text>
               </LinearGradient>
             </TouchableOpacity>
           </View>
@@ -396,7 +389,6 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   sectionTitle: { fontSize: 16, fontWeight: '700', color: '#4A4A4A' },
-  cardTitle: { fontSize: 15, fontWeight: '700', color: '#4A4A4A' },
   fieldLabel: { fontSize: 13, fontWeight: '600', color: '#666', marginTop: 2 },
   genderRow: { flexDirection: 'row', gap: 10 },
   genderBtn: {
@@ -437,6 +429,15 @@ const styles = StyleSheet.create({
     gap: 8,
     marginTop: 6,
   },
+  recordBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 13,
+    borderRadius: 14,
+    gap: 8,
+    marginTop: 8,
+  },
   searchBtnText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
   loadingBox: {
     flexDirection: 'row',
@@ -465,99 +466,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#6E6E6E',
     lineHeight: 18,
-  },
-  progressWrap: {
-    marginTop: 6,
-    marginBottom: 6,
-    paddingTop: 22,
-    paddingHorizontal: 2,
-  },
-  progressBar: {
-    height: 12,
-    borderRadius: 8,
-  },
-  marker: {
-    position: 'absolute',
-    top: 0,
-    marginLeft: -8,
-    alignItems: 'center',
-  },
-  markerRank: {
-    fontSize: 10,
-    color: '#777',
-    fontWeight: '600',
-  },
-  myMarker: {
-    position: 'absolute',
-    top: 2,
-    marginLeft: -10,
-    alignItems: 'center',
-  },
-  myMarkerDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#FF4D60',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-  },
-  myMarkerText: {
-    marginTop: 2,
-    fontSize: 10,
-    color: '#FF4D60',
-    fontWeight: '700',
-  },
-  myMarkerIcon: {
-    marginTop: 2,
-  },
-  guideRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 2,
-    marginBottom: 6,
-  },
-  guideText: {
-    fontSize: 11,
-    color: '#8A8A8A',
-    fontWeight: '600',
-  },
-  rankTable: {
-    borderTopWidth: 1,
-    borderTopColor: '#F1F1F1',
-    marginTop: 4,
-    paddingTop: 6,
-    gap: 6,
-  },
-  rankRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  rankLabel: {
-    fontSize: 12,
-    color: '#666',
-  },
-  rankValue: {
-    fontSize: 13,
-    color: '#333',
-    fontWeight: '700',
-  },
-  mySummaryBox: {
-    marginTop: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    borderRadius: 10,
-    backgroundColor: '#FFF0F3',
-    borderWidth: 1,
-    borderColor: '#FFD8DF',
-  },
-  mySummaryText: {
-    fontSize: 12,
-    color: '#6B4C52',
-    fontWeight: '600',
-  },
-  emptyText: {
-    fontSize: 13,
-    color: '#999',
   },
 });

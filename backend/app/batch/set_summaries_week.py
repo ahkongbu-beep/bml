@@ -39,7 +39,6 @@ def set_summaries_week():
                 "unit": nutrient_unit
             }
 
-
     start_date = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
     end_date = datetime.now().strftime("%Y-%m-%d")
     try:

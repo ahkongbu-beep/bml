@@ -5,6 +5,7 @@ from app.schemas.common_schemas import CommonResponse
 from app.serializer.communities_comments_serialize import serialize_community_comment
 from app.serializer.communities_serialize import build_community_detail_response, serialize_communities_list
 
+from app.services.categories_codes_service import get_category_list
 from app.services.users_service import validate_user, validate_user_id
 from app.services.meals_comments_service import build_comment_tree
 from app.services.users_childs_service import get_agent_childs
@@ -81,8 +82,22 @@ def get_community_list(db, user_hash, params) -> CommonResponse:
         for key in append_keys:
             db_params[key] = params[key]
 
-        community_list = CommunitiesRepository.get_community_list(db, user.id, db_params)
-        communities = [item._data for item in serialize_communities_list(community_list)]
+        # 베스트 글 조회
+        # - 각 카테고리 별로 좋아요 수 상위 3개 글 조회
+        if db_params["category_code"] == 9999:
+            category_list = get_category_list(db, {"type": "TOPIC_GROUP", "is_active": "Y"})
+
+            community_data = []
+            community_list = []
+            for category in category_list:
+                db_params["category_code"] = category.id
+                community_list = CommunitiesRepository.get_best_community_list(db, user.id, db_params)
+                community_data.extend([item._data for item in serialize_communities_list(community_list)])
+
+            communities = community_data
+        else:
+            community_list = CommunitiesRepository.get_community_list(db, user.id, db_params)
+            communities = [item._data for item in serialize_communities_list(community_list)]
 
         total_cummunity_count = CommunitiesRepository.get_community_count(db, user.id, db_params)
 

@@ -39,6 +39,7 @@ import CommunityModifyScreen from './screens/CommunityModifyScreen';
 import CommunityDetailScreen from './screens/CommunityDetailScreen';
 import MenuListScreen from './screens/MenuListScreen';
 import GrowthScreen from './screens/GrowthScreen';
+import GrowthReportScreen from './screens/GrowthReportScreen';
 import { AuthProvider, useAuth } from './libs/contexts/AuthContext';
 import { getNeedChildRegistration, clearNeedChildRegistration } from './libs/utils/storage';
 import { getMessaging, requestPermission, onMessage } from '@react-native-firebase/messaging';
@@ -140,6 +141,7 @@ function MainNavigator() {
       <Stack.Screen name="SearchAccount" component={UserSearchAccount} />
       <Stack.Screen name="RegistChild" component={RegistChildScreen} />
       <Stack.Screen name="Growth" component={GrowthScreen} />
+        <Stack.Screen name="GrowthReport" component={GrowthReportScreen} />
       <Stack.Screen name="MealCopyByFeed" component={MealCopyByFeedScreen} />
       <Stack.Screen name="Community" component={CommunityScreen} />
       <Stack.Screen name="CommunityWrite" component={CommunityWriteScreen} />

@@ -149,6 +149,24 @@ class MealsCalendarsRepository:
             else:
                 query = query.add_columns(literal(False).label("is_liked"))
 
+        if "comment_count" in include:
+            from app.models.meals_comments import MealsComments
+            comment_count_subquery = (
+                session.query(
+                    MealsComments.meal_id.label("meal_id"),
+                    sql_func.count(MealsComments.id).label("comment_count")
+                )
+                .filter(MealsComments.is_active == "Y")
+                .group_by(MealsComments.meal_id)
+                .subquery()
+            )
+
+            query = query.add_columns(sql_func.coalesce(comment_count_subquery.c.comment_count, 0).label("comment_count"))
+            query = query.outerjoin(
+                comment_count_subquery,
+                MealsCalendars.id == comment_count_subquery.c.meal_id
+            )
+
         if "user" in include:
             query = query.join(Users, MealsCalendars.user_id == Users.id).add_columns(
                 Users.id.label("user_id"),

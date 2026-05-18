@@ -1,5 +1,12 @@
-import { useQuery, UseQueryResult } from '@tanstack/react-query';
-import { getGrowths, GrowthListParams } from '../api/growthApi';
+import { useQuery, useMutation, UseQueryResult } from '@tanstack/react-query';
+import {
+  createGrowthReports,
+  getGrowths,
+  getGrowthReports,
+  GrowthListParams,
+  GrowthReportRecord,
+  GrowthReportSaveRequest,
+} from '../api/growthApi';
 import { GrowthResponse } from '../types/GrowthTypes';
 import { ApiResponse } from '../types/ApiTypes';
 
@@ -18,3 +25,24 @@ export const useGrowth = (params?: GrowthListParams, enabled: boolean = true): U
     enabled,
   });
 }
+
+/**
+ * 성장 리포트 저장
+ */
+export const useCreateGrowthReports = () => {
+  return useMutation({
+    mutationFn: ({ childId, payload }: { childId: number; payload: GrowthReportSaveRequest }) =>
+      createGrowthReports(childId, payload),
+  });
+};
+
+/**
+ * 성장 리포트 조회
+ */
+export const useGetGrowthReports = (childId: number | null) => {
+  return useQuery<{ success: boolean; data: GrowthReportRecord[] | null; error: string | null }, Error>({
+    queryKey: ['growthReports', childId],
+    queryFn: () => getGrowthReports(childId!),
+    enabled: childId !== null,
+  });
+};

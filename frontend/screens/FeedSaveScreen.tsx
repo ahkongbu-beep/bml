@@ -10,24 +10,27 @@ import {
 } from 'react-native';
 import Header from '../components/Header';
 import Layout from '../components/Layout';
+import ImagePickerModal from '../components/ImagePickerModal';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import styles from '../styles/screens/FeedSaveScreen.styles';
-import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
-import { useCreateFeed, useUpdateFeed, useSearchTags } from '../libs/hooks/useFeeds';
+import { useCreateMealWithImage, useUpdateMealWithImage, useSearchIngredients } from '../libs/hooks/useMeals';
 import { useAuth } from '../libs/contexts/AuthContext';
 import { useCategoryCodes } from '../libs/hooks/useCategories';
 
 import { getToday, getStaticImage } from '../libs/utils/common';
-import { toastInfo, toastSuccess, toastError } from '../libs/utils/toast';
+import { toastSuccess, toastError } from '../libs/utils/toast';
 import { MEAL_CATEGORIES } from '../libs/utils/codes/MealCalendarCode';
 import { MEAL_CONDITION } from '../libs/utils/codes/FeedMealCondition';
 
 export default function FeedSaveScreen({ route, navigation }: any) {
-  const { feed } = route.params || {};
-  const isEditMode = !!feed;
+  const insets = useSafeAreaInsets();
+  const { feed, mealData } = route.params || {};
+  const editingTarget = feed || mealData;
+  const isEditMode = !!editingTarget;
   const { user } = useAuth();
-  const createFeedMutation = useCreateFeed();
-  const updateFeedMutation = useUpdateFeed();
+  const createMealMutation = useCreateMealWithImage();
+  const updateMealMutation = useUpdateMealWithImage();
   const { data: categoryCodes } = useCategoryCodes('MEALS_GROUP');
   const nowDate = getToday('YYYY-MM-DD');
 
@@ -39,17 +42,26 @@ export default function FeedSaveScreen({ route, navigation }: any) {
   const [isShareMealPlan, setIsShareMealPlan] = useState<'Y' | 'N'>('N');
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [mealCondition, setMealCondition] = useState<string>('2');
+  const currentImage = images[0];
+  const isRemoteImage = !!currentImage && !currentImage.startsWith('file://');
 
   // 화면이 열릴 때 또는 feed가 변경될 때 초기화
   useEffect(() => {
-    if (isEditMode && feed) {
-      setContent(feed.content || '');
-      setImages(feed.images || []);
-      setTags(feed.tags || []);
-      setIsPublic(feed.is_published || 'Y');
-      setIsShareMealPlan(feed.is_share_meal_plan || 'N');
-      setSelectedCategory(feed.category_id || '');
-      setMealCondition(feed.meal_condition || '2');
+    if (isEditMode && editingTarget) {
+      setContent(editingTarget.content || '');
+      setImages(editingTarget.images || []);
+      setTags(
+        Array.isArray(editingTarget.tags)
+          ? editingTarget.tags.map((tag: any) => {
+              if (typeof tag === 'string') return tag;
+              return tag?.mapped_tags || tag?.name || '';
+            }).filter((tag: string) => tag.length > 0)
+          : []
+      );
+      setIsPublic(editingTarget.is_published || editingTarget.is_public || 'Y');
+      setIsShareMealPlan(editingTarget.is_share_meal_plan || 'N');
+      setSelectedCategory(editingTarget.category_id || '');
+      setMealCondition(editingTarget.meal_condition || '2');
     } else {
       // 새 글 작성 시 초기화
       setContent('');
@@ -60,44 +72,27 @@ export default function FeedSaveScreen({ route, navigation }: any) {
       setSelectedCategory('');
       setMealCondition('2');
     }
-  }, [feed, isEditMode]);
+  }, [editingTarget, isEditMode]);
 
   // 태그 자동완성 검색
   const searchTerm = tagInput.trim();
-  const { data: tagSuggestions = [] } = useSearchTags(searchTerm);
+  const { data: tagSuggestions = [] } = useSearchIngredients(searchTerm);
   const showTagSuggestions = searchTerm.length > 0 && tagSuggestions.length > 0;
-  const handleImagePick = async () => {
-    if (images.length >= 1) {
-      toastError('사진은 최대 1장까지 업로드할 수 있습니다.');
-      return;
-    }
 
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      toastError('사진을 선택하려면 갤러리 접근 권한이 필요합니다.');
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
-
-    if (!result.canceled && result.assets[0]) {
-      setImages([...images, result.assets[0].uri]);
-    }
+  const handleImageSelected = (uri: string) => {
+    setImages([uri]);
   };
 
-  // 이미지 제거 함수
+  const handleImageRemoved = () => {
+    setImages([]);
+  };
+
   const handleRemoveImage = (index: number) => {
     setImages(images.filter((_, i) => i !== index));
   };
 
   // 재료 추가함수
   const handleAddTag = (tagName: string) => {
-    console.log('태그 추가 시도:', tagName);
     const cleanTag = tagName.replace('#', '').trim();
     if (cleanTag && !tags.includes(cleanTag)) {
       setTags([...tags, cleanTag]);
@@ -142,26 +137,39 @@ export default function FeedSaveScreen({ route, navigation }: any) {
       return;
     }
 
-    const feedData = {
-      content,
-      images: images.map(image =>
-        image.startsWith('file://') ? image : getStaticImage("medium", image)
-      ),
-      tags,
-      category_id: selectedCategory,
-      is_share_meal_plan: isShareMealPlan,
-      is_public: isPublic,
-      meal_condition: mealCondition,
-    };
+    // FormData 생성
+    const formData = new FormData();
+    formData.append('title', (content || '').trim().slice(0, 20) || '식단');
+    formData.append('contents', content);
+    formData.append('category_id', String(selectedCategory));
+    formData.append('is_public', isPublic);
+    formData.append('is_share_meal_plan', isShareMealPlan);
+    formData.append('meal_condition', String(mealCondition));
+
+    // 태그 추가
+    if (tags.length > 0) {
+      formData.append('tags', tags.join(','));
+    }
+
+    // 로컬 이미지만 추가
+    const localImages = images.filter(image => image.startsWith('file://'));
+    localImages.forEach((image, index) => {
+      formData.append('attaches', {
+        uri: image,
+        name: `meal_${Date.now()}_${index}.jpg`,
+        type: 'image/jpeg',
+      } as any);
+    });
 
     try {
       if (isEditMode) {
-        await updateFeedMutation.mutateAsync({ id: feed.id, data: feedData });
+        const mealHash = editingTarget.view_hash;
+        await updateMealMutation.mutateAsync({ mealHash, formData });
         toastSuccess('피드가 수정되었습니다.', {
           onHide: () => navigation.goBack()
         });
       } else {
-        await createFeedMutation.mutateAsync(feedData);
+        await createMealMutation.mutateAsync(formData);
         toastSuccess('피드가 등록되었습니다.', {
           onHide: () => navigation.goBack()
         });
@@ -171,7 +179,7 @@ export default function FeedSaveScreen({ route, navigation }: any) {
     }
   };
 
-  const isLoading = createFeedMutation.isPending || updateFeedMutation.isPending;
+  const isLoading = createMealMutation.isPending || updateMealMutation.isPending;
 
   return (
     <Layout>
@@ -190,18 +198,12 @@ export default function FeedSaveScreen({ route, navigation }: any) {
                   사진 ({images.length}/1) <Text style={styles.required}>*</Text>
                 </Text>
                 <Text style={styles.sectionHint}>아이 식단 사진만 업로드해주세요.{"\n"}얼굴·신체 노출 사진은 제한됩니다</Text>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={{ paddingVertical: 16, paddingHorizontal: 8 }}
-                  style={{ marginHorizontal: -8 }}
-                >
-                  <View style={styles.imageList}>
+                <View style={styles.imageList}>
                   {images.map((image, index) => (
                     <View key={index} style={styles.imageWrapper}>
                       <Image
                         source={{ uri: image.startsWith('file://') ? image : getStaticImage("medium", image) }}
-                        style={styles.image}
+                        style={[styles.image, styles.imageLarge]}
                       />
                       <TouchableOpacity
                         style={styles.removeImageButton}
@@ -211,17 +213,18 @@ export default function FeedSaveScreen({ route, navigation }: any) {
                       </TouchableOpacity>
                     </View>
                   ))}
-                  {images.length < 2 && (
-                    <TouchableOpacity
-                      style={styles.addImageButton}
-                      onPress={handleImagePick}
-                    >
-                      <Ionicons name="camera" size={40} color="#FFB6C1" />
-                      <Text style={styles.addImageText}>사진 추가</Text>
-                    </TouchableOpacity>
-                  )}
+                </View>
+
+                {images.length < 2 && (
+                  <View style={{ marginTop: 10 }}>
+                    <ImagePickerModal
+                      imageUri={null}
+                      onImageSelected={handleImageSelected}
+                      onImageRemoved={handleImageRemoved}
+                      aspectRatio={1}
+                    />
                   </View>
-                </ScrollView>
+                )}
               </View>
             </View>
 
@@ -361,7 +364,7 @@ export default function FeedSaveScreen({ route, navigation }: any) {
             </View>
 
             {/* 식단 캘린더 반영 */}
-            { (!isEditMode || feed?.is_share_meal_plan === 'N' ) && (
+            { (!isEditMode || editingTarget?.is_share_meal_plan === 'N' ) && (
               <View style={styles.card}>
                 <Text style={styles.sectionLabel}>캘린더 반영 여부</Text>
                 <View style={styles.buttonGroup}>
@@ -469,7 +472,7 @@ export default function FeedSaveScreen({ route, navigation }: any) {
         </ScrollView>
 
         {/* 등록 버튼 */}
-        <View style={styles.footer}>
+        <View style={[styles.footer, { paddingBottom: 20 + Math.max(insets.bottom, 8) }]}>
           <TouchableOpacity
             style={[styles.submitButton, isLoading && styles.submitButtonDisabled]}
             onPress={handleSubmit}

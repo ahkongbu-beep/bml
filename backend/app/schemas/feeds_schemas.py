@@ -78,6 +78,7 @@ class FeedsResponse(BaseModel):
     like_count: int
     created_at: datetime
     updated_at: datetime
+    view_hash: str
     meal_stage: Optional[int] = 0
     meal_stage_detail: Optional[str] = ""
     category_id: Optional[int] = 0

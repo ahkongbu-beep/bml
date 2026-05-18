@@ -11,7 +11,6 @@ import { Ionicons } from '@expo/vector-icons';
 import Layout from './Layout';
 import Header from './Header';
 
-
 export function LoadingPage({title}: {title?: string}) {
   const appName = process.env.EXPO_PUBLIC_APP_NAME || "";
   return (

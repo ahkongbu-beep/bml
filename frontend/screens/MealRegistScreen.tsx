@@ -3,7 +3,6 @@ import styles from '../styles/screens/MealRegistScreen.styles';
 import {
   View,
   Text,
-  StyleSheet,
   TextInput,
   TouchableOpacity,
   ScrollView,
@@ -11,7 +10,6 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  Image,
   Animated,
   Modal,
   useWindowDimensions,
@@ -19,9 +17,9 @@ import {
 import Header from '../components/Header';
 import Layout from '@/components/Layout';
 import AiSummaryMealModal from '../components/AiSummaryMealModal';
+import ImagePickerModal from '../components/ImagePickerModal';
 import { LoadingPage } from '../components/Loading';
 import { LinearGradient } from 'expo-linear-gradient';
-import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useAuth } from '../libs/contexts/AuthContext';
@@ -263,55 +261,6 @@ export default function MealRegistScreen({ route, navigation }: any) {
         toastError('재료 요청에 실패하였습니다.');
       },
     });
-  };
-
-  const handlePickImage = async () => {
-    // 권한 요청
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      toastError('갤러리 접근 권한이 필요합니다.');
-      return;
-    }
-
-    // 이미지 선택
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 0.8,
-    });
-
-    if (!result.canceled && result.assets[0]) {
-      setSelectedImage(result.assets[0].uri);
-      setImageChanged(true);
-    }
-  };
-
-  const handleTakePhoto = async () => {
-    // 카메라 권한 요청
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      toastError('카메라 접근 권한이 필요합니다.');
-      return;
-    }
-
-    // 카메라로 촬영
-    const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 0.8,
-    });
-
-    if (!result.canceled && result.assets[0]) {
-      setSelectedImage(result.assets[0].uri);
-      setImageChanged(true);
-    }
-  };
-
-  const handleRemoveImage = () => {
-    setSelectedImage(null);
-    setImageChanged(true);
-    setExistingImageUrl(null);
   };
 
   const handelMealStageDetailSelect = (item: { id: string; label: string; needCode: boolean }) => {
@@ -597,38 +546,19 @@ export default function MealRegistScreen({ route, navigation }: any) {
           {/* 이미지 첨부 */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>사진</Text>
-            {(selectedImage || existingImageUrl) ? (
-              <View style={styles.imagePreviewContainer}>
-                <Image
-                  source={{ uri: selectedImage || existingImageUrl || '' }}
-                  style={styles.imagePreview}
-                />
-
-                <TouchableOpacity
-                  style={styles.imageRemoveButton}
-                  onPress={handleRemoveImage}
-                >
-                  <Ionicons name="close-circle" size={24} color="#FF6B6B" />
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <View style={styles.imageButtonContainer}>
-                <TouchableOpacity
-                  style={styles.imageButton}
-                  onPress={handleTakePhoto}
-                >
-                  <Ionicons name="camera" size={10} color="#FF9AA2" />
-                  <Text style={styles.imageButtonText}>촬영</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.imageButton}
-                  onPress={handlePickImage}
-                >
-                  <Ionicons name="images" size={10} color="#FF9AA2" />
-                  <Text style={styles.imageButtonText}>갤러리</Text>
-                </TouchableOpacity>
-              </View>
-            )}
+            <ImagePickerModal
+              aspectRatio={1}
+              imageUri={selectedImage || existingImageUrl}
+              onImageSelected={(uri) => {
+                setSelectedImage(uri);
+                setImageChanged(true);
+              }}
+              onImageRemoved={() => {
+                setSelectedImage(null);
+                setExistingImageUrl(null);
+                setImageChanged(true);
+              }}
+            />
           </View>
 
           {/* 식사 시간 선택 */}

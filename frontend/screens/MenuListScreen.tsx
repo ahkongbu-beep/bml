@@ -121,6 +121,17 @@ export default function MenuListScreen({ navigation }: any) {
             <Ionicons name="chevron-forward" size={22} color="#C0C0C0" />
           </TouchableOpacity>
 
+          {/* 자녀성장리포트 */}
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => navigation.navigate('GrowthReport')}
+          >
+            <View style={styles.menuLeft}>
+              <Ionicons name="people-outline" size={24} color="#FF9AA2" />
+              <Text style={styles.menuText}>자녀성장리포트</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={22} color="#C0C0C0" />
+          </TouchableOpacity>
           {/* 좋아요 리스트 */}
           <TouchableOpacity
             style={styles.menuItem}
@@ -145,20 +156,6 @@ export default function MenuListScreen({ navigation }: any) {
             <Ionicons name="chevron-forward" size={22} color="#C0C0C0" />
           </TouchableOpacity>
 
-          {/* 이벤트 */}
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => {
-              Alert.alert('알림', '준비중인 기능입니다.');
-            }}
-          >
-            <View style={styles.menuLeft}>
-              <Ionicons name="gift-outline" size={24} color="#FF9AA2" />
-              <Text style={styles.menuText}>이벤트</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={22} color="#C0C0C0" />
-          </TouchableOpacity>
-
           {/* 공지사항 */}
           <TouchableOpacity
             style={styles.menuItem}
@@ -167,34 +164,6 @@ export default function MenuListScreen({ navigation }: any) {
             <View style={styles.menuLeft}>
               <Ionicons name="megaphone-outline" size={24} color="#FF9AA2" />
               <Text style={styles.menuText}>공지사항</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={22} color="#C0C0C0" />
-          </TouchableOpacity>
-
-          {/* Q&A */}
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => {
-              Alert.alert('알림', '준비중인 기능입니다.');
-            }}
-          >
-            <View style={styles.menuLeft}>
-              <Ionicons name="help-circle-outline" size={24} color="#FF9AA2" />
-              <Text style={styles.menuText}>Q&A</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={22} color="#C0C0C0" />
-          </TouchableOpacity>
-
-          {/* 고객센터 */}
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => {
-              Alert.alert('알림', '준비중인 기능입니다.');
-            }}
-          >
-            <View style={styles.menuLeft}>
-              <Ionicons name="help-circle-outline" size={24} color="#FF9AA2" />
-              <Text style={styles.menuText}>고객센터</Text>
             </View>
             <Ionicons name="chevron-forward" size={22} color="#C0C0C0" />
           </TouchableOpacity>
@@ -226,7 +195,7 @@ export default function MenuListScreen({ navigation }: any) {
       <ConfirmPortal
         visible={logoutConfirmVisible}
         title="로그아웃"
-        message="정말 로그아웃하시겠습니까?"
+        message="로그아웃하시겠습니까?"
         onConfirm={handleLogoutConfirm}
         onCancel={() => setLogoutConfirmVisible(false)}
         confirmText="로그아웃"
@@ -236,7 +205,7 @@ export default function MenuListScreen({ navigation }: any) {
       <ConfirmPortal
         visible={withdrawalConfirmVisible}
         title="회원탈퇴"
-        message="정말 회원탈퇴하시겠습니까? \n모든 데이터가 삭제되며 복구할 수 없습니다."
+        message="회원탈퇴하시겠습니까? \n모든 데이터가 삭제되며 복구할 수 없습니다."
         onConfirm={handleWithdrawalConfirm}
         onCancel={() => setWithdrawalConfirmVisible(false)}
         confirmText="회원탈퇴"

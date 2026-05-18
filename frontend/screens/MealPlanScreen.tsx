@@ -57,6 +57,7 @@ export default function MealPlanScreen({ navigation }: any) {
   const deleteMealMutation = useDeleteMeal();
   const uploadMonthImageMutation = useUploadCalendarMonthImage();
   const { user } = useAuth();
+  const hasMultipleChildren = (user.user_childs?.length ?? 0) > 1;
 
   const { data: mealsCalendar, isLoading: mealsLoading, refetch } = useMeals({ month: currentMonth, child_id: selectedChildId });
   const { data: monthImage, isLoading: monthImageLoading, isFetching: monthImageFetching, refetch: refetchMonthImage } = useMonthImage(currentMonth);
@@ -329,8 +330,10 @@ export default function MealPlanScreen({ navigation }: any) {
     <Layout>
       <View style={styles.container}>
         <Header title="식단 관리" />
+
         <ScrollView
           style={styles.content}
+          stickyHeaderIndices={hasMultipleChildren ? [2] : undefined}
           refreshControl={
             <RefreshControl
               refreshing={isRefreshing}
@@ -369,7 +372,7 @@ export default function MealPlanScreen({ navigation }: any) {
             <View style={styles.monthImagePlaceholder}>
               <Ionicons name="image-outline" size={36} color="#D0D0D0" />
               <Text style={styles.monthImagePlaceholderText}>
-                이번 달의 식단 이미지를 등록해주세요
+                이번 달 우리 아이 사진을 등록해주세요
               </Text>
               <TouchableOpacity
                 style={styles.monthImageRegisterButton}
@@ -383,42 +386,44 @@ export default function MealPlanScreen({ navigation }: any) {
           )}
 
           {/* 자녀 선택 라디오 박스 (자녀가 2명 이상일 때만 표시) */}
-          {(user.user_childs?.length ?? 0) > 1 && (
-            <View style={styles.childSelector}>
-              <Text style={styles.childSelectorLabel}>자녀 선택</Text>
-              <View style={styles.childSelectorOptions}>
-                {user.user_childs?.map((child) => (
-                  <TouchableOpacity
-                    key={child.id}
-                    style={[
-                      styles.childRadioOption,
-                      selectedChildId === child.id ? styles.childRadioOptionSelected : null,
-                    ]}
-                    onPress={() => handleChildPress(child.id)}
-                  >
-                    <View
+          {hasMultipleChildren && (
+            <View style={styles.childSelectorStickyWrapper}>
+              <View style={styles.childSelector}>
+                <Text style={styles.childSelectorLabel}>자녀 선택</Text>
+                <View style={styles.childSelectorOptions}>
+                  {user.user_childs?.map((child) => (
+                    <TouchableOpacity
+                      key={child.id}
                       style={[
-                        styles.childRadioCircle,
-                        selectedChildId === child.id ? styles.childRadioCircleSelected : null,
+                        styles.childRadioOption,
+                        selectedChildId === child.id ? styles.childRadioOptionSelected : null,
                       ]}
+                      onPress={() => handleChildPress(child.id)}
                     >
-                      {selectedChildId === child.id && <View style={styles.childRadioCircleInner} />}
-                    </View>
-                    <View style={styles.childRadioLabelRow}>
-                      {child.is_agent == 'Y' && (
-                        <Ionicons name="star" size={12} color="#FFD700" style={styles.childAgentIcon} />
-                      )}
-                      <Text
+                      <View
                         style={[
-                          styles.childRadioOptionText,
-                          selectedChildId === child.id ? styles.childRadioOptionTextSelected : null,
+                          styles.childRadioCircle,
+                          selectedChildId === child.id ? styles.childRadioCircleSelected : null,
                         ]}
                       >
-                        {`${child.child_name} (만 ${calculateAge(child.child_birth)}세)`}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                ))}
+                        {selectedChildId === child.id && <View style={styles.childRadioCircleInner} />}
+                      </View>
+                      <View style={styles.childRadioLabelRow}>
+                        {child.is_agent == 'Y' && (
+                          <Ionicons name="star" size={12} color="#FFD700" style={styles.childAgentIcon} />
+                        )}
+                        <Text
+                          style={[
+                            styles.childRadioOptionText,
+                            selectedChildId === child.id ? styles.childRadioOptionTextSelected : null,
+                          ]}
+                        >
+                          {`${child.child_name} (만 ${calculateAge(child.child_birth)}세)`}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </View>
               </View>
             </View>
           )}
@@ -432,6 +437,10 @@ export default function MealPlanScreen({ navigation }: any) {
               if (!date) return null;
 
               const dateString = date.dateString;
+              const [year, month, day] = dateString.split('-').map(Number);
+              const weekDay = new Date(year, month - 1, day).getDay();
+              const isSunday = weekDay === 0;
+              const isSaturday = weekDay === 6;
               const meals = normalizedMealsData[dateString] || [];
               const hasData = meals.length > 0;
               const hasReferFeed = meals.some((meal: any) => (meal?.refer_feed_id ?? 0) > 0);
@@ -441,11 +450,15 @@ export default function MealPlanScreen({ navigation }: any) {
 
               const textColor = isSelected
                 ? '#FFFFFF'
-                : isToday
-                  ? '#FF9AA2'
-                  : isDisabled
-                    ? '#C9C9C9'
-                    : '#4A4A4A';
+                : isDisabled
+                  ? '#C9C9C9'
+                  : isSunday
+                    ? (isToday ? '#D84747' : '#E45E5E')
+                    : isSaturday
+                      ? (isToday ? '#2F63F5' : '#4F7CFF')
+                      : isToday
+                        ? '#FF9AA2'
+                        : '#4A4A4A';
 
               return (
                 <TouchableOpacity
@@ -501,6 +514,18 @@ export default function MealPlanScreen({ navigation }: any) {
               textDayFontSize: 14,
               textMonthFontSize: 18,
               textDayHeaderFontSize: 12,
+              'stylesheet.calendar.header': {
+                dayHeader: {
+                  fontWeight: '700',
+                  color: '#5F5F5F',
+                },
+                sunday: {
+                  color: '#E45E5E',
+                },
+                saturday: {
+                  color: '#4F7CFF',
+                },
+              },
             }}
             enableSwipeMonths={true}
           />

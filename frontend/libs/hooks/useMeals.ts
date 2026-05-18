@@ -23,6 +23,8 @@ import {
   getMealDetail
 } from '../api/mealsApi';
 
+import { searchIngredients } from '../api/feedsApi';
+
 import { MealCalendarParams } from '../types/MealType';
 import { PaginationResponse } from '../types/ApiTypes';
 
@@ -178,9 +180,11 @@ export const useUpdateMealWithImage = () => {
   return useMutation({
     mutationFn: async ({ mealHash, formData }: { mealHash: string; formData: FormData }) =>
       updateMealWithImage(mealHash, formData),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: mealKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: ['feeds'] });
+      onSuccess: (_, variables) => {
+        queryClient.invalidateQueries({ queryKey: mealKeys.lists() });
+        queryClient.invalidateQueries({ queryKey: ['feeds'] });
+        queryClient.invalidateQueries({ queryKey: ['meals', 'detail'] });
+        queryClient.invalidateQueries({ queryKey: mealKeys.detail('', variables.mealHash) });
     },
   });
 };
@@ -290,5 +294,17 @@ export const useLikedFeeds = (limit: number = 30, offset: number = 0) => {
     queryFn: () => getLikedList(limit, offset),
     staleTime: 1000 * 60 * 5, // 5분
     keepPreviousData: true, // 페이징 시 이전 데이터 유지하여 깜빡임 방지
+  });
+};
+
+/* =========================================================
+ * 재료 검색 Hook (자동완성용)
+ =========================================================*/
+export const useSearchIngredients = (query: string) => {
+  return useQuery({
+    queryKey: ['ingredients', query],
+    queryFn: () => searchIngredients(query),
+    enabled: query.length > 0,
+    staleTime: 1000 * 60 * 5, // 5분
   });
 };

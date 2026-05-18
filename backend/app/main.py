@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from app.routes import auth_router, notices_router, categories_codes_router, users_router, feeds_router, meals_router, summary_router, communities_router, attaches_router, likes_router, admin_router, ingredients_router, growths_router, advertisers_router, ads_router
+from app.routes import auth_router, notices_router, categories_codes_router, users_router, feeds_router, meals_router, summary_router, communities_router, attaches_router, likes_router, admin_router, ingredients_router, growths_router, advertisers_router, ads_router, image_router
 from app.middleware import JWTAuthMiddleware
 from fastapi.exceptions import RequestValidationError
 import os
@@ -58,6 +58,7 @@ app.include_router(ingredients_router, prefix="/ingredients", tags=["ingredients
 app.include_router(growths_router, prefix="/growths", tags=["growths"])
 app.include_router(advertisers_router, prefix="/advertisers", tags=["advertisers"])
 app.include_router(ads_router, prefix="/ads", tags=["ads"])
+app.include_router(image_router, prefix="/image", tags=["image"])
 
 @app.get("/")
 def root():

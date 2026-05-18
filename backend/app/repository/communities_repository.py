@@ -64,6 +64,20 @@ class CommunitiesRepository:
         return community
 
     @staticmethod
+    def get_best_community_list(session, user_id, params):
+        """
+        베스트 글 조회
+        - 각 카테고리 별로 좋아요 수 상위 3개 글 조회
+        """
+        # 서비스 레이어에서 카테고리별로 순회하므로,
+        # 여기서는 각 카테고리 내 조회수 상위 3개만 단순 조회한다.
+        best_params = dict(params)
+        best_params["sort_by"] = "views"
+        best_params["limit"] = 3
+
+        return CommunitiesRepository.get_community_list(session, user_id, best_params)
+
+    @staticmethod
     def apply_filters(query, params: dict, include=None):
         from sqlalchemy import or_, func as sql_func
 

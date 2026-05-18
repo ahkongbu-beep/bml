@@ -124,6 +124,7 @@ class MealsCalendarResponse(BaseModel):
     category_id: int
     category_name: Optional[str] = None
     is_public: str
+    comment_count: int
     view_count: int
     like_count: Optional[int] = 0
     mapped_tags: List[MappedTagResponse] = []

@@ -261,3 +261,10 @@ export const useSearchIngredients = (query: string) => {
   });
 };
 
+/**
+ * 태그 자동완성 Hook (기존 호출부 호환용 alias)
+ */
+export const useSearchTags = (query: string) => {
+  return useSearchIngredients(query);
+};
+

@@ -171,6 +171,12 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     gap: 8,
   },
+  childSelectorStickyWrapper: {
+    backgroundColor: colors.white,
+    paddingTop: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F3F3',
+  },
   childSelectorLabel: {
     fontSize: 13,
     fontWeight: '600',

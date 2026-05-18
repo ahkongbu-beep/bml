@@ -42,12 +42,14 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   imageList: {
-    flexDirection: 'row',
+    flexDirection: 'column',
+    width: '100%',
     gap: 12,
     overflow: 'visible',
   },
   imageWrapper: {
     position: 'relative',
+    width: '100%',
     overflow: 'visible',
   },
   charCountContainer: {
@@ -63,6 +65,10 @@ const styles = StyleSheet.create({
     height: 120,
     borderRadius: 12,
     backgroundColor: '#FFF5F0',
+  },
+  imageLarge: {
+    width: '100%',
+    height: 260,
   },
   removeImageButton: {
     position: 'absolute',
@@ -91,8 +97,22 @@ const styles = StyleSheet.create({
   addImageText: {
     fontSize: 13,
     color: '#FFB6C1',
-    marginTop: 8,
+    marginTop: 0,
+    marginLeft: 8,
     fontWeight: '600',
+  },
+  addImageBottomButton: {
+    marginTop: 8,
+    width: '100%',
+    height: 52,
+    borderRadius: 12,
+    backgroundColor: '#FFF5F0',
+    borderWidth: 2,
+    borderColor: '#FFE5E5',
+    borderStyle: 'dashed',
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexDirection: 'row',
   },
   inputSection: {
     marginBottom: 0,
