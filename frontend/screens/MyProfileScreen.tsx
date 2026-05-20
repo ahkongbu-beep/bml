@@ -3,7 +3,6 @@ import styles from '../styles/screens/MyProfileScreen.styles';
 import {
   View,
   Text,
-  StyleSheet,
   ScrollView,
   TouchableOpacity,
   Image,
@@ -13,9 +12,10 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../components/Header';
 import { useAuth } from '../libs/contexts/AuthContext';
-import { useMyFeeds } from '../libs/hooks/useFeeds';
+import { useMyFeeds, useScraps } from '../libs/hooks/useFeeds';
 import { useGetMyInfo } from '../libs/hooks/useUsers';
 import MyFeedGrid from '../components/MyFeedGrid';
+import ScrapGrid from '../components/ScrapGrid';
 import { LoadingPage } from '../components/Loading';
 import Layout from '../components/Layout';
 import { getStaticImage } from '../libs/utils/common';
@@ -23,18 +23,22 @@ import { getStaticImage } from '../libs/utils/common';
 export default function MyProfileScreen({ navigation }: any) {
   const { user, isLoading } = useAuth();
   const [viewType, setViewType] = useState<'grid' | 'list'>('grid');
+  const [activeTab, setActiveTab] = useState<'myFeeds' | 'scraps'>('myFeeds');
 
   // 훅은 항상 최상단에서 조건 없이 호출해야 함 (Rules of Hooks)
   const { data: myFeedsData, isLoading: feedsLoading, refetch: refetchFeeds } = useMyFeeds();
   const { data: myInfoData, isLoading: myInfoLoading, refetch: refetchMyInfo } = useGetMyInfo(user?.view_hash || '');
+  const { data: scrapsData, isLoading: scrapsLoading, refetch: refetchScraps } = useScraps();
+
   const myFeeds = Array.isArray(myFeedsData?.data) ? myFeedsData.data : [];
+  const scraps = Array.isArray(scrapsData?.data) ? scrapsData.data : [];
 
   const [isRefreshing, setIsRefreshing] = useState(false);
   const onRefresh = useCallback(async () => {
     setIsRefreshing(true);
-    await Promise.all([refetchFeeds(), refetchMyInfo()]);
+    await Promise.all([refetchFeeds(), refetchMyInfo(), refetchScraps()]);
     setIsRefreshing(false);
-  }, [refetchFeeds, refetchMyInfo]);
+  }, [refetchFeeds, refetchMyInfo, refetchScraps]);
 
   if (isLoading) {
     return (
@@ -121,7 +125,24 @@ export default function MyProfileScreen({ navigation }: any) {
           {/* 내 피드 섹션 */}
           <View style={styles.myFeedsSection}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>내 피드</Text>
+              <View style={styles.tabContainer}>
+                <TouchableOpacity
+                  style={[styles.tab, activeTab === 'myFeeds' && styles.tabActive]}
+                  onPress={() => setActiveTab('myFeeds')}
+                >
+                  <Text style={[styles.tabText, activeTab === 'myFeeds' && styles.tabTextActive]}>
+                    내 피드
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.tab, activeTab === 'scraps' && styles.tabActive]}
+                  onPress={() => setActiveTab('scraps')}
+                >
+                  <Text style={[styles.tabText, activeTab === 'scraps' && styles.tabTextActive]}>
+                    스크랩
+                  </Text>
+                </TouchableOpacity>
+              </View>
               <TouchableOpacity onPress={() => setViewType(viewType === 'grid' ? 'list' : 'grid')}>
                 <Ionicons
                   name={viewType === 'grid' ? 'list-outline' : 'grid-outline'}
@@ -131,12 +152,22 @@ export default function MyProfileScreen({ navigation }: any) {
               </TouchableOpacity>
             </View>
 
-            <MyFeedGrid
-              meals={myFeeds}
-              isLoading={feedsLoading}
-              viewType={viewType}
-              onFeedPress={(mealHash) => navigation.navigate('MealMyDetail', { userHash: user.view_hash, mealHash })}
-            />
+            {activeTab === 'myFeeds' && (
+              <MyFeedGrid
+                meals={myFeeds}
+                isLoading={feedsLoading}
+                viewType={viewType}
+                onFeedPress={(mealHash) => navigation.navigate('MealMyDetail', { userHash: user.view_hash, mealHash })}
+              />
+            )}
+
+            {activeTab === 'scraps' && (
+              <ScrapGrid
+                scraps={scraps}
+                isLoading={scrapsLoading}
+                onScrapPress={(mealHash, userHash) => navigation.navigate('MealUserDetail', { userHash, mealHash })}
+              />
+            )}
           </View>
         </ScrollView>
       </View>

@@ -14,7 +14,10 @@ import {
   deleteFeedComment,
   summaryFeedImage,
   copyFeed,
-  getIngredientsList
+  getIngredientsList,
+  getScraps,
+  toggleScrap,
+  toggleScrapPin,
 } from '../api/feedsApi';
 import { Feed, CopyFeedRequest } from '../types/FeedType';
 import {
@@ -266,5 +269,42 @@ export const useSearchIngredients = (query: string) => {
  */
 export const useSearchTags = (query: string) => {
   return useSearchIngredients(query);
+};
+
+/**
+ * 스크랩한 피드 목록 조회 Hook
+ */
+export const useScraps = () => {
+  return useQuery({
+    queryKey: ['scraps'],
+    queryFn: () => getScraps(),
+    staleTime: 1000 * 60 * 5, // 5분
+  });
+};
+
+/**
+ * 스크랩 해제 Mutation
+ */
+export const useToggleScrap = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (mealHash: string) => toggleScrap(mealHash),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['scraps'] });
+    },
+  });
+};
+
+/**
+ * 스크랩 핀 고정 Mutation
+ */
+export const useToggleScrapPin = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (mealHash: string) => toggleScrapPin(mealHash),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['scraps'] });
+    },
+  });
 };
 

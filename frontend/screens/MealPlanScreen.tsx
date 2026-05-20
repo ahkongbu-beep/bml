@@ -4,9 +4,7 @@ import styles from '../styles/screens/MealPlanScreen.styles';
 import {
   View,
   Text,
-  StyleSheet,
   ScrollView,
-  Alert,
   Image,
   TouchableOpacity,
   ActivityIndicator,
@@ -16,7 +14,6 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
-import * as ImagePicker from 'expo-image-picker';
 
 import Header from '../components/Header';
 import Layout from '@/components/Layout';
@@ -24,9 +21,9 @@ import { LoadingPage } from '../components/Loading';
 import MealPlanItem from '../components/MealPlanItem';
 import ConfirmPortal from '../components/ConfirmPortal';
 import MealDetailModal from '../components/MealDetailModal';
+import ImagePickerModal from '../components/ImagePickerModal';
 
 import { Calendar } from 'react-native-calendars';
-import { Dialog, Button, Portal } from 'react-native-paper';
 
 import { useAuth } from '../libs/contexts/AuthContext';
 
@@ -35,7 +32,6 @@ import { MealItem } from '../libs/types/MealType';
 
 import { normalizeDate, getStaticImage, calculateAge } from '../libs/utils/common';
 import { toastError, toastSuccess, toastInfo } from '@/libs/utils/toast';
-import { MEAL_CATEGORIES } from '../libs/utils/codes/MealCalendarCode';
 
 
 export default function MealPlanScreen({ navigation }: any) {
@@ -54,6 +50,8 @@ export default function MealPlanScreen({ navigation }: any) {
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [monthImagePickerVisible, setMonthImagePickerVisible] = useState(false);
+  const [selectedMonthImageUri, setSelectedMonthImageUri] = useState<string | null>(null);
   const deleteMealMutation = useDeleteMeal();
   const uploadMonthImageMutation = useUploadCalendarMonthImage();
   const { user } = useAuth();
@@ -208,77 +206,59 @@ export default function MealPlanScreen({ navigation }: any) {
     }
   };
 
-  const handlePickMonthImage = async () => {
-    try {
-      if (uploadMonthImageMutation.isPending) {
-        toastInfo('이미지 업로드 중입니다. 잠시만 기다려주세요.');
-        return;
-      }
+  const uploadSelectedMonthImage = (imageUri: string) => {
+    const monthSnapshot = currentMonth;
+    const fileName = imageUri.split('/').pop() || `meal-month-${Date.now()}.jpg`;
+    const extMatch = /\.(\w+)$/.exec(fileName);
+    const mimeType = extMatch ? `image/${extMatch[1]}` : 'image/jpeg';
 
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        toastInfo('갤러리 접근 권한이 필요합니다.');
-        return;
-      }
+    const buildFormData = () => {
+      const formData = new FormData();
+      formData.append('month', monthSnapshot);
+      formData.append('attaches', { uri: imageUri, name: fileName, type: mimeType } as any);
+      return formData;
+    };
 
-      const imagePickerAny = ImagePicker as any;
-      const mediaTypesOption = imagePickerAny?.MediaType?.Images
-        ? [imagePickerAny.MediaType.Images]
-        : ['images'];
+    setIsMonthImageUpdating(true);
 
-      const result = await ImagePicker.launchImageLibraryAsync({
-        ...(mediaTypesOption ? { mediaTypes: mediaTypesOption } : {}),
-        allowsEditing: true,
-        quality: 0.9,
-      });
-
-      if (result.canceled || !result.assets?.[0]) return;
-
-      const selectedAsset = result.assets[0];
-      const monthSnapshot = currentMonth;
-      const fileName = selectedAsset.fileName || selectedAsset.uri.split('/').pop() || `meal-month-${Date.now()}.jpg`;
-      const extMatch = /\.(\w+)$/.exec(fileName);
-      const mimeType = extMatch ? `image/${extMatch[1]}` : (selectedAsset.mimeType || 'image/jpeg');
-
-      const buildFormData = () => {
-        const formData = new FormData();
-        formData.append('month', monthSnapshot);
-        formData.append('attaches', { uri: selectedAsset.uri, name: fileName, type: mimeType } as any);
-        return formData;
-      };
-
-      setIsMonthImageUpdating(true);
-
-      const MAX_ATTEMPTS = 3;
-      const requestUpload = (attempt: number) => {
-        uploadMonthImageMutation.mutate(buildFormData(), {
-          onSuccess: (response) => {
-            if (response?.success) {
-              setIsMonthImageUpdating(false);
-              toastSuccess('월 메인 이미지가 등록되었습니다.');
-              refetchMonthImage();
-            } else {
-              setIsMonthImageUpdating(false);
-              toastError((response as any)?.error || '월 메인 이미지 등록에 실패했습니다.');
-            }
-          },
-          onError: (error: unknown) => {
-            const message = String(error || '').toLowerCase();
-            const isNetworkError = message.includes('network') || message.includes('failed') || message.includes('timeout');
-            if (isNetworkError && attempt < MAX_ATTEMPTS - 1) {
-              if (attempt === 0) toastInfo('네트워크 불안정으로 업로드를 다시 시도합니다.');
-              setTimeout(() => requestUpload(attempt + 1), (attempt + 1) * 800);
-              return;
-            }
+    const MAX_ATTEMPTS = 3;
+    const requestUpload = (attempt: number) => {
+      uploadMonthImageMutation.mutate(buildFormData(), {
+        onSuccess: (response) => {
+          if (response?.success) {
             setIsMonthImageUpdating(false);
-            toastError('월 메인 이미지 등록 중 오류가 발생했습니다.');
-          },
-        });
-      };
-      requestUpload(0);
-    } catch (error) {
-      toastError('갤러리를 여는 중 오류가 발생했습니다.');
+            toastSuccess('월 메인 이미지가 등록되었습니다.');
+            refetchMonthImage();
+          } else {
+            setIsMonthImageUpdating(false);
+            toastError((response as any)?.error || '월 메인 이미지 등록에 실패했습니다.');
+          }
+        },
+        onError: (error: unknown) => {
+          const message = String(error || '').toLowerCase();
+          const isNetworkError = message.includes('network') || message.includes('failed') || message.includes('timeout');
+          if (isNetworkError && attempt < MAX_ATTEMPTS - 1) {
+            if (attempt === 0) toastInfo('네트워크 불안정으로 업로드를 다시 시도합니다.');
+            setTimeout(() => requestUpload(attempt + 1), (attempt + 1) * 800);
+            return;
+          }
+          setIsMonthImageUpdating(false);
+          toastError('월 메인 이미지 등록 중 오류가 발생했습니다.');
+        },
+      });
+    };
+
+    requestUpload(0);
+  };
+
+  const handlePickMonthImage = () => {
+    if (uploadMonthImageMutation.isPending) {
+      toastInfo('이미지 업로드 중입니다. 잠시만 기다려주세요.');
+      return;
     }
+
+    setSelectedMonthImageUri(null);
+    setMonthImagePickerVisible(true);
   };
 
   useEffect(() => {
@@ -363,7 +343,7 @@ export default function MealPlanScreen({ navigation }: any) {
               <TouchableOpacity
                 style={styles.monthImageUploadButton}
                 onPress={handlePickMonthImage}
-                disabled={uploadMonthImageMutation.isPending}
+                disabled={uploadMonthImageMutation.isPending || isMonthImageUpdating}
               >
                 <Ionicons name="image-outline" size={16} color="#FFFFFF" />
               </TouchableOpacity>
@@ -377,7 +357,7 @@ export default function MealPlanScreen({ navigation }: any) {
               <TouchableOpacity
                 style={styles.monthImageRegisterButton}
                 onPress={handlePickMonthImage}
-                disabled={uploadMonthImageMutation.isPending}
+                disabled={uploadMonthImageMutation.isPending || isMonthImageUpdating}
               >
                 <Ionicons name="add-circle-outline" size={18} color="#FFFFFF" />
                 <Text style={styles.monthImageRegisterButtonText}>이미지 등록</Text>
@@ -664,6 +644,37 @@ export default function MealPlanScreen({ navigation }: any) {
           }
         />
       )}
+
+      <Modal
+        visible={monthImagePickerVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setMonthImagePickerVisible(false)}
+      >
+        <View style={styles.monthImagePickerOverlay}>
+          <View style={styles.monthImagePickerContainer}>
+            <View style={styles.monthImagePickerHeader}>
+              <Text style={styles.monthImagePickerTitle}>월 메인 이미지 선택</Text>
+              <TouchableOpacity onPress={() => setMonthImagePickerVisible(false)}>
+                <Ionicons name="close" size={22} color="#666666" />
+              </TouchableOpacity>
+            </View>
+
+            <ImagePickerModal
+              imageUri={selectedMonthImageUri}
+              aspectRatio={1}
+              onImageSelected={(uri) => {
+                setSelectedMonthImageUri(uri);
+                setMonthImagePickerVisible(false);
+                uploadSelectedMonthImage(uri);
+              }}
+              onImageRemoved={() => {
+                setSelectedMonthImageUri(null);
+              }}
+            />
+          </View>
+        </View>
+      </Modal>
     </Layout>
   );
 }

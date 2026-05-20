@@ -19,6 +19,8 @@ import { Feed, FeedItemProps } from '../libs/types/FeedType';
 import { formatDate, diffMonthsFrom, getStaticImage } from '@/libs/utils/common';
 import { USER_CHILD_GENDER, USER_CHILD_GENDER_COLOR } from '../libs/utils/codes/UserChildCode';
 import { getAmountColor, getBorderColor } from '../libs/utils/codes/IngredientCode';
+import { toggleScrap } from '../libs/api/feedsApi';
+import { toastSuccess, toastError } from '../libs/utils/toast';
 
 const { width } = Dimensions.get('window');
 
@@ -50,6 +52,8 @@ const MealItem = React.memo(({
   const shimmerAnim = useRef(new Animated.Value(0)).current;
   const menuButtonRef = useRef<TouchableOpacity>(null);
   const [menuPosition, setMenuPosition] = useState({ top: 130, right: 10 });
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [isScrap, setIsScrap] = useState(item.is_scrap ?? false);
 
   useEffect(() => {
     const shimmer = Animated.loop(
@@ -262,12 +266,63 @@ const MealItem = React.memo(({
         {!isMine && onAddToMealCalendar && (
           <TouchableOpacity
             style={styles.bottomActionButton}
-            onPress={() => onAddToMealCalendar(item.user.user_hash, item.id, item.view_hash)}
+            onPress={() => setShowSaveModal(true)}
           >
             <Ionicons name="calendar-outline" size={18} color="#FF9AA2" />
             <Text style={styles.bottomActionButtonText}>식단 저장하기</Text>
           </TouchableOpacity>
         )}
+
+        {/* 저장 방식 선택 모달 */}
+        <Modal
+          visible={showSaveModal}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowSaveModal(false)}
+        >
+          <TouchableWithoutFeedback onPress={() => setShowSaveModal(false)}>
+            <View style={styles.saveModalOverlay}>
+              <TouchableWithoutFeedback>
+                <View style={styles.saveModalContainer}>
+                  <Text style={styles.saveModalTitle}>저장 방식 선택</Text>
+                  <TouchableOpacity
+                    style={styles.saveModalOption}
+                    onPress={() => {
+                      setShowSaveModal(false);
+                      onAddToMealCalendar && onAddToMealCalendar(item.user.user_hash, item.id, item.view_hash);
+                    }}
+                  >
+                    <Ionicons name="calendar-outline" size={22} color="#FF9AA2" />
+                    <View style={styles.saveModalOptionText}>
+                      <Text style={styles.saveModalOptionTitle}>캘린더</Text>
+                      <Text style={styles.saveModalOptionDesc}>내 식단 캘린더에 추가해요</Text>
+                    </View>
+                  </TouchableOpacity>
+                  <View style={styles.saveModalDivider} />
+                  <TouchableOpacity
+                    style={styles.saveModalOption}
+                    onPress={async () => {
+                      setShowSaveModal(false);
+                      try {
+                        await toggleScrap(item.view_hash);
+                        setIsScrap(prev => !prev);
+                        toastSuccess(isScrap ? '스크랩이 해제되었어요.' : '스크랩에 저장되었어요!');
+                      } catch {
+                        toastError('스크랩 저장에 실패했어요.');
+                      }
+                    }}
+                  >
+                    <Ionicons name="bookmark-outline" size={22} color="#FF9AA2" />
+                    <View style={styles.saveModalOptionText}>
+                      <Text style={styles.saveModalOptionTitle}>스크랩 {isScrap ? '해제' : ''}</Text>
+                      <Text style={styles.saveModalOptionDesc}>내 스크랩 목록에 저장해요</Text>
+                    </View>
+                  </TouchableOpacity>
+                </View>
+              </TouchableWithoutFeedback>
+            </View>
+          </TouchableWithoutFeedback>
+        </Modal>
 
         {/* 내 피드일때 수정버튼을 노출 */}
         {isMine && onEditFeed && (
@@ -569,6 +624,49 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#FF9AA2',
+  },
+  saveModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'flex-end',
+  },
+  saveModalContainer: {
+    backgroundColor: '#FFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingTop: 20,
+    paddingBottom: 36,
+    paddingHorizontal: 20,
+  },
+  saveModalTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#4A4A4A',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  saveModalOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    gap: 14,
+  },
+  saveModalOptionText: {
+    flex: 1,
+  },
+  saveModalOptionTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#4A4A4A',
+  },
+  saveModalOptionDesc: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 2,
+  },
+  saveModalDivider: {
+    height: 1,
+    backgroundColor: '#F0F0F0',
   },
 });
 

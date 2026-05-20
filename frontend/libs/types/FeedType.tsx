@@ -34,6 +34,8 @@ export interface Feed {
   created_at: string;
   isLiked: boolean;
   isSaved: boolean;
+  is_scrap?: boolean;
+  is_pinned?: boolean;
 }
 
 export interface LikedFeed {

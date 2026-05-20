@@ -16,6 +16,7 @@ export interface MealCalendar {
     meal_stage_detail: string;
     image_url: string;
     view_hash: string;
+    is_pinned?: boolean;
     user: MealUser;
     childs: MealChild;
 }

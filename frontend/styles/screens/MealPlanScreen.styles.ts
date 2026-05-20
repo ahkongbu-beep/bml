@@ -166,6 +166,28 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
+  monthImagePickerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+    justifyContent: 'center',
+    padding: 16,
+  },
+  monthImagePickerContainer: {
+    backgroundColor: colors.white,
+    borderRadius: 16,
+    padding: 14,
+  },
+  monthImagePickerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  monthImagePickerTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#2B2B2B',
+  },
   childSelector: {
     marginHorizontal: 16,
     marginBottom: 12,

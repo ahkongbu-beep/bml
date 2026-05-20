@@ -149,6 +149,27 @@ const styles = StyleSheet.create({
     marginLeft: 14,
     fontWeight: '500',
   },
+  tabContainer: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  tab: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  tabActive: {
+    borderBottomColor: colors.primary,
+  },
+  tabText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#AAAAAA',
+  },
+  tabTextActive: {
+    color: colors.primary,
+  },
 });
 
 export default styles;

@@ -224,3 +224,24 @@ export const searchIngredients = async (query: string): Promise<string[]> => {
   return response.data || [];
 };
 
+/**
+ * 스크랩한 피드 목록 조회
+ */
+export const getScraps = async (): Promise<ApiResponse<Feed[]>> => {
+  return fetchGet<ApiResponse<Feed[]>>('/meals/scrap');
+};
+
+/**
+ * 스크랩 토글 (스크랩/해제)
+ */
+export const toggleScrap = async (mealHash: string): Promise<ApiResponse<any>> => {
+  return fetchPost<ApiResponse<any>>(`/meals/scrap/${mealHash}`);
+};
+
+/**
+ * 스크랩 핀 고정 토글
+ */
+export const toggleScrapPin = async (mealHash: string): Promise<ApiResponse<any>> => {
+  return fetchPost<ApiResponse<any>>(`/meals/scrap/${mealHash}/pin`);
+};
+

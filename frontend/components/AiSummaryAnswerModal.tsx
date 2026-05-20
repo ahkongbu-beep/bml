@@ -2,11 +2,11 @@ import React from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   Modal,
   TouchableOpacity,
   ScrollView,
   Dimensions,
+  StyleSheet,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { AiSummaryAnswerModalProps } from '../libs/types/SummariesType';
@@ -81,7 +81,6 @@ export default function AiSummaryAnswerModal({
     </Modal>
   );
 }
-
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,

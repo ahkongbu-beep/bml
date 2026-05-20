@@ -22,6 +22,7 @@ import Layout from '../components/Layout';
 import Header from '../components/Header';
 import { useCreateCommunity } from '../libs/hooks/useCommunities';
 import { useCategoryCodes } from '../libs/hooks/useCategories';
+import { toastError, toastInfo, toastSuccess } from '@/libs/utils/toast';
 import styles from '../styles/screens/CommunityWriteScreen.styles';
 
 export default function CommunityWriteScreen({ navigation }: any) {
@@ -45,14 +46,14 @@ export default function CommunityWriteScreen({ navigation }: any) {
   // 이미지 선택
   const handleImagePick = async () => {
     if (imageUris.length >= 3) {
-      Alert.alert('알림', '이미지는 최대 3장까지 등록할 수 있습니다.');
+      toastError('이미지는 최대 3장까지 등록할 수 있습니다.');
       return;
     }
 
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (permissionResult.granted === false) {
-      Alert.alert('알림', '사진첩 접근 권한이 필요합니다.');
+      toastError('사진첩 접근 권한이 필요합니다.');
       return;
     }
 
@@ -76,15 +77,15 @@ export default function CommunityWriteScreen({ navigation }: any) {
   // 유효성 검사
   const validateForm = () => {
     if (!title.trim()) {
-      Alert.alert('알림', '제목을 입력해주세요.');
+      toastError('제목을 입력해주세요.');
       return false;
     }
     if (!contents.trim()) {
-      Alert.alert('알림', '내용을 입력해주세요.');
+      toastError('내용을 입력해주세요.');
       return false;
     }
     if (!categoryCode) {
-      Alert.alert('알림', '주제를 선택해주세요.');
+      toastError('주제를 선택해주세요.');
       return false;
     }
     return true;
@@ -117,16 +118,16 @@ export default function CommunityWriteScreen({ navigation }: any) {
     createCommunity.mutate(formData, {
       onSuccess: (response) => {
         if (response.success) {
-          Alert.alert('성공', '게시글이 등록되었습니다.', [{
-              text: '확인',
-              onPress: () => navigation.navigate('Community'),
-          }]);
+          toastSuccess('성공적으로 게시글이 등록되었습니다.', {
+            onPress: () => navigation.navigate('Community'),
+            onHide: () => navigation.navigate('Community'),
+          });
         } else {
-          Alert.alert('오류', response.message || '게시글 등록에 실패했습니다.');
+          toastError(response.message || '게시글 등록에 실패했습니다.');
         }
       },
       onError: (error) => {
-        Alert.alert('오류', '게시글 등록 중 오류가 발생했습니다.');
+        toastError('게시글 등록 중 오류가 발생했습니다.');
       },
     });
   };

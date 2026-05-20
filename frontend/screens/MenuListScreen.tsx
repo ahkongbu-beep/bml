@@ -132,6 +132,7 @@ export default function MenuListScreen({ navigation }: any) {
             </View>
             <Ionicons name="chevron-forward" size={22} color="#C0C0C0" />
           </TouchableOpacity>
+
           {/* 좋아요 리스트 */}
           <TouchableOpacity
             style={styles.menuItem}
@@ -145,7 +146,7 @@ export default function MenuListScreen({ navigation }: any) {
           </TouchableOpacity>
 
           {/* AI 요약 리스트 */}
-          <TouchableOpacity
+          {/* <TouchableOpacity
             style={styles.menuItem}
             onPress={() => navigation.navigate('SummaryList')}
           >
@@ -154,7 +155,7 @@ export default function MenuListScreen({ navigation }: any) {
               <Text style={styles.menuText}>AI 요약 리스트</Text>
             </View>
             <Ionicons name="chevron-forward" size={22} color="#C0C0C0" />
-          </TouchableOpacity>
+          </TouchableOpacity> */}
 
           {/* 공지사항 */}
           <TouchableOpacity
@@ -202,6 +203,7 @@ export default function MenuListScreen({ navigation }: any) {
         cancelText="취소"
         confirmColor="#FF6B6B"
       />
+
       <ConfirmPortal
         visible={withdrawalConfirmVisible}
         title="회원탈퇴"
