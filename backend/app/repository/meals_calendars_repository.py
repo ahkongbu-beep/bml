@@ -460,3 +460,30 @@ class MealsCalendarsRepository:
             query = query.offset(effective_params["offset"]).limit(effective_params["limit"])
 
         return query.all()
+
+    @staticmethod
+    def copy_meal(session, origin_meal_calendar, new_user_id, new_child_id, new_input_date, new_view_hash):
+        try:
+            new_meal_calendar = MealsCalendars(
+                category_code=origin_meal_calendar.category_code,
+                refer_feed_id=origin_meal_calendar.id,
+                user_id=new_user_id,
+                meal_stage=origin_meal_calendar.meal_stage,
+                meal_stage_detail=origin_meal_calendar.meal_stage_detail,
+                is_public="N",
+                is_active="Y",
+                view_count=0,
+                like_count=0,
+                meal_condition=origin_meal_calendar.meal_condition,
+                contents=origin_meal_calendar.contents,
+                month=origin_meal_calendar.month,
+                input_date=new_input_date,
+                view_hash=new_view_hash,
+                child_id=new_child_id
+            )
+            session.add(new_meal_calendar)
+            session.flush()  # 변경사항을 DB에 반영하지만 커밋하지는 않음
+            return new_meal_calendar
+        except Exception as e:
+            session.rollback()
+            raise e

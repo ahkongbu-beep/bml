@@ -72,6 +72,7 @@ class FeedsResponse(BaseModel):
     user_id: int
     title: str
     content: Optional[str] = None
+    refer_feed_id: Optional[int] = None
     is_published: Optional[str] = None
     meal_condition: Optional[str] = "2"
     view_count: int

@@ -5,7 +5,7 @@ from app.services import meals_service
 from app.core.database import get_db
 from sqlalchemy.orm import Session
 from app.schemas.common_schemas import CommonResponse
-from app.schemas.meals_schemas import CalendarCopyRequest, FeedListRequest, MealsCalendarInsertRequest
+from app.schemas.meals_schemas import CopyRequest, FeedListRequest, MealsCalendarInsertRequest
 router = APIRouter()
 
 @router.get("/users/{target_user_hash}")
@@ -193,16 +193,21 @@ def check_daily_meal(request: Request, feed_id: str = Query(...), date: str = Qu
     return meals_service.check_daily_meal(db, params)
 
 """ 다른 사용자의 식단 캘린더를 나의 캘린더에 복사 """
-@router.post("/calendar/copy")
-async def copy_meal_calendar(request: Request, body: CalendarCopyRequest, db: Session = Depends(get_db)):
+@router.post("/copy/{view_hash}")
+async def copy_meal_calendar(request: Request, view_hash: str, body: CopyRequest, db: Session = Depends(get_db)):
     user_hash = getattr(request.state, "user_hash", None)
 
     if not user_hash:
         return CommonResponse(success=False, message="사용자 인증이 필요합니다.", data=None)
 
-    params = body.dict()
+    params = {
+        "user_hash": user_hash,
+        "meal_hash": view_hash,
+        "child_id": body.child_id,
+        "input_date": body.input_date
+    }
 
-    return await meals_service.copy_meal_calendar(db, user_hash, params)
+    return await meals_service.copy_meal_calendar(db, params)
 
 @router.post("/scrap/{meal_hash}/pin")
 async def scrap_pinned(request:Request, meal_hash: str, db: Session = Depends(get_db)):

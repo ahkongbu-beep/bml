@@ -139,6 +139,7 @@ def feed_detail_response(meal_calendar, user, category, tags, images, child, all
         id=meal_calendar.id,
         user_id=meal_calendar.user_id,
         title=meal_calendar.title,
+        refer_feed_id=meal_calendar.refer_feed_id,
         content=meal_calendar.contents,
         is_published=meal_calendar.is_public,
         view_count=meal_calendar.view_count,

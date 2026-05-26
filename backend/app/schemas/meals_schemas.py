@@ -138,6 +138,11 @@ class MealsCalendarResponse(BaseModel):
     view_hash: str
     user:FeedsUserResponse
     childs: Optional[UserChildItemSchema] = None
+
+class CopyRequest(BaseModel):
+    input_date: str
+    child_id: int
+
 class MealItem(BaseModel):
     meal_id: int
     category_code: str

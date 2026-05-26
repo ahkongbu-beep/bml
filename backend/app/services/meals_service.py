@@ -7,11 +7,11 @@ from app.schemas.meals_schemas import FeedListRequest
 from app.libs.hash_utils import generate_sha256_hash
 from app.services.ingredients_service import  process_tags, get_ingredient_by_name
 from app.services.ingredients_mappers_service import get_ingredient_mappers_by_meal_id, insert_ingredient_mapper, delete_ingredient_mapper
-from app.services.attaches_files_service import get_attache_files_by_model_id, soft_delete_file_by_model_id, upload_file, save_upload_file
+from app.services.attaches_files_service import get_attache_files_by_model_id, soft_delete_file_by_model_id, upload_file, save_upload_file, copy_attache_file
 from app.services.users_service import validate_user, validate_user_id
 from app.services.feeds_images_service import create_meal_image
 from app.services.denies_users_service import get_denies_user_id_list
-from app.services.users_childs_service import get_agent_childs
+from app.services.users_childs_service import get_agent_childs, get_child_by_id
 from app.services.categories_codes_service import get_category_code_by_id
 from app.services.meals_calendars_images_service import get_user_month_image_map, delete_calendar_image_by_month, upload_calendar_image
 from app.services.meals_comments_service import build_comment_tree, get_comment_list_by_user_meal_id
@@ -223,7 +223,7 @@ def get_meal_stage_text(meal_stage, meal_stage_detail):
     return meal_stage_text, meal_stage_detail_text
 
 def validate_feed_params(db, filters: FeedListRequest, user_hash: str):
-    params = {
+    params: dict = {
         "is_active": "Y"
     }
 
@@ -262,7 +262,7 @@ def validate_feed_params(db, filters: FeedListRequest, user_hash: str):
         params['type'] = filters.type if filters.type else "list"  # 기본값은 "list"
         params['view_type'] = filters.view_type
 
-        if type == "list":
+        if filters.type == "list":
             if filters.view_type == "mine":
                 params['is_public'] = None  # 내 피드는 공개/비공개 모두 조회
             else:
@@ -362,6 +362,9 @@ def get_feed_type_calendar(db, user_hash, filters: FeedListRequest) -> CommonRes
         validate_user(db, user_hash)
 
         search_params = validate_feed_params(db, filters, user_hash)
+
+        if isinstance(search_params, CommonResponse):
+            return search_params
 
         search_params.update({
             "limit": filters.limit,
@@ -718,6 +721,84 @@ async def update_meal(db, body: dict) -> CommonResponse:
         return CommonResponse(success=False, error=str(e), data=None)
 
     except Exception as e:
+        db.rollback()
+        return CommonResponse(success=False, error=str(e), data=None)
+
+async def copy_meal_calendar(db, body: dict) -> CommonResponse:
+    """
+    식단 캘린더 복사
+    """
+
+    try:
+        user_hash = body.get('user_hash', "")
+        meal_hash = body.get('meal_hash', "")
+        child_id = body.get('child_id', 0)
+        input_date = body.get('input_date', "")
+
+        user = validate_user(db, user_hash)
+
+        original_meal = MealsCalendarsRepository.find_by_view_hash(db, meal_hash)
+        if not original_meal:
+            raise ValueError("복사할 식단 캘린더 정보를 찾을 수 없습니다.")
+
+        category_code = get_category_code_by_id(db, original_meal.category_code) if original_meal.category_code else None
+
+        if not category_code:
+            raise ValueError("복사할 식단 캘린더의 카테고리 정보가 유효하지 않습니다.")
+
+        user_child = get_child_by_id(db, child_id)
+
+        view_hash = await generate_meal_calendar_hash(user.id, input_date, category_code.id, user_child.id)
+        new_calcendar = MealsCalendarsRepository.copy_meal(db, original_meal, user.id, child_id, input_date, view_hash)
+
+        if not new_calcendar:
+            raise Exception("식단 캘린더 복사에 실패했습니다.")
+
+        new_calcendar_id = new_calcendar.id
+
+        # 이미지 복사 - 기존 이미지의 파일을 물리적으로 복사하여 새로운 식단에 연결
+        attache_files = get_attache_files_by_model_id(db, "Meals", original_meal.id)
+
+        for feeds_image in attache_files:
+
+            result = copy_attache_file(
+                origin_model="Meals",
+                origin_model_instance=feeds_image,
+                target_model="Meals",
+                target_model_instance=new_calcendar
+            )
+
+            if result == False:
+                raise Exception("이미지 복사에 실패했습니다.")
+
+            await save_upload_file(db, model="Meals", model_id=new_calcendar_id, result=result) # type: ignore
+
+        # 재료 Mapper 등록
+        ingredient_mappers = get_ingredient_mappers_by_meal_id(db, original_meal.id)
+
+        if ingredient_mappers:
+            mapper_data = []
+            for mapper in ingredient_mappers:
+                ingredient_id = mapper.get("ingredient_id") if isinstance(mapper, dict) else getattr(mapper, "ingredient_id", None)
+                score = mapper.get("mapped_score", mapper.get("score", 0)) if isinstance(mapper, dict) else getattr(mapper, "score", 0)
+
+                if ingredient_id is None:
+                    continue
+
+                mapper_data.append({
+                    "id": ingredient_id,
+                    "score": score
+                })
+
+            insert_ingredient_mapper(db, new_calcendar_id, mapper_data)
+
+        db.commit()
+        return CommonResponse(success=True, message="식단 캘린더가 성공적으로 복사되었습니다.", data={"meal_calendar_hash": new_calcendar.view_hash})
+    except ValueError as e:
+        db.rollback()
+        return CommonResponse(success=False, error=str(e), data=None)
+    except Exception as e:
+        print(f"⭕⭕식단 캘린더 복사 중 오류: {str(e)}")
         db.rollback()
         return CommonResponse(success=False, error=str(e), data=None)
 
