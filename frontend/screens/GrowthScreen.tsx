@@ -150,7 +150,7 @@ export default function GrowthScreen({ navigation }: any) {
     <Layout>
       <View style={styles.container}>
         <Header
-          title="성장 지표"
+          title="성장 지표11"
           leftButton={{
             icon: 'arrow-back',
             onPress: () => navigation.goBack(),
