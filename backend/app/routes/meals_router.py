@@ -203,3 +203,44 @@ async def copy_meal_calendar(request: Request, body: CalendarCopyRequest, db: Se
     params = body.dict()
 
     return await meals_service.copy_meal_calendar(db, user_hash, params)
+
+@router.post("/scrap/{meal_hash}/pin")
+async def scrap_pinned(request:Request, meal_hash: str, db: Session = Depends(get_db)):
+    user_hash = getattr(request.state, "user_hash", None)
+
+    if not user_hash:
+        return CommonResponse(success=False, message="사용자 인증이 필요합니다.", data=None)
+
+    params = {
+        "user_hash": user_hash,
+        "meal_hash": meal_hash
+    }
+
+    return await meals_service.scrap_pinned(db, params)
+
+@router.post("/scrap/{meal_hash}")
+async def scrap_meal(request:Request, meal_hash: str, db: Session = Depends(get_db)):
+    user_hash = getattr(request.state, "user_hash", None)
+
+    if not user_hash:
+        return CommonResponse(success=False, message="사용자 인증이 필요합니다.", data=None)
+
+    params = {
+        "user_hash": user_hash,
+        "meal_hash": meal_hash
+    }
+
+    return await meals_service.scrap_meal(db, params)
+
+@router.get('/scrap')
+async def get_scrap_list(request: Request, db: Session = Depends(get_db)):
+    user_hash = getattr(request.state, "user_hash", None)
+
+    if not user_hash:
+        return CommonResponse(success=False, message="사용자 인증이 필요합니다.", data=None)
+
+    params = {
+        "user_hash": user_hash,
+    }
+
+    return await meals_service.get_scrap_list(db, params)

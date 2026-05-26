@@ -125,6 +125,8 @@ class MealsCalendarResponse(BaseModel):
     category_name: Optional[str] = None
     is_public: str
     comment_count: int
+    is_scrap: Optional[bool] = False
+    is_pinned: Optional[bool] = False
     view_count: int
     like_count: Optional[int] = 0
     mapped_tags: List[MappedTagResponse] = []
@@ -136,7 +138,6 @@ class MealsCalendarResponse(BaseModel):
     view_hash: str
     user:FeedsUserResponse
     childs: Optional[UserChildItemSchema] = None
-
 class MealItem(BaseModel):
     meal_id: int
     category_code: str

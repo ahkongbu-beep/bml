@@ -1,8 +1,9 @@
-from sqlalchemy import func
+from sqlalchemy import case, func
 
 from app.models.meals_calendar import MealsCalendars
 from app.models.categories_codes import CategoriesCodes
 from app.models.ingredients_mappers import IngredientsMappers
+from app.models.meals_scraps import MealsScrap
 from app.models.ingredients import Ingredients
 from app.models.attaches_files import AttachesFiles
 from app.models.meals_likes import MealsLikes
@@ -229,6 +230,30 @@ class MealsCalendarsRepository:
                 MealsCalendars.id == tags_subquery.c.meal_id
             )
 
+        if "scrap" in include:
+            # is_scrap 추가
+            scrap_subquery = (
+                session.query(
+                    MealsScrap.meal_id.label("meal_id"),
+                    sql_func.max(case((MealsScrap.is_active == "Y", 1), else_=0)).label("is_scrap"),
+                    sql_func.max(
+                        case((MealsScrap.sort_order > 0, 1), else_=0)
+                    ).label("is_pinned")
+                )
+                .group_by(MealsScrap.meal_id)
+                .subquery()
+            )
+
+            query = query.add_columns(
+                scrap_subquery.c.is_scrap,
+                scrap_subquery.c.is_pinned,
+            )
+
+            query = query.outerjoin(
+                scrap_subquery,
+                MealsCalendars.id == scrap_subquery.c.meal_id
+            )
+
         if "child" in include:
             user_childs_subquery = (
                 session.query(
@@ -336,6 +361,9 @@ class MealsCalendarsRepository:
                 )
             )
 
+        if params.get("meal_ids"):
+            conditions.append(MealsCalendars.id.in_(params["meal_ids"]))
+
         return query.filter(*[c for c in conditions if c is not None])
 
     @staticmethod
@@ -355,24 +383,30 @@ class MealsCalendarsRepository:
 
         if extra.get("limit") is not None and effective_params.get("limit") is None:
             effective_params["limit"] = extra.get("limit")
+
         if extra.get("offset") is not None and effective_params.get("offset") is None:
             effective_params["offset"] = extra.get("offset")
 
         # 기존 get_list 스타일(created_at_desc/created_at_asc)도 허용
         extra_order_by = extra.get("order_by")
+
         if extra_order_by and effective_params.get("order_by") is None:
+
             if extra_order_by in ["created_at_desc", "created_at_asc", "id_desc", "id_asc"]:
                 field, direction = extra_order_by.rsplit("_", 1)
                 effective_params["order_by"] = field
                 effective_params["order_direction"] = direction
+
             else:
                 effective_params["order_by"] = extra_order_by
 
         # params로 들어온 order_by가 *_asc|*_desc 형태여도 파싱
         raw_order_by = effective_params.get("order_by")
+
         if isinstance(raw_order_by, str) and raw_order_by.endswith(("_asc", "_desc")):
             field, direction = raw_order_by.rsplit("_", 1)
             effective_params["order_by"] = field
+
             if effective_params.get("order_direction") is None:
                 effective_params["order_direction"] = direction
 
@@ -387,8 +421,11 @@ class MealsCalendarsRepository:
 
         # 식재료 필터가 있을 때: 매칭 수 많은 순으로 우선 정렬
         if effective_params.get("ingredient_ids"):
+
             from sqlalchemy import func as sql_func, select as sa_select
+
             ingredient_ids = effective_params["ingredient_ids"]
+
             match_count = (
                 sa_select(sql_func.count())
                 .where(
@@ -400,7 +437,19 @@ class MealsCalendarsRepository:
             )
             query = query.order_by(match_count.desc())
 
-        if hasattr(MealsCalendars, order_by):
+        meal_ids = effective_params.get("meal_ids") or []
+
+        if meal_ids:
+            # meal_ids 입력 순서를 그대로 유지 (예: 스크랩 최신순)
+            order_index = case(
+                {meal_id: idx for idx, meal_id in enumerate(meal_ids)},
+                value=MealsCalendars.id,
+                else_=len(meal_ids),
+            )
+
+            query = query.order_by(order_index.asc())
+
+        elif hasattr(MealsCalendars, order_by):
             col = getattr(MealsCalendars, order_by)
             query = query.order_by(col.desc() if order_direction == "desc" else col.asc())
         else:

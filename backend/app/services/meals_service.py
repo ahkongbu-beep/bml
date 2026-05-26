@@ -22,8 +22,9 @@ def get_meals_count(db, params={}):
     return MealsCalendarsRepository.get_count(db, params)
 
 def get_meals_list(db, params={}, include=[]):
-    result = MealsCalendarsRepository.get_meals_list(db, params, extra={"include": include})
+
     final = []
+    result = MealsCalendarsRepository.get_meals_list(db, params, extra={"include": include})
 
     for row in result:
         # SQLAlchemy 2.x: Row는 tuple이 아니지만 _mapping 속성 보유
@@ -64,6 +65,10 @@ def get_meals_list(db, params={}, include=[]):
             meal.is_agent = row_dict.get("is_agent", None)
             meal.allergy_names = row_dict.get("allergy_names")
             meal.allergy_codes = row_dict.get("allergy_codes")
+
+        if "scrap" in include:
+            meal.is_scrap = bool(row_dict.get("is_scrap", 0))
+            meal.is_pinned = bool(row_dict.get("is_pinned", 0))
 
         if "comment_count" in include:
             meal.comment_count = row_dict.get("comment_count", 0)
@@ -295,7 +300,7 @@ def get_user_calendar_list(db, user_hash, target_user_hash):
             "is_public": "Y"
         }
 
-        calendar_list = get_meals_list(db, search_params, include=["user", "category", "image", "tags", "child"])
+        calendar_list = get_meals_list(db, search_params, include=["user", "category", "image", "tags", "child", "scrap"])
         calendar_data = get_feed_type_calendars_data(calendar_list)
         return CommonResponse(success=True, error=None, data=calendar_data)
 
@@ -364,7 +369,7 @@ def get_feed_type_calendar(db, user_hash, filters: FeedListRequest) -> CommonRes
             "order_by": filters.sort_by if filters.sort_by else "created_at_desc",
         })
 
-        meal_list = get_meals_list(db, search_params, include=["user", "category", "image", "tags", "child", "comment_count"])
+        meal_list = get_meals_list(db, search_params, include=["user", "category", "image", "tags", "child", "comment_count", "scrap"])
         meal_result = get_feed_type_calendars_data(meal_list)
 
         # 광고 데이터를 조회
@@ -436,9 +441,7 @@ def list_calendar(db, params: dict) -> CommonResponse:
         else:
             search_params['user_id'] = user.id
 
-        print("⭕⭕⭕⭕⭕조회 파라미터:", search_params)
         calendar_data = get_meals_list(db, search_params, include=["user", "category", "image", "tags", "child"])
-        print("⭕⭕⭕⭕⭕조회된 캘린더 수:", len(calendar_data))
 
         result = get_feed_type_calendars_data(calendar_data)  # 데이터 가공 (피드 형태로 변환)
         # 조회된 데이터를 날짜 기준 리스트로 정렬
@@ -457,10 +460,8 @@ def list_calendar(db, params: dict) -> CommonResponse:
         return CommonResponse(success=True, error=None, data=data)
 
     except ValueError as e:
-        print("⭕⭕⭕⭕⭕ValueError:", str(e))
         return CommonResponse(success=False, error=str(e), data=None)
     except Exception as e:
-        print("⭕⭕⭕⭕⭕Exception:", str(e))
         return CommonResponse(success=False, error="식단 캘린더 조회 중 오류가 발생했습니다. " + str(e), data=None)
 
 def check_daily_meal(db, params: dict) -> CommonResponse:
@@ -633,6 +634,7 @@ async def update_meal(db, body: dict) -> CommonResponse:
         meal_calendar = MealsCalendarsRepository.find_by_view_hash(db, body.get('meal_hash'))
         if not meal_calendar or meal_calendar.user_id != user.id:
             raise ValueError("수정할 식단 캘린더 정보를 찾을 수 없습니다.")
+
         # -------------------------
         # 2. 카테고리 검증
         # -------------------------
@@ -641,6 +643,7 @@ async def update_meal(db, body: dict) -> CommonResponse:
             category_code = get_category_code_by_id(db, body['category_id'])
             if not category_code:
                 raise ValueError("유효하지 않은 카테고리 정보입니다.")
+
         # -------------------------
         # 3. 중복 식단 검증
         # -------------------------
@@ -652,6 +655,7 @@ async def update_meal(db, body: dict) -> CommonResponse:
             for exist_meal in exist_meals:
                 if exist_meal.id != meal_calendar.id and exist_meal.category_code == target_category:
                     return CommonResponse(success=False, error="이미 해당 날짜에 동일한 카테고리의 식단이 등록되어 있습니다.", data=None)
+
         # -------------------------
         # 🔥 트랜잭션 시작
         # -------------------------
@@ -671,6 +675,7 @@ async def update_meal(db, body: dict) -> CommonResponse:
         if not success:
             db.rollback()
             raise Exception("식단 캘린더 업데이트에 실패했습니다.")
+
         # -------------------------
         # 5. 재료 동기화 (replace 방식)
         # -------------------------
@@ -695,7 +700,6 @@ async def update_meal(db, body: dict) -> CommonResponse:
         # -------------------------
         # 6. 이미지 처리 (완전 교체)
         # -------------------------
-
         if body.get('attaches'):
             # 기존 이미지 삭제
             soft_delete_file_by_model_id(db, "Meals", meal_calendar.id)
@@ -750,4 +754,112 @@ async def delete_meal(db, body: dict) -> CommonResponse:
         db.rollback()
         return CommonResponse(success=False, error=str(e), data=None)
 
+async def get_scrap_list(db, params: dict) -> CommonResponse:
+    """
+    스크랩한 식단 캘린더 리스트 조회
+    """
+    from app.repository.meals_scraps_repository import MealsScrapsRepository
+
+    try:
+        user = validate_user(db, params.get('user_hash'))
+
+        scrap_list = MealsScrapsRepository.get_scrap_list_by_user_id(db, user.id)
+        scrap_ids = [scrap.meal_id for scrap in scrap_list]
+
+        search_params = {
+            "meal_ids": scrap_ids,
+        }
+
+        meal_list = get_meals_list(db, search_params, include=["user", "category", "image", "tags", "child", "comment_count", "scrap"])
+
+        scrap_data = get_feed_type_calendars_data(meal_list)
+        return CommonResponse(success=True, error=None, data=scrap_data)
+
+    except ValueError as e:
+        return CommonResponse(success=False, error=str(e), data=None)
+
+    except Exception as e:
+        return CommonResponse(success=False, error="스크랩한 식단 캘린더 조회 중 오류가 발생했습니다. " + str(e), data=None)
+
+async def scrap_pinned(db, params: dict) -> CommonResponse:
+    """
+    식단 캘린더 핀 고정/해제
+    """
+    from app.repository.meals_scraps_repository import MealsScrapsRepository
+
+    try:
+        user = validate_user(db, params.get('user_hash'))
+        meal_calendar = MealsCalendarsRepository.find_by_view_hash(db, params['meal_hash'])
+        if not meal_calendar:
+            return CommonResponse(success=False, error="핀 고정할 식단 캘린더 정보를 찾을 수 없습니다.", data=None)
+
+        meal_scrap = MealsScrapsRepository.get_scrap_by_user_and_meal(db, user.id, meal_calendar.id)
+        if not meal_scrap:
+            return CommonResponse(success=False, error="스크랩된 식단이 확인되지않습니다.", data=None)
+
+        if meal_scrap.sort_order and meal_scrap.sort_order >= 1000:
+            # 이미 핀 고정된 상태 -> 해제
+            MealsScrapsRepository.update(db, meal_scrap, sort_order=0)
+            db.commit()
+            return CommonResponse(success=True, message="식단 캘린더 핀 고정이 해제되었습니다.", data=None)
+
+        max_sort_order = MealsScrapsRepository.get_scrap_by_max_sort_order(db, user.id)
+
+        if max_sort_order == 0:
+            new_sort_order = 1000
+        elif max_sort_order >= 1000:
+            new_sort_order = max_sort_order + 1
+        else:
+            new_sort_order = 0
+
+        MealsScrapsRepository.update(db, meal_scrap, sort_order=new_sort_order)
+        db.commit()
+        return CommonResponse(success=True, message="식단 캘린더 핀 고정이 처리되었습니다.", data=None)
+
+    except ValueError as e:
+        db.rollback()
+        return CommonResponse(success=False, error=str(e), data=None)
+
+    except Exception as e:
+        db.rollback()
+        return CommonResponse(success=False, error=str(e), data=None)
+
+async def scrap_meal(db, params: dict) -> CommonResponse:
+    """
+    식단 캘린더 스크랩
+    """
+    from app.repository.meals_scraps_repository import MealsScrapsRepository
+
+    try:
+        user = validate_user(db, params.get('user_hash'))
+        meal_calendar = MealsCalendarsRepository.find_by_view_hash(db, params['meal_hash'])
+
+        if not meal_calendar:
+            return CommonResponse(success=False, error="스크랩할 식단 캘린더 정보를 찾을 수 없습니다.", data=None)
+
+        # 이미 스크랩 했는지 체크
+        # 이미 있을때는 is_active 토글, 없을때는 새로 생성
+        meal_scrap = MealsScrapsRepository.get_scrap_by_user_and_meal(db, user.id, meal_calendar.id)
+        if meal_scrap:
+            is_active = "Y" if meal_scrap.is_active == "N" else "N"
+
+            MealsScrapsRepository.update(db, meal_scrap, is_active=is_active)
+
+        else:
+            MealsScrapsRepository.create(db, {
+                "user_id": user.id,
+                "meal_id": meal_calendar.id,
+                "is_active": "Y"
+            })
+
+        db.commit()
+        return CommonResponse(success=True, message="식단 캘린더 스크랩이 성공적으로 처리되었습니다.", data=None)
+
+    except ValueError as e:
+        db.rollback()
+        return CommonResponse(success=False, error=str(e), data=None)
+
+    except Exception as e:
+        db.rollback()
+        return CommonResponse(success=False, error=str(e), data=None)
 

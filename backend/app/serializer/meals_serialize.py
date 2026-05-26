@@ -66,6 +66,8 @@ def get_feed_type_calendars_data(result):
                 is_public=v.is_public,
                 meal_stage=v.meal_stage,
                 comment_count=getattr(v, 'comment_count', 0) or 0,
+                is_scrap=getattr(v, 'is_scrap', False),
+                is_pinned=getattr(v, 'is_pinned', False),
                 meal_stage_detail=v.meal_stage_detail,
                 refer_info={
                     "refer_meal_hash": getattr(v, 'refer_meal_hash', None),
@@ -112,7 +114,6 @@ def get_feed_type_calendars_data(result):
             for v in result
         ]
     except Exception as e:
-        print("⭕⭕⭕⭕⭕Serialization Exception:", str(e))
         return []
 
 
