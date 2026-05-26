@@ -1,6 +1,9 @@
 # Environment
 *.env
 
+# VSCODE
+.vscode
+
 # Node
 node_modules/
 npm-debug.log*
@@ -10,7 +13,7 @@ pnpm-debug.log*
 # Python
 venv/
 backend/venv/
-# backend/attaches/
+backend/attaches/
 __pycache__/
 *.py[cod]
 *.pyc
