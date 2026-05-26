@@ -39,7 +39,6 @@ const MealDetailModal: React.FC<MealDetailModalProps> = ({
   onViewSource,
 }) => {
   const category = MEAL_CATEGORIES.find((c) => c.name === meal?.category_name);
-
   if (!meal) return null;
 
   // 식단 상태 매핑

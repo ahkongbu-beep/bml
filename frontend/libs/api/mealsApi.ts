@@ -126,6 +126,13 @@ export const getDailyMeals = async (params: { feed_id: string; date: string }): 
   return fetchGet<ApiResponse<DailyMealsCategory>>('/meals/check/daily', params);
 }
 
+export const copyMealToMyCalendar = async (
+  mealHash: string,
+  payload: { child_id: number; input_date: string }
+): Promise<ApiResponse<any>> => {
+  return fetchPost<ApiResponse<any>>(`/meals/copy/${mealHash}`, payload);
+}
+
 /**
  * 좋아요한 목록 조회
  */

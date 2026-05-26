@@ -87,12 +87,6 @@ export default function MenuListScreen({ navigation }: any) {
               <Text style={styles.email}>{user.email}</Text>
             </View>
           </View>
-          <TouchableOpacity
-            style={styles.settingsButton}
-            onPress={() => navigation.navigate('EditProfile')}
-          >
-            <Ionicons name="settings-outline" size={26} color="#4A4A4A" />
-          </TouchableOpacity>
         </View>
 
         {/* 메뉴 리스트 */}

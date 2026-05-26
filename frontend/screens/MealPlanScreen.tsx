@@ -452,7 +452,11 @@ export default function MealPlanScreen({ navigation }: any) {
                     borderWidth: 1,
                     borderColor: isSelected ? '#FF9AA2' : '#E8E8E8',
                     borderRadius: 6,
-                    backgroundColor: isSelected ? '#FF9AA2' : '#FFFFFF',
+                    backgroundColor: isSelected
+                      ? '#FF9AA2'
+                      : hasData
+                        ? (hasReferFeed ? '#E8F5F1' : '#FFE5E5')
+                        : '#FFFFFF',
                     opacity: isDisabled ? 0.75 : 1,
                     paddingTop: 2,
                   }}
@@ -460,18 +464,6 @@ export default function MealPlanScreen({ navigation }: any) {
                   <Text style={{ color: textColor, fontWeight: isSelected ? '700' : '500', fontSize: 14 }}>
                     {date.day}
                   </Text>
-                  {hasData && (
-                    <View
-                      style={{
-                        position: 'absolute',
-                        bottom: 5,
-                        width: 6,
-                        height: 6,
-                        borderRadius: 3,
-                        backgroundColor: hasReferFeed ? '#2DBE60' : '#FF6B6B',
-                      }}
-                    />
-                  )}
                 </TouchableOpacity>
               );
             }}

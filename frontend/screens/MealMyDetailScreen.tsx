@@ -278,15 +278,17 @@ export default function MealMyDetailScreen({ route, navigation }: any) {
                   {analyzeMealMutation.isPending ? '분석 중...' : '✨영양분석'}
                 </Text>
               </TouchableOpacity>
-
+              {mealData.refer_feed_id == 0 && (
+                <TouchableOpacity
+                  style={styles.actionButtonFull}
+                  onPress={handleEdit}
+                >
+                  <Ionicons name="pencil" size={18} color="#FF9AA2" />
+                  <Text style={styles.actionButtonText}>편집</Text>
+                </TouchableOpacity>
+              )}
               {/* 편집 */}
-              <TouchableOpacity
-                style={styles.actionButtonFull}
-                onPress={handleEdit}
-              >
-                <Ionicons name="pencil" size={18} color="#FF9AA2" />
-                <Text style={styles.actionButtonText}>편집</Text>
-              </TouchableOpacity>
+
 
               {/* 삭제 */}
               <TouchableOpacity

@@ -53,13 +53,9 @@ const MealPlanItem = React.memo(({
             </TouchableOpacity>
           </View>
           <Text style={styles.mealCategoryName}>
-            {MEAL_CONDITION.find((condition) => condition.value === meal.meal_condition) && (() => {
-              const condition = MEAL_CONDITION.find((condition) => condition.value === meal.meal_condition);
-              return (
-                <Text>
-                  {condition.icon} {condition.name}
-                </Text>
-              );
+            {(() => {
+              const condition = MEAL_CONDITION.find((c) => c.value === meal.meal_condition);
+              return condition ? `${condition.icon} ${condition.name}` : '';
             })()}
           </Text>
           <Text style={styles.mealContents} numberOfLines={hasImage ? 2 : 3}>

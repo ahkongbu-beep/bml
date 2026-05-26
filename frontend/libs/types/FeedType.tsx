@@ -71,7 +71,6 @@ export interface FeedItemProps {
     mappedTags: any[],
     imageUrl?: string,
   ) => void;
-  onAddToMealCalendar?: (userHash: string, feedId: number) => void;
   userHash?: string;
   isMine?: boolean;
   onEditFeed?: (feed: Feed) => void;

@@ -53,8 +53,6 @@ export default function StepTwo({
   const [showDatePicker, setShowDatePicker] = useState(false);
   const { data: allergyCategories } = useAllergyCategories();
 
-  console.log('초기 자녀 데이터:', childrenData);
-
   // 자녀 수 변경 시 데이터 초기화
   const handleNumberOfChildrenChange = (count: number) => {
     setNumberOfChildren(count);
@@ -137,15 +135,15 @@ export default function StepTwo({
       '땅콩': '🥜',
       '게': '🦀',
       '새우': '🦐',
-      '생선': '🐟',
+      '생선류': '🐟',
       '고등어': '🐟',
       '조개': '🦪',
       '밀': '🌾',
       '밀가루': '🌾',
       '메밀': '🌾',
-      '대두': '🫘',
-      '콩': '🫘',
-      '복숭아': '🍑',
+      '대두(콩)': '🫘',
+      '견과류': '🫘',
+      '과일류': '🍑',
       '토마토': '🍅',
       '돼지고기': '🥓',
       '소고기': '🥩',

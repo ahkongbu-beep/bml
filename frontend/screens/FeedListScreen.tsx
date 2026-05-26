@@ -205,12 +205,6 @@ export default function FeedListScreen() {
     });
   };
 
-  // 식단캘린더에 복사 추가
-  const handleAddToMealCalendar = (userHash: string, mealId: number, mealHash: string) => {
-    setMenuVisible(null);
-    navigation.navigate('MealCopyByFeed', { mealId, mealHash, userHash });
-  }
-
   // 사용자 차단 or 해제
   const handleBlock = useCallback((deny_user_hash: string, nickname: string) => {
     setMenuVisible(null);
@@ -370,7 +364,6 @@ export default function FeedListScreen() {
         onCommentPress={handleCommentPress}
         onAiSummary={handleAiSummary}
         isAnalyzing={analyzeMealMutation.isPending}
-        onAddToMealCalendar={handleAddToMealCalendar}
         userHash={user?.view_hash}
         isMine={isMine}
         onEditFeed={handleEditFeed}

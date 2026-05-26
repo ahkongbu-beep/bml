@@ -13,6 +13,8 @@ import {
   Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Calendar } from 'react-native-calendars';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 /* 상수 및 유틸리티 함수 정의 */
 import { Feed, FeedItemProps } from '../libs/types/FeedType';
@@ -20,7 +22,9 @@ import { formatDate, diffMonthsFrom, getStaticImage } from '@/libs/utils/common'
 import { USER_CHILD_GENDER, USER_CHILD_GENDER_COLOR } from '../libs/utils/codes/UserChildCode';
 import { getAmountColor, getBorderColor } from '../libs/utils/codes/IngredientCode';
 import { toggleScrap } from '../libs/api/feedsApi';
-import { toastSuccess, toastError } from '../libs/utils/toast';
+import { copyMealToMyCalendar } from '../libs/api/mealsApi';
+import { useAuth } from '../libs/contexts/AuthContext';
+import { toastSuccess, toastError, toastInfo } from '../libs/utils/toast';
 
 const { width } = Dimensions.get('window');
 
@@ -35,7 +39,6 @@ const MealItem = React.memo(({
   onLike,
   onCommentPress,
   onAiSummary,
-  onAddToMealCalendar,
   userHash,
   isMine,
   onEditFeed,
@@ -43,6 +46,9 @@ const MealItem = React.memo(({
   selectedTags = [],
   isAnalyzing = false,
 }: FeedItemProps) => {
+  const { user } = useAuth();
+  const insets = useSafeAreaInsets();
+
   // URL에서 iid 추출하는 함수
   const extractImageId = (imageUrl: string): string => {
     const match = imageUrl.match(/[?&]iid=(\d+)/);
@@ -53,7 +59,13 @@ const MealItem = React.memo(({
   const menuButtonRef = useRef<TouchableOpacity>(null);
   const [menuPosition, setMenuPosition] = useState({ top: 130, right: 10 });
   const [showSaveModal, setShowSaveModal] = useState(false);
+  const [showCopyToCalendarModal, setShowCopyToCalendarModal] = useState(false);
+  const [showCalendarPicker, setShowCalendarPicker] = useState(false);
+  const [selectedCopyDate, setSelectedCopyDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedChildId, setSelectedChildId] = useState<number | null>(null);
+  const [isCopyingToCalendar, setIsCopyingToCalendar] = useState(false);
   const [isScrap, setIsScrap] = useState(item.is_scrap ?? false);
+  const myChildren = user?.user_childs ?? [];
 
   useEffect(() => {
     const shimmer = Animated.loop(
@@ -73,6 +85,24 @@ const MealItem = React.memo(({
     shimmer.start();
     return () => shimmer.stop();
   }, []);
+
+  useEffect(() => {
+    if (!showCopyToCalendarModal) {
+      return;
+    }
+
+    if (myChildren.length === 0) {
+      setSelectedChildId(null);
+      return;
+    }
+
+    setSelectedChildId((prev) => {
+      if (prev && myChildren.some((child: any) => child.id === prev)) {
+        return prev;
+      }
+      return myChildren[0].id;
+    });
+  }, [showCopyToCalendarModal, myChildren]);
 
   const shimmerOpacity = shimmerAnim.interpolate({
     inputRange: [0, 1],
@@ -101,6 +131,46 @@ const MealItem = React.memo(({
   const allergy_info = item.childs?.allergies.map((allergy: any) => {
     return allergy.allergy_name;
   }) || [];
+
+  const openCopyToCalendarModal = () => {
+    setShowSaveModal(false);
+
+    if (myChildren.length === 0) {
+      toastInfo('자녀 정보를 먼저 등록해주세요.');
+      return;
+    }
+
+    setSelectedCopyDate(new Date().toISOString().split('T')[0]);
+    setShowCalendarPicker(false);
+    setShowCopyToCalendarModal(true);
+  };
+
+  const handleCopyToCalendar = async () => {
+    if (!selectedChildId) {
+      toastInfo('자녀를 선택해주세요.');
+      return;
+    }
+
+    try {
+      setIsCopyingToCalendar(true);
+      const response = await copyMealToMyCalendar(item.view_hash, {
+        child_id: selectedChildId,
+        input_date: selectedCopyDate,
+      });
+
+      if (!response?.success) {
+        toastError(response?.message || '캘린더 저장에 실패했어요.');
+        return;
+      }
+
+      setShowCopyToCalendarModal(false);
+      toastSuccess('내 식단 캘린더에 추가했어요.');
+    } catch {
+      toastError('캘린더 저장에 실패했어요.');
+    } finally {
+      setIsCopyingToCalendar(false);
+    }
+  };
 
   return (
     <View style={styles.feedContainer}>
@@ -163,6 +233,12 @@ const MealItem = React.memo(({
             source={{ uri: getStaticImage('medium', item.image_url) }}
             style={styles.feedImage}
           />
+          {!!item.refer_feed_id && (
+            <View style={styles.referredOverlay}>
+              <Ionicons name="link" size={14} color="#FFFFFF" />
+              <Text style={styles.referredOverlayText}>참조됨</Text>
+            </View>
+          )}
         </View>
       ) : (
         <View style={[styles.feedImage, styles.noImageContainer]}>
@@ -179,6 +255,7 @@ const MealItem = React.memo(({
             const bgColor = getAmountColor(score);
             const borderColor = getBorderColor(score);
             const isSelected = selectedTags.includes(tag.mapper_name);
+
             return (
               <TouchableOpacity
                 key={`${item.id}-tag-${idx}-${tag.mapper_name}`}
@@ -198,7 +275,7 @@ const MealItem = React.memo(({
           })}
         </View>
         <Text style={styles.content}>
-          {item.contents.split('\n').map((line, index) => (
+          {(item.contents || '').split('\n').map((line, index) => (
             <Text key={index}>
               {line}
             </Text>
@@ -263,7 +340,7 @@ const MealItem = React.memo(({
           </TouchableOpacity>
         )}
         {/* 내 피드가 아닐 때 식단 공유버튼 노출 */}
-        {!isMine && onAddToMealCalendar && (
+        {!isMine && (
           <TouchableOpacity
             style={styles.bottomActionButton}
             onPress={() => setShowSaveModal(true)}
@@ -287,10 +364,7 @@ const MealItem = React.memo(({
                   <Text style={styles.saveModalTitle}>저장 방식 선택</Text>
                   <TouchableOpacity
                     style={styles.saveModalOption}
-                    onPress={() => {
-                      setShowSaveModal(false);
-                      onAddToMealCalendar && onAddToMealCalendar(item.user.user_hash, item.id, item.view_hash);
-                    }}
+                    onPress={openCopyToCalendarModal}
                   >
                     <Ionicons name="calendar-outline" size={22} color="#FF9AA2" />
                     <View style={styles.saveModalOptionText}>
@@ -318,6 +392,113 @@ const MealItem = React.memo(({
                       <Text style={styles.saveModalOptionDesc}>내 스크랩 목록에 저장해요</Text>
                     </View>
                   </TouchableOpacity>
+                </View>
+              </TouchableWithoutFeedback>
+            </View>
+          </TouchableWithoutFeedback>
+        </Modal>
+
+        <Modal
+          visible={showCopyToCalendarModal}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setShowCopyToCalendarModal(false)}
+        >
+          <TouchableWithoutFeedback onPress={() => setShowCopyToCalendarModal(false)}>
+            <View style={styles.copyModalOverlay}>
+              <TouchableWithoutFeedback>
+                <View
+                  style={[
+                    styles.copyModalContainer,
+                    { paddingBottom: Math.max(insets.bottom + 16, 28) },
+                  ]}
+                >
+                  <Text style={styles.copyModalTitle}>캘린더에 저장하기</Text>
+
+                  <View style={styles.copySection}>
+                    <Text style={styles.copySectionTitle}>날짜 선택</Text>
+                    <TouchableOpacity
+                      style={styles.copyDateButton}
+                      onPress={() => setShowCalendarPicker((prev) => !prev)}
+                    >
+                      <Ionicons name="calendar-outline" size={18} color="#FF9AA2" />
+                      <Text style={styles.copyDateButtonText}>{selectedCopyDate.replace(/-/g, '.')}</Text>
+                      <Ionicons
+                        name={showCalendarPicker ? 'chevron-up' : 'chevron-down'}
+                        size={18}
+                        color="#888"
+                      />
+                    </TouchableOpacity>
+
+                    {showCalendarPicker && (
+                      <View style={styles.copyCalendarContainer}>
+                        <Calendar
+                          current={selectedCopyDate}
+                          onDayPress={(day) => {
+                            setSelectedCopyDate(day.dateString);
+                            setShowCalendarPicker(false);
+                          }}
+                          markedDates={{
+                            [selectedCopyDate]: {
+                              selected: true,
+                              selectedColor: '#FF9AA2',
+                            },
+                          }}
+                          theme={{
+                            selectedDayBackgroundColor: '#FF9AA2',
+                            todayTextColor: '#FF9AA2',
+                            arrowColor: '#FF9AA2',
+                          }}
+                        />
+                      </View>
+                    )}
+                  </View>
+
+                  <View style={styles.copySection}>
+                    <Text style={styles.copySectionTitle}>자녀 선택</Text>
+                    <View style={styles.childSelectList}>
+                      {myChildren.map((child: any) => {
+                        const isSelected = selectedChildId === child.id;
+                        return (
+                          <TouchableOpacity
+                            key={child.id}
+                            style={[styles.childSelectItem, isSelected && styles.childSelectItemActive]}
+                            onPress={() => setSelectedChildId(child.id)}
+                          >
+                            <Text style={styles.childSelectName}>{child.child_name}</Text>
+                            <Text style={styles.childSelectMeta}>
+                              {USER_CHILD_GENDER[child.child_gender]} · {child.child_birth}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </View>
+
+                  <View style={styles.copyModalButtonRow}>
+                    <TouchableOpacity
+                      style={[styles.copyModalButton, styles.copyModalCancelButton]}
+                      onPress={() => setShowCopyToCalendarModal(false)}
+                      disabled={isCopyingToCalendar}
+                    >
+                      <Text style={styles.copyModalCancelText}>취소</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.copyModalButton,
+                        styles.copyModalConfirmButton,
+                        isCopyingToCalendar && styles.copyModalConfirmButtonDisabled,
+                      ]}
+                      onPress={handleCopyToCalendar}
+                      disabled={isCopyingToCalendar}
+                    >
+                      {isCopyingToCalendar ? (
+                        <ActivityIndicator size="small" color="#FFFFFF" />
+                      ) : (
+                        <Text style={styles.copyModalConfirmText}>확인</Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
                 </View>
               </TouchableWithoutFeedback>
             </View>
@@ -502,6 +683,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  referredOverlay: {
+    position: 'absolute',
+    top: 12,
+    right: 28,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  referredOverlayText: {
+    fontSize: 11,
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
   feedImage: {
     width: width - 32,
     height: width - 32,
@@ -667,6 +865,117 @@ const styles = StyleSheet.create({
   saveModalDivider: {
     height: 1,
     backgroundColor: '#F0F0F0',
+  },
+  copyModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'flex-end',
+  },
+  copyModalContainer: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 28,
+    maxHeight: '85%',
+  },
+  copyModalTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#4A4A4A',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  copySection: {
+    marginBottom: 16,
+  },
+  copySectionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#4A4A4A',
+    marginBottom: 10,
+  },
+  copyDateButton: {
+    borderWidth: 1,
+    borderColor: '#FFE5E5',
+    borderRadius: 10,
+    backgroundColor: '#FFF5F0',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  copyDateButtonText: {
+    flex: 1,
+    marginLeft: 8,
+    fontSize: 14,
+    color: '#4A4A4A',
+    fontWeight: '600',
+  },
+  copyCalendarContainer: {
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#FFE5E5',
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  childSelectList: {
+    gap: 8,
+  },
+  childSelectItem: {
+    borderWidth: 1,
+    borderColor: '#FFE5E5',
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: '#FFFFFF',
+  },
+  childSelectItemActive: {
+    borderColor: '#FF9AA2',
+    backgroundColor: '#FFF5F0',
+  },
+  childSelectName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#4A4A4A',
+  },
+  childSelectMeta: {
+    marginTop: 2,
+    fontSize: 12,
+    color: '#8B8B8B',
+  },
+  copyModalButtonRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 4,
+  },
+  copyModalButton: {
+    flex: 1,
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  copyModalCancelButton: {
+    backgroundColor: '#F3F3F3',
+  },
+  copyModalConfirmButton: {
+    backgroundColor: '#FF9AA2',
+  },
+  copyModalConfirmButtonDisabled: {
+    opacity: 0.7,
+  },
+  copyModalCancelText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#777777',
+  },
+  copyModalConfirmText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });
 

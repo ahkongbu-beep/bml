@@ -141,7 +141,7 @@ function MainNavigator() {
       <Stack.Screen name="SearchAccount" component={UserSearchAccount} />
       <Stack.Screen name="RegistChild" component={RegistChildScreen} />
       <Stack.Screen name="Growth" component={GrowthScreen} />
-        <Stack.Screen name="GrowthReport" component={GrowthReportScreen} />
+      <Stack.Screen name="GrowthReport" component={GrowthReportScreen} />
       <Stack.Screen name="MealCopyByFeed" component={MealCopyByFeedScreen} />
       <Stack.Screen name="Community" component={CommunityScreen} />
       <Stack.Screen name="CommunityWrite" component={CommunityWriteScreen} />
