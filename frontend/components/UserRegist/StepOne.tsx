@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
+
 interface StepOneProps {
   email: string;
   password: string;
@@ -98,6 +99,11 @@ export default function StepOne({
           extraScrollHeight={24}
           contentContainerStyle={{ paddingBottom: bottomSpacing }}
         >
+          {/* 백엔드 URL 디버그 표시 */}
+          <Text style={{ fontSize: 11, color: '#888', textAlign: 'center', marginBottom: 8, backgroundColor: '#f0f0f0', padding: 4, borderRadius: 4 }}>
+            API: {process.env.EXPO_PUBLIC_STATIC_BASE_URL || 'http://211.110.1.27:8001 (fallback)'}
+          </Text>
+
           {/* 대표 프로필 이미지 */}
           <Text style={styles.title}>대표 프로필 이미지</Text>
           <TouchableOpacity style={styles.imageContainer} onPress={pickImage}>
