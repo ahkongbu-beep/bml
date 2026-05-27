@@ -41,7 +41,7 @@ const clamp = (value: number, min: number, max: number) => {
   return Math.min(Math.max(value, min), max);
 };
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_STATIC_BASE_URL || 'http://211.110.1.27:8000';
+const API_BASE_URL = process.env.EXPO_PUBLIC_STATIC_BASE_URL || 'https://dev.bml.co.kr';
 
 export default function ImagePickerModal({ imageUri, onImageSelected, onImageRemoved, aspectRatio = 4 / 3 }: Props) {
   const [cropModalVisible, setCropModalVisible] = useState(false);

@@ -4,7 +4,7 @@
 import { getToken, getRefreshToken, saveToken } from '../utils/storage';
 import { logout as clearStorage } from '../utils/storage';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_STATIC_BASE_URL || "http://211.110.1.27:8001";
+const API_BASE_URL = process.env.EXPO_PUBLIC_STATIC_BASE_URL || "https://dev.bml.co.kr";
 
 // 토큰 갱신 중인지 확인하는 플래그
 let isRefreshing = false;

@@ -101,7 +101,7 @@ export default function StepOne({
         >
           {/* 백엔드 URL 디버그 표시 */}
           <Text style={{ fontSize: 11, color: '#888', textAlign: 'center', marginBottom: 8, backgroundColor: '#f0f0f0', padding: 4, borderRadius: 4 }}>
-            API: {process.env.EXPO_PUBLIC_STATIC_BASE_URL || 'http://211.110.1.27:8001 (fallback)'}
+            API: {process.env.EXPO_PUBLIC_STATIC_BASE_URL || 'https://dev.bml.co.kr (fallback)'}
           </Text>
 
           {/* 대표 프로필 이미지 */}
