@@ -6,7 +6,6 @@ import { NextRequest } from "next/server";
 export async function GET(request: NextRequest) {
 
   const callURL = `${BACKEND_ROUTES.DASHBOARD()}`;
-  console.log("callURL", callURL);
 
   try {
     const data = await apiCall(callURL, 'GET');

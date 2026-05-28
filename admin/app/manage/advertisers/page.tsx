@@ -56,7 +56,7 @@ export default function AdvertisersPage() {
     return hasNext ? currentPage + 1 : currentPage
   }, [advertisers.length, currentPage, pageSize])
 
-  const imageBase = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000"
+  const imageBase = process.env.NEXT_PUBLIC_API_BASE_URL || "https://dev.bml.co.kr";
 
   const resolveImageUrl = (imagePath?: string | null) => {
     if (!imagePath) return ""

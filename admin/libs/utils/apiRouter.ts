@@ -1,7 +1,7 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ||
   (process.env.NODE_ENV === 'production'
-    ? process.env.BACKEND_URL || 'https://oncare-backend.onrender.com'
-    : 'http://localhost:8000'); // 개발 모드 API 주소
+    ? process.env.BACKEND_URL || 'https://bml.co.kr'
+    : 'https://dev.bml.co.kr'); // 개발 모드 API 주소
 
 export const FRONTEND_ROUTES = {
   NOTICES : () => `/api/notices`,

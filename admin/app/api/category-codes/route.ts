@@ -43,7 +43,6 @@ export async function POST(request: NextRequest) {
     return createSuccessResponse("카테고리 코드 생성 성공하였습니다", data.data);
 
   } catch (error) {
-    console.error("POST error:", error);
     return createErrorResponse(error, "카테고리 코드 생성 중 오류가 발생했습니다.");
   }
 }

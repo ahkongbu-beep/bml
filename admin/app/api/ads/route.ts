@@ -23,9 +23,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.log("url", `${BACKEND_ROUTES.ADS()}/add`);
-    console.log("body", Array.from(backendFormData.entries()));
-
     const response = await fetch(`${BACKEND_ROUTES.ADS()}/add`, {
       method: "POST",
       body: backendFormData,

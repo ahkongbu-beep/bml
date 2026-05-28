@@ -89,7 +89,7 @@ export default function AdvertiserDetailPage() {
   const touchStartXRef = useRef<number | null>(null)
   const touchEndXRef = useRef<number | null>(null)
 
-  const imageBase = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000"
+  const imageBase = process.env.NEXT_PUBLIC_API_BASE_URL || "https://dev.bml.co.kr";
 
   const resolveImageUrl = (imagePath?: string | null) => {
     if (!imagePath) return ""
