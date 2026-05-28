@@ -7,12 +7,27 @@ from fastapi.exceptions import RequestValidationError
 import os
 import app.models  # noqa: F401 - 모델 관계 mapper 등록
 
-app = FastAPI(title="BML Backend API", version="1.0.0")
+IS_RELEASE_MODE = os.getenv("RELEASE_MODE", "False").lower() == "true"
+
+app = FastAPI(
+    title="BML Backend API",
+    version="1.0.0",
+    docs_url="/docs" if not IS_RELEASE_MODE else None,
+    redoc_url="/redoc" if not IS_RELEASE_MODE else None,
+    openapi_url="/openapi.json" if not IS_RELEASE_MODE else None
+)
 
 # CORS 설정
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "https://bml.co.kr",
+        "https://dev.bml.co.kr",
+    ] if IS_RELEASE_MODE else [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "https://dev.bml.co.kr",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

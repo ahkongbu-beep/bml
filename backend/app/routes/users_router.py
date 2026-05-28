@@ -163,20 +163,6 @@ def get_user_profile(request: Request, db: Session = Depends(get_db)):
 
     return users_service.get_user_profile(db, user_hash, target_hash)
 
-""" 내 정보 조회(좋아요, 피드등록 etc) """
-@router.post("/me")
-def get_my_info(request: Request, db: Session = Depends(get_db)):
-
-    user_hash = getattr(request.state, "user_hash", None)
-    if not user_hash:
-        return CommonResponse(success=False, message="사용자 인증이 필요합니다.", data=None)
-
-    data = {
-        "user_hash": user_hash
-    }
-    return users_service.get_my_info(db, data)
-
-
 """ 회원 조회 이메일 찾기 name and phone """
 @router.post("/confirm/email")
 def confirm_email(request: SearchUserAccountConfirmRequest, db: Session = Depends(get_db)):

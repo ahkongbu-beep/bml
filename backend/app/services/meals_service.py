@@ -581,13 +581,12 @@ async def create_meal(db, body: dict) -> CommonResponse:
             return CommonResponse(success=False, error="유효하지 않은 카테고리 정보입니다.", data=None)
 
         # 동일 식단 여부 체크
-        await validate_meal_calendar(db, user, category_code, body)
+        is_exist = MealsCalendarsRepository.duplicate_check(db, user.id, body['input_date'], category_code.id, body['child_id'])
+
+        if is_exist:
+            raise Exception("해당 날짜에 동일한 카테고리의 식단이 이미 존재합니다.")
 
         body['view_hash'] = await generate_meal_calendar_hash(user.id, body['input_date'], category_code.id, body['child_id'])
-
-        exist_meal = get_meal_calendar_by_view_hash(db, body['view_hash'])
-        if exist_meal:
-            raise Exception("이미 존재하는 식단 캘린더입니다.")
 
         meal_calendar = await insert_meal_proccess(db, user, category_code, body)
 
@@ -621,7 +620,7 @@ async def create_meal(db, body: dict) -> CommonResponse:
 
     except Exception as e:
         db.rollback()
-        return CommonResponse(success=False, error="식단 캘린더 생성 중 오류가 발생했습니다. " + str(e), data=None)
+        return CommonResponse(success=False, error=str(e), data=None)
 
 async def update_meal(db, body: dict) -> CommonResponse:
     """
@@ -748,7 +747,12 @@ async def copy_meal_calendar(db, body: dict) -> CommonResponse:
 
         user_child = get_child_by_id(db, child_id)
 
+        is_exist = MealsCalendarsRepository.duplicate_check(db, user.id, input_date, category_code.id, user_child.id)
+        if is_exist:
+            raise Exception("해당 날짜에 동일한 카테고리의 식단이 이미 존재합니다.")
+
         view_hash = await generate_meal_calendar_hash(user.id, input_date, category_code.id, user_child.id)
+
         new_calcendar = MealsCalendarsRepository.copy_meal(db, original_meal, user.id, child_id, input_date, view_hash)
 
         if not new_calcendar:
@@ -798,7 +802,6 @@ async def copy_meal_calendar(db, body: dict) -> CommonResponse:
         db.rollback()
         return CommonResponse(success=False, error=str(e), data=None)
     except Exception as e:
-        print(f"⭕⭕식단 캘린더 복사 중 오류: {str(e)}")
         db.rollback()
         return CommonResponse(success=False, error=str(e), data=None)
 

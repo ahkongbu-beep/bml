@@ -13,6 +13,16 @@ from app.models.users_childs_allergies import UsersChildsAllergies
 
 class MealsCalendarsRepository:
     @staticmethod
+    def duplicate_check(session, user_id: int, input_date: str, category_code: int, child_id: int):
+        return session.query(MealsCalendars).filter(
+            MealsCalendars.user_id == user_id,
+            MealsCalendars.input_date == input_date,
+            MealsCalendars.category_code == category_code,
+            MealsCalendars.child_id == child_id,
+            MealsCalendars.is_active == "Y"
+        ).first() is not None
+
+    @staticmethod
     def get_deleted_meals(db, is_active: str, search_date: str, target_id: int):
         query = db.query(MealsCalendars)
 

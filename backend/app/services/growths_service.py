@@ -62,6 +62,16 @@ def create_growth_report(db, user_hash, child_id, body):
             type = report.type
             months = report.months
             value = report.value
+
+            if value > 999.9:
+                if type == "height":
+                    type_str = "키"
+                elif type == "weight":
+                    type_str = "몸무게"
+                else:
+                    type_str = "머리둘레"
+                raise ValueError(f"{type_str} 입력 범위를 초과하였습니다. (0~999.9)")
+
             percent = str(report.percent)
 
             exist_report = GrowthsReportsRepository.validate_report_exists(db, user.id, child_id, type, today)
@@ -86,10 +96,9 @@ def create_growth_report(db, user_hash, child_id, body):
         return {"success": True, "error": None, "data": {"created_count": created_count}}
 
     except ValueError as e:
-        print(f"ValueError: {str(e)}")
         return {"success": False, "error": str(e), "data": None}
     except Exception as e:
-        print(f"Exception: {str(e)}")
+        print(f"⭕⭕Exception: {str(e)}")
         return {"success": False, "error": "성장 리포트 생성 중 오류가 발생했습니다.", "data": None}
 
 def get_growth_report(db, user_hash, child_id):

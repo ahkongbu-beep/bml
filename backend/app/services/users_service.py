@@ -134,20 +134,6 @@ async def confirm_password_reset(db, data) -> CommonResponse:
         db.rollback()
         return CommonResponse(success=False, error=str(e), data=None)
 
-def get_my_info(db, data) -> CommonResponse:
-    try:
-        user = validate_user(db, data["user_hash"])
-        like_count, meal_count = get_user_like_count(db, user.id).values()
-
-        result = {
-            "like_count": like_count,
-            "meal_count": meal_count
-        }
-
-        return CommonResponse(success=True, message="", data=result)
-    except ValueError as e:
-        return CommonResponse(success=False, error=str(e), data=None)
-
 # 회원 가입
 async def create_user(db, user_data) -> CommonResponse:
 

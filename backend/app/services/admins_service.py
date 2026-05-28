@@ -374,6 +374,8 @@ def meal_list(db, params: MealListRequest) -> CommonResponse:
         meal_result = get_meals_list(db, search_params, include=["category", "user"])
         meal_list = [meal_serialize(row) for row in meal_result]
 
+        print("⭕⭕⭕, meal_list", meal_list)
+
         data = MealListResponse(
             offset=params.offset,
             limit=params.limit,
