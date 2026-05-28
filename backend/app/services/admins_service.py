@@ -3,7 +3,7 @@
 from datetime import datetime
 import pytz
 from app.schemas.common_schemas import CommonResponse
-from app.schemas.admin_schmas import MealListRequest, MealListResponse, NoticeListRequest, NoticeListResponse, NoticesCreateRequest, NoticesUpdateRequest, UserDetailResponse, UserListRequest, UserListResponse, MealForceUpdate, CategoryListRequest, CategoryCreateOrUpdateRequest
+from app.schemas.admin_schmas import AllergySaveRequest, MealListRequest, MealListResponse, NoticeListRequest, NoticeListResponse, NoticesCreateRequest, NoticesUpdateRequest, UserDetailResponse, UserListRequest, UserListResponse, MealForceUpdate, CategoryListRequest, CategoryCreateOrUpdateRequest
 from app.schemas.users_childs_schemas import ChildSchema
 
 from app.services.notices_service import get_notice_by_view_hash, get_notice_count, get_notice_list, list_notices, create_notice as create_notice_service, update_notice as update_notice_service, toggle_notice
@@ -11,6 +11,7 @@ from app.services.users_childs_service import child_list as child_list_service
 from app.services.users_service import get_all_users, get_user_by_nickname, get_user_count, validate_user
 from app.services.meals_service import get_meals_list, get_meals_count, update_meal_process, validate_meal_calendar_view_hash
 from app.services.categories_codes_service import get_category_code_by_id, get_category_list, insert_category_process, update_category_process, get_category_by_type_and_sort
+
 from app.serializer.meals_serialize import meal_serialize
 
 def time_ago(delta):
@@ -430,5 +431,93 @@ def force_update_meal(db, meal_hash: str, params: MealForceUpdate) -> CommonResp
 
     except ValueError as e:
         return CommonResponse(success=False, error=str(e), data=None)
+    except Exception as e:
+        return CommonResponse(success=False, error=str(e), data=None)
+
+
+def allergy_list(db) -> CommonResponse:
+    """
+    알레르기 리스트 조회 서비스 함수
+    """
+
+    try:
+        from app.repository.food_item_repository import FoodItemRepository
+        data = FoodItemRepository.get_list(db).to_list()
+
+        return CommonResponse(success=True, message="알레르기 조회 성공", data=data)
+
+    except Exception as e:
+        return CommonResponse(success=False, error=str(e), data=None)
+
+def create_allergy(db, params: AllergySaveRequest) -> CommonResponse:
+    """
+    알레르기 정보 저장 서비스 함수
+    """
+    try:
+        from app.repository.food_item_repository import FoodItemRepository
+
+        exist_food_item = FoodItemRepository.get_by_type_and_code(db, params.food_type, params.food_code)
+        if exist_food_item:
+            return CommonResponse(success=False, error="동일한 이름의 음식 아이템이 이미 존재합니다.", data=None)
+
+        new_food_code = FoodItemRepository.createCode(db, params.food_type)
+
+        new_food_item = FoodItemRepository.create(db, {
+            "food_type": params.food_type,
+            "food_name": params.food_name,
+            "food_code": new_food_code
+        })
+
+        if not new_food_item:
+            raise Exception("알레르기 정보 저장에 실패했습니다.")
+
+        result_data = {
+            "id": new_food_item.id,
+            "food_code": new_food_item.food_code,
+            "food_type": new_food_item.food_type,
+            "food_name": new_food_item.food_name,
+        }
+
+        return CommonResponse(success=True, message="알레르기 정보 저장 성공", data=result_data)
+
+    except Exception as e:
+        return CommonResponse(success=False, error=str(e), data=None)
+
+def update_allergy(db, params: AllergySaveRequest) -> CommonResponse:
+    """
+    알레르기 정보 수정 서비스 함수
+    """
+    try:
+        from app.repository.food_item_repository import FoodItemRepository
+
+        if not params.food_code:
+            raise ValueError("food_code가 필요합니다.")
+
+        exist_food_item = FoodItemRepository.get_by_type_and_code(db, params.food_type, params.food_code)
+        if not exist_food_item:
+            return CommonResponse(success=False, error="해당 음식 아이템이 존재하지 않습니다.", data=None)
+
+        update_params = {
+            "food_name": params.food_name if params.food_name is not None else exist_food_item.food_name,
+            "food_type": params.food_type if params.food_type is not None else exist_food_item.food_type,
+        }
+
+        updated_food_item = FoodItemRepository.update(db, exist_food_item.id, update_params)
+
+        if not updated_food_item:
+            raise Exception("알레르기 정보 수정에 실패했습니다.")
+
+        result_data = {
+            "id": updated_food_item.id,
+            "food_code": updated_food_item.food_code,
+            "food_type": updated_food_item.food_type,
+            "food_name": updated_food_item.food_name,
+        }
+
+        return CommonResponse(success=True, message="알레르기 정보 수정 성공", data=result_data)
+
+    except ValueError as e:
+        return CommonResponse(success=False, error=str(e), data=None)
+
     except Exception as e:
         return CommonResponse(success=False, error=str(e), data=None)

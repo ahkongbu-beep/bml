@@ -98,7 +98,6 @@ def create_growth_report(db, user_hash, child_id, body):
     except ValueError as e:
         return {"success": False, "error": str(e), "data": None}
     except Exception as e:
-        print(f"⭕⭕Exception: {str(e)}")
         return {"success": False, "error": "성장 리포트 생성 중 오류가 발생했습니다.", "data": None}
 
 def get_growth_report(db, user_hash, child_id):

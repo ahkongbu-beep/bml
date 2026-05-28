@@ -2,7 +2,7 @@ from app.core.database import get_db
 
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
-from app.schemas.admin_schmas import NoticeListRequest, NoticesCreateRequest, NoticesUpdateRequest, UserListRequest, MealListRequest, MealForceUpdate, CategoryListRequest, CategoryCreateOrUpdateRequest
+from app.schemas.admin_schmas import AllergySaveRequest, NoticeListRequest, NoticesCreateRequest, NoticesUpdateRequest, UserListRequest, MealListRequest, MealForceUpdate, CategoryListRequest, CategoryCreateOrUpdateRequest
 from app.schemas.common_schemas import CommonResponse
 
 from app.services import admins_service
@@ -120,3 +120,29 @@ def force_update_meal(request: Request, meal_hash: str, params: MealForceUpdate,
     식단 강제 업데이트 API 엔드포인트
     """
     return admins_service.force_update_meal(db, meal_hash, params)
+
+# ====================================================================================
+# 알레르기 관리 엔드포인트
+# ====================================================================================
+@router.get("/allergies")
+def list_allergies(request: Request, db: Session = Depends(get_db)):
+    """
+    알레르기 리스트 조회 API 엔드포인트
+    """
+    return admins_service.allergy_list(db)
+
+@router.post("/allergies")
+def create_allergy(request: Request, params: AllergySaveRequest, db: Session = Depends(get_db)):
+    """
+    알레르기 생성 API 엔드포인트
+    """
+    return admins_service.create_allergy(db, params)
+
+@router.put("/allergies/{food_code}")
+def update_allergy(request: Request, food_code: str, params: AllergySaveRequest, db: Session = Depends(get_db)):
+    """
+    알레르기 수정 API 엔드포인트
+    """
+
+    params.food_code = food_code
+    return admins_service.update_allergy(db, params)

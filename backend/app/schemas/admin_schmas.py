@@ -147,3 +147,11 @@ class CategoryCreateOrUpdateRequest(BaseModel):
     value: Optional[str] = None
     sort: Optional[int] = None
     is_active: Optional[str] = "Y"
+
+class AllergySaveRequest(BaseModel):
+    """
+    알레르기 정보 저장 요청 모델
+    """
+    food_name: str
+    food_type: str
+    food_code: Optional[str] = None
