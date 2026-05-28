@@ -12,7 +12,7 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Ionicons } from '@expo/vector-icons';
-import { toastError } from '@/libs/utils/toast';
+import { toastError, toastInfo } from '@/libs/utils/toast';
 
 type CropBox = {
   x: number;
@@ -35,15 +35,18 @@ type Props = {
   onImageSelected: (uri: string) => void;
   onImageRemoved: () => void;
   aspectRatio?: number; // 예: 1 (정사각형), 4/3, 16/9 등. 기본값 4/3
+  compact?: boolean;
 };
 
 const clamp = (value: number, min: number, max: number) => {
   return Math.min(Math.max(value, min), max);
 };
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_STATIC_BASE_URL || 'https://dev.bml.co.kr';
+const IS_DEV = process.env.EXPO_PUBLIC_API_URL === 'https://dev.bml.co.kr';
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || process.env.EXPO_PUBLIC_STATIC_BASE_URL || (IS_DEV ? 'https://dev.bml.co.kr' : 'https://bml.co.kr');
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024; // 10MB (unused, kept for reference)
 
-export default function ImagePickerModal({ imageUri, onImageSelected, onImageRemoved, aspectRatio = 4 / 3 }: Props) {
+export default function ImagePickerModal({ imageUri, onImageSelected, onImageRemoved, aspectRatio = 4 / 3, compact = false }: Props) {
   const [cropModalVisible, setCropModalVisible] = useState(false);
   const [cropSourceUri, setCropSourceUri] = useState<string | null>(null);
   const [cropImageSize, setCropImageSize] = useState<{ width: number; height: number } | null>(null);
@@ -424,27 +427,40 @@ export default function ImagePickerModal({ imageUri, onImageSelected, onImageRem
       formData.append('origin_y', originY.toString());
       formData.append('width', width.toString());
       formData.append('height', height.toString());
-      formData.append('quality', '80');
+      formData.append('quality', '65');
 
       const response = await fetch(`${API_BASE_URL}/image/crop`, {
         method: 'POST',
         body: formData,
       });
 
-      const result = await response.json();
+      const rawBody = await response.text();
+      let result: any = null;
+
+      try {
+        result = rawBody ? JSON.parse(rawBody) : null;
+      } catch {
+        throw new Error(
+          `이미지 크롭 응답이 JSON이 아닙니다. status=${response.status}, body=${rawBody.slice(0, 120)}`
+        );
+      }
+
+      if (!response.ok) {
+        throw new Error(result?.error || `크롭 요청 실패 (${response.status})`);
+      }
+
       if (!result.success) {
         throw new Error(result.error || '크롭 실패');
       }
 
       // 서버에서 반환한 경로를 로컬에 다운로드
       const serverUri = `${API_BASE_URL}${result.data.uri}`;
-      console.log(serverUri);
       const localPath = `${FileSystem.cacheDirectory}crop_${Date.now()}.jpg`;
       const download = await FileSystem.downloadAsync(serverUri, localPath);
 
       onImageSelected(download.uri);
       handleCancelCrop();
-    } catch {
+    } catch(error) {
       toastError('이미지 자르기에 실패했습니다.');
     } finally {
       setIsCropping(false);
@@ -455,18 +471,18 @@ export default function ImagePickerModal({ imageUri, onImageSelected, onImageRem
     <>
       {imageUri ? (
         <View style={styles.imagePreviewContainer}>
-          <Image source={{ uri: imageUri }} style={styles.imagePreview} resizeMode="contain" />
+          <Image source={{ uri: imageUri }} style={[styles.imagePreview, compact && styles.imagePreviewCompact]} resizeMode="contain" />
           <TouchableOpacity style={styles.imageRemoveButton} onPress={onImageRemoved}>
             <Ionicons name="close-circle" size={24} color="#FF6B6B" />
           </TouchableOpacity>
         </View>
       ) : (
-        <View style={styles.imageButtonContainer}>
-          <TouchableOpacity style={styles.imageButton} onPress={handleTakePhoto}>
+        <View style={[styles.imageButtonContainer, compact && styles.imageButtonContainerCompact]}>
+          <TouchableOpacity style={[styles.imageButton, compact && styles.imageButtonCompact]} onPress={handleTakePhoto}>
             <Ionicons name="camera" size={10} color="#FF9AA2" />
             <Text style={styles.imageButtonText}>촬영</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.imageButton} onPress={handlePickImage}>
+          <TouchableOpacity style={[styles.imageButton, compact && styles.imageButtonCompact]} onPress={handlePickImage}>
             <Ionicons name="images" size={10} color="#FF9AA2" />
             <Text style={styles.imageButtonText}>갤러리</Text>
           </TouchableOpacity>
@@ -589,6 +605,9 @@ const styles = StyleSheet.create({
     height: 220,
     borderRadius: 12,
   },
+  imagePreviewCompact: {
+    height: 160,
+  },
   imageRemoveButton: {
     position: 'absolute',
     top: 8,
@@ -600,6 +619,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
   },
+  imageButtonContainerCompact: {
+    flexDirection: 'column',
+    gap: 8,
+  },
   imageButton: {
     flex: 1,
     borderWidth: 1,
@@ -610,6 +633,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     flexDirection: 'row',
     backgroundColor: '#FFF8FA',
+  },
+  imageButtonCompact: {
+    flex: 0,
+    width: '100%',
   },
   imageButtonText: {
     marginLeft: 6,

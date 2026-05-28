@@ -237,7 +237,6 @@ export const useMyMealDetail = (userHash: string, mealHash: string) => {
  * 다른사람의 피드 상세 조회 Hook
 ========================================================= */
 export const useUserMealDetail = (targetHash: string, mealHash: string) => {
-    console.log('useUserMealDetail 호출 - targetHash:', targetHash, 'mealHash:', mealHash);
   const { data, isLoading, error, refetch } = useQuery<Feed, Error>({
     queryKey: mealKeys.detail(targetHash, mealHash),
     queryFn: () => getMealDetail(targetHash, mealHash),

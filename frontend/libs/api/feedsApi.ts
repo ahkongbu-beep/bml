@@ -167,7 +167,6 @@ export const copyFeed = async (data: CopyFeedRequest): Promise<null> => {
     ingredients: data.ingredients ?? [],
   }
 
-  console.log("params", params);
   const response = await fetchPost<ApiResponse<null>>('/feeds/copy', params);
   return response;
 };
@@ -177,7 +176,6 @@ export const copyFeed = async (data: CopyFeedRequest): Promise<null> => {
  * 댓글 등록
  */
 export const createFeedComment = async (data: CreateFeedCommentRequest): Promise<any> => {
-  console.log("createFeedComment data:", data);
   const { meal_id, comment, parent_hash } = data;
 
   const body: any = { meal_id, comment };
@@ -186,7 +184,6 @@ export const createFeedComment = async (data: CreateFeedCommentRequest): Promise
   }
 
   const response = await fetchPost<ApiResponse<any>>('/feeds/comment/create', body);
-  console.log("createFeedComment response:", response);
   return response.data;
 }
 
@@ -194,9 +191,7 @@ export const createFeedComment = async (data: CreateFeedCommentRequest): Promise
  * 댓글 삭제
  */
 export const deleteFeedComment = async (comment_hash: string): Promise<void> => {
-  console.log("deleteFeedComment commentHash:", comment_hash);
   const response = await fetchDelete<void>(`/feeds/comment/${comment_hash}`);
-  console.log("deleteFeedComment response:", response);
   return response;
 }
 

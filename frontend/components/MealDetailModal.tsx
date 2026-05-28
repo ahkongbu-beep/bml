@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { formatDate } from '../libs/utils/common';
 import { getStaticImage, diffMonthsFrom } from '../libs/utils/common';
 import { MEAL_CATEGORIES } from '../libs/utils/codes/MealCalendarCode';
 import { USER_CHILD_GENDER } from '../libs/utils/codes/UserChildCode';
@@ -141,7 +142,7 @@ const MealDetailModal: React.FC<MealDetailModalProps> = ({
                   </View>
                   <View style={styles.infoContent}>
                     <Text style={styles.infoLabel}>월</Text>
-                    <Text style={styles.infoValue}>{meal.month || ''} · {meal.contents || ''}</Text>
+                    <Text style={styles.infoValue}>{formatDate(meal.input_date, 'YYYY-MM-DD') || ''}</Text>
                   </View>
                 </View>
               </View>
@@ -198,23 +199,22 @@ const MealDetailModal: React.FC<MealDetailModalProps> = ({
                   </View>
                 </View>
               )}
-
-              {meal.refer_feed_id > 0 && (
+              {/* 메모 */}
+              {meal.contents && (
                 <View style={styles.infoGrid}>
                   <View style={styles.infoItem}>
                     <View style={styles.infoIconContainer}>
-                      <Ionicons name="copy-outline" size={18} color="#FF9AA2" />
+                      <Ionicons name="document-text-outline" size={18} color="#FF9AA2" />
                     </View>
                     <View style={styles.infoContent}>
-                      <Text style={styles.infoLabel}>출처</Text>
-                      <Text style={styles.infoValue}>{meal.refer_info?.refer_user_nickname || ''} 님의 식단</Text>
+                      <Text style={styles.infoLabel}>메모</Text>
+                      <Text style={styles.infoValue}>{meal.contents}</Text>
                     </View>
                   </View>
                 </View>
               )}
             </View>
 
-            {/* 출처 */}
             <View style={styles.infoGrid}>
               {meal.refer_feed_id > 0 && onViewSource && (
                 <TouchableOpacity
@@ -227,6 +227,16 @@ const MealDetailModal: React.FC<MealDetailModalProps> = ({
                 </TouchableOpacity>
               )}
             </View>
+
+            {/* 출처 */}
+            {meal.refer_feed_id > 0 && (
+              <View style={styles.referenceSection}>
+                <Ionicons name="copy-outline" size={12} color="#BDBDBD" />
+                <Text style={styles.referenceText}>
+                  {meal.refer_info?.refer_user_nickname || ''} 님의 식단
+                </Text>
+              </View>
+            )}
 
             <View style={{ height: 100 }} />
           </ScrollView>
@@ -555,6 +565,18 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#F57F17',
     fontWeight: '600',
+  },
+  referenceSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 20,
+    paddingHorizontal: 0,
+  },
+  referenceText: {
+    fontSize: 12,
+    color: '#999999',
+    fontWeight: '500',
   },
 });
 

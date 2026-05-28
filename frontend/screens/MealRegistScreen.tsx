@@ -341,7 +341,7 @@ export default function MealRegistScreen({ route, navigation }: any) {
 
         },
         onError: (error) => {
-          toastError('식단 수정에 실패했습니다.');
+          response && toastError(response.error || response.message || '식단 수정에 실패했습니다.');
         },
       }
     );
@@ -486,8 +486,8 @@ export default function MealRegistScreen({ route, navigation }: any) {
                 onHide: () => navigation.goBack(),
               });
             },
-            onError: () => {
-              toastError('식단 수정에 실패했습니다.');
+            onError: (error) => {
+              toastError(error?.message || '식단 수정에 실패했습니다.');
             },
           }
         );

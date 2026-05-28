@@ -13,7 +13,7 @@ import { toastError, toastSuccess } from '@/libs/utils/toast';
 export default function FeedCommentScreen() {
   const route = useRoute();
   const navigation = useNavigation();
-  const { mealId } = route.params as { mealId: number };
+  const { mealId, imageUrl } = route.params as { mealId: number; imageUrl?: string };
 
   // 댓글 목록 조회
   const { data: commentsData, refetch: refetchComments } = useFeedComments({
@@ -68,6 +68,7 @@ export default function FeedCommentScreen() {
   return (
     <CommentModal
       onClose={handleClose}
+      feedImageUrl={imageUrl}
       comments={commentsData || []}
       onSubmit={onHandleCommentSubmit}
       onDelete={onHandleCommentDelete}

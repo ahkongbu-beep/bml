@@ -163,6 +163,29 @@ export default function MenuListScreen({ navigation }: any) {
             <Ionicons name="chevron-forward" size={22} color="#C0C0C0" />
           </TouchableOpacity>
 
+          {/* 이용약관 */}
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => navigation.navigate('TermsOfService')}
+          >
+            <View style={styles.menuLeft}>
+              <Ionicons name="megaphone-outline" size={24} color="#FF9AA2" />
+              <Text style={styles.menuText}>이용약관</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={22} color="#C0C0C0" />
+          </TouchableOpacity>
+
+          {/* 개인정보처리방침 */}
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => navigation.navigate('PrivacyPolicy')}
+          >
+            <View style={styles.menuLeft}>
+              <Ionicons name="megaphone-outline" size={24} color="#FF9AA2" />
+              <Text style={styles.menuText}>개인정보처리방침</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={22} color="#C0C0C0" />
+          </TouchableOpacity>
           {/* 로그아웃 */}
           <TouchableOpacity
             style={[styles.menuItem, styles.logoutItem]}

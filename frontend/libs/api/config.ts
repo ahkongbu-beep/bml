@@ -4,7 +4,8 @@
 import { getToken, getRefreshToken, saveToken } from '../utils/storage';
 import { logout as clearStorage } from '../utils/storage';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_STATIC_BASE_URL || "https://dev.bml.co.kr";
+const IS_DEV = process.env.EXPO_PUBLIC_API_URL === 'https://dev.bml.co.kr';
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || process.env.EXPO_PUBLIC_STATIC_BASE_URL || (IS_DEV ? 'https://dev.bml.co.kr' : 'https://bml.co.kr');
 
 // 토큰 갱신 중인지 확인하는 플래그
 let isRefreshing = false;
@@ -26,7 +27,6 @@ const refreshAccessToken = async (): Promise<string | null> => {
   const refreshToken = await getRefreshToken();
 
   if (!refreshToken) {
-    console.log('No refresh token available');
     return null;
   }
 
@@ -40,7 +40,6 @@ const refreshAccessToken = async (): Promise<string | null> => {
     });
 
     if (!response.ok) {
-      console.log('Refresh token request failed');
       return null;
     }
 
@@ -48,13 +47,11 @@ const refreshAccessToken = async (): Promise<string | null> => {
     if (data.success && data.data?.token) {
       const newAccessToken = data.data.token;
       await saveToken(newAccessToken, refreshToken);
-      console.log('Access token refreshed successfully');
       return newAccessToken;
     }
 
     return null;
   } catch (error) {
-    console.error('Failed to refresh access token:', error);
     return null;
   }
 };
@@ -120,7 +117,6 @@ const handleResponse = async (response: Response, endpoint: string, retryFn?: ()
     const { status } = response;
 
     if (status === 401 && retryFn && !endpoint.includes('/auth/refresh')) {
-      console.log('401 error detected, attempting token refresh...');
 
       // 이미 갱신 중이면 대기
       if (isRefreshing) {

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -17,7 +17,6 @@ import Header from '../components/Header';
 import { useCreateGrowthReports, useGrowth } from '../libs/hooks/useGrowths';
 import { useAuth } from '../libs/contexts/AuthContext';
 import { toastError, toastSuccess } from '@/libs/utils/toast';
-import GrowthChildSelectModal from '../components/GrowthChildSelectModal';
 import PercentileProgressCard, { getNearestValue, estimatePercentile } from '../components/PercentileProgressCard';
 
 export default function GrowthScreen({ navigation }: any) {
@@ -28,7 +27,7 @@ export default function GrowthScreen({ navigation }: any) {
   const [myWeight, setMyWeight] = useState('');
   const [myHeader, setMyHeader] = useState('');
   const [requestedMonth, setRequestedMonth] = useState<number | null>(null);
-  const [childSelectVisible, setChildSelectVisible] = useState(false);
+  const [selectedChildId, setSelectedChildId] = useState<number | null>(null);
   const createGrowthReportsMutation = useCreateGrowthReports();
   const { data: growthResponse, isLoading: growthLoading } = useGrowth(
     {
@@ -55,7 +54,6 @@ export default function GrowthScreen({ navigation }: any) {
   const headerData: GrowthPercentileData = hasGrowthData ? growthData!.header[gender] : {};
 
   const userChilds = user?.user_childs ?? [];
-  const hasMultipleChildren = userChilds.length > 1;
 
   // 단일 자녀면 자동 선택, 다중 자녀면 기본값으로 대표 자녀
   const defaultChildId = useMemo(() => {
@@ -63,6 +61,14 @@ export default function GrowthScreen({ navigation }: any) {
     const agentChild = userChilds.find((c) => c.is_agent === 'Y');
     return agentChild?.id ?? userChilds[0].id;
   }, [userChilds]);
+
+  useEffect(() => {
+    if (defaultChildId !== null && selectedChildId === null) {
+      setSelectedChildId(defaultChildId);
+      const child = userChilds.find((c) => c.id === defaultChildId);
+      if (child) setGender(child.child_gender as 'M' | 'W');
+    }
+  }, [defaultChildId]);
 
   const getTopPercent = (value: number, data: GrowthPercentileData, month: number): number | null => {
     const values = PERCENTILES.map((p) => ({
@@ -80,7 +86,7 @@ export default function GrowthScreen({ navigation }: any) {
     isValidWeight &&
     requestedMonth !== null &&
     hasGrowthData &&
-    defaultChildId !== null &&
+    selectedChildId !== null &&
     !createGrowthReportsMutation.isPending;
 
   const doSave = async (childId: number) => {
@@ -135,22 +141,18 @@ export default function GrowthScreen({ navigation }: any) {
   };
 
   const handleSaveGrowthReport = () => {
-    if (!canSubmitReport) {
+    if (!canSubmitReport || !selectedChildId) {
       toastError('개월수, 키, 체중을 입력하고 또래 분포를 먼저 조회해주세요.');
       return;
     }
-    if (hasMultipleChildren) {
-      setChildSelectVisible(true);
-    } else {
-      doSave(defaultChildId!);
-    }
+    doSave(selectedChildId);
   };
 
   return (
     <Layout>
       <View style={styles.container}>
         <Header
-          title="성장 지표11"
+          title="성장 지표"
           leftButton={{
             icon: 'arrow-back',
             onPress: () => navigation.goBack(),
@@ -167,25 +169,48 @@ export default function GrowthScreen({ navigation }: any) {
             <Text style={styles.sectionTitle}>또래 성장 분포 조회</Text>
 
             <View style={styles.labelRow}>
-              <Text style={styles.fieldLabel}>성별</Text>
+              <Text style={styles.fieldLabel}>{userChilds.length > 0 ? '아이 선택' : '성별'}</Text>
               <Text style={styles.requiredMark}>*</Text>
             </View>
             <View style={styles.genderRow}>
-              {(['M', 'W'] as const).map((g) => (
-                <TouchableOpacity
-                  key={g}
-                  style={[styles.genderBtn, gender === g && (g === 'M' ? styles.genderBtnActiveM : styles.genderBtnActiveW)]}
-                  onPress={() => {
-                    setGender(g);
-                    setRequestedMonth(null);
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.genderBtnText, gender === g && styles.genderBtnTextActive]}>
-                    {g === 'M' ? '남아' : '여아'}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+              {userChilds.length > 0 ? (
+                userChilds.map((child: any) => (
+                  <TouchableOpacity
+                    key={child.id}
+                    style={[styles.genderBtn, selectedChildId === child.id && (child.child_gender === 'M' ? styles.genderBtnActiveM : styles.genderBtnActiveW)]}
+                    onPress={() => {
+                      setSelectedChildId(child.id);
+                      setGender(child.child_gender);
+                      setRequestedMonth(null);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+
+                      <Text style={[styles.genderBtnText, selectedChildId === child.id && styles.genderBtnTextActive]}>
+                        {child.child_gender === 'M' ? '👦' : '👧'}
+                        {child.child_name}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                ))
+              ) : (
+                (['M', 'W'] as const).map((g) => (
+                  <TouchableOpacity
+                    key={g}
+                    style={[styles.genderBtn, gender === g && (g === 'M' ? styles.genderBtnActiveM : styles.genderBtnActiveW)]}
+                    onPress={() => {
+                      setGender(g);
+                      setRequestedMonth(null);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.genderBtnText, gender === g && styles.genderBtnTextActive]}>
+                      {g === 'M' ? '남아' : '여아'}
+                    </Text>
+                  </TouchableOpacity>
+                ))
+              )}
             </View>
 
             <View style={styles.inputRow2Col}>
@@ -280,16 +305,6 @@ export default function GrowthScreen({ navigation }: any) {
                 <Text style={styles.searchBtnText}>또래 분포 보기</Text>
               </LinearGradient>
             </TouchableOpacity>
-
-            <GrowthChildSelectModal
-              visible={childSelectVisible}
-              children={userChilds as any}
-              onSelect={(childId) => {
-                setChildSelectVisible(false);
-                doSave(childId);
-              }}
-              onClose={() => setChildSelectVisible(false)}
-            />
 
             <TouchableOpacity onPress={handleSaveGrowthReport} activeOpacity={0.85}>
               <LinearGradient

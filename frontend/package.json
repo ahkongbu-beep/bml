@@ -40,6 +40,7 @@
     "expo": "^54.0.25",
     "expo-auth-session": "~7.0.10",
     "expo-dev-client": "~6.0.20",
+    "expo-image-manipulator": "~14.0.8",
     "expo-image-picker": "~17.0.10",
     "expo-linear-gradient": "^15.0.8",
     "expo-linking": "~8.0.11",

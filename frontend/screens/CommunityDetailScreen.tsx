@@ -331,6 +331,7 @@ export default function CommunityDetailScreen({ route, navigation }: any) {
         />
 
         <ScrollView style={styles.container}>
+
           {/* 작성자 정보 */}
           <View style={styles.authorSection}>
             <TouchableOpacity
@@ -351,15 +352,16 @@ export default function CommunityDetailScreen({ route, navigation }: any) {
 
           {/* 제목 카드 */}
           <View style={styles.postContentCard}>
-            {categoryName && (
-              <View style={styles.categoryBadge}>
-                <Text style={styles.categoryBadgeText}>#{categoryName}</Text>
-              </View>
-            )}
-            <Text style={styles.title}>{communityData.title}</Text>
+            <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8}}>
+              <Text style={[styles.title, {flex: 1}]}>{communityData.title}</Text>
+              {categoryName && (
+                <View style={styles.categoryBadge}>
+                  <Text style={styles.categoryBadgeText}>#{categoryName}</Text>
+                </View>
+              )}
+            </View>
           </View>
-
-          {/* 이미지 스와이퍼 */}
+          {/* 이미지 스와이퍼 - 맨 위 */}
           {communityData.images && communityData.images.length > 0 && (
             <View style={styles.imageSection}>
               <ScrollView
@@ -392,19 +394,6 @@ export default function CommunityDetailScreen({ route, navigation }: any) {
               )}
             </View>
           )}
-
-          {/* 본문 및 메타 정보 카드 */}
-          <View style={styles.contentCard}>
-            <Text style={styles.contents}>{communityData.contents}</Text>
-            <View style={styles.metaInfo}>
-              <View style={styles.metaItem}>
-                <Ionicons name="eye-outline" size={16} color="#868E96" />
-                <Text style={styles.metaText}>{communityData.view_count}</Text>
-              </View>
-              <Text style={styles.metaText}>{formatDate(communityData.created_at)}</Text>
-            </View>
-          </View>
-
           {/* 구분선 */}
           <View style={styles.divider} />
 

@@ -83,14 +83,6 @@ export const refreshAccessToken = async (refreshToken: string): Promise<ApiRespo
 };
 
 /**
- * 내 정보 조회 (sns_id 기반)
- */
-export const getMyInfo = async (userHash: string): Promise<User> => {
-  const response = await fetchPost<ApiResponse<User>>('/users/me', { user_hash: userHash });
-  return response.data;
-};
-
-/**
  * sns_id로 프로필 조회
  */
 export const getProfileBySnsId = async (sns_id: string): Promise<ApiResponse<User>> => {

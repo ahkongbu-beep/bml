@@ -137,7 +137,6 @@ export default function CommunityScreen({ navigation }: any) {
         setIsRefreshing(false);
       },
       onError: (error) => {
-        console.error('Failed to load communities:', error);
         toastError('게시글을 불러오는 중 오류가 발생했습니다.');
         setIsLoading(false);
         setIsRefreshing(false);
@@ -293,7 +292,6 @@ export default function CommunityScreen({ navigation }: any) {
       },
       onError: (error) => {
         toastError('댓글 등록 중 오류가 발생했습니다.');
-        console.error('Comment create error:', error);
       },
     });
   };
@@ -314,7 +312,6 @@ export default function CommunityScreen({ navigation }: any) {
         },
         onError: (error) => {
           toastError('댓글 삭제 중 오류가 발생했습니다.');
-          console.error('Comment delete error:', error);
         },
       }
     );

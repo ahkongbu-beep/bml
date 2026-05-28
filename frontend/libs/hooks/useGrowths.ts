@@ -1,4 +1,4 @@
-import { useQuery, useMutation, UseQueryResult } from '@tanstack/react-query';
+import { useQuery, useMutation, UseQueryResult, useQueryClient } from '@tanstack/react-query';
 import {
   createGrowthReports,
   getGrowths,
@@ -30,9 +30,15 @@ export const useGrowth = (params?: GrowthListParams, enabled: boolean = true): U
  * 성장 리포트 저장
  */
 export const useCreateGrowthReports = () => {
+  const queryClient = useQueryClient();
+
   return useMutation({
     mutationFn: ({ childId, payload }: { childId: number; payload: GrowthReportSaveRequest }) =>
       createGrowthReports(childId, payload),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['growthReports', variables.childId] });
+      queryClient.invalidateQueries({ queryKey: ['growthReports'] });
+    },
   });
 };
 

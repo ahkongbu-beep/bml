@@ -235,8 +235,8 @@ export default function FeedListScreen() {
   }, []);
 
   // 댓글 화면으로 이동
-  const handleCommentPress = useCallback((mealId: number) => {
-    navigation.navigate('FeedComment', { mealId });
+  const handleCommentPress = useCallback((mealId: number, imageUrl?: string) => {
+    navigation.navigate('FeedComment', { mealId, imageUrl });
   }, [navigation]);
 
   const handleEditFeed = useCallback((meal: MealCalendar) => {

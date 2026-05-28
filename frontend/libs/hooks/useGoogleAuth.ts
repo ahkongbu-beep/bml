@@ -43,7 +43,6 @@ export const useGoogleAuth = (
       try {
         await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
       } catch (playServicesError) {
-        console.warn('⚠️ Play Services 확인 실패, 계속 진행:', playServicesError);
       }
 
       // 로그인 실행

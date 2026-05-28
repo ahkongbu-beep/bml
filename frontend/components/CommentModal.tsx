@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   TextInput,
   Image,
+  Dimensions,
   Platform,
   ActivityIndicator,
   FlatList,
@@ -17,6 +18,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import { getStaticImage, formatDate } from '../libs/utils/common';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface CommentUser {
   nickname: string;
@@ -40,6 +43,7 @@ interface Comment {
 
 interface CommentModalProps {
   onClose: () => void;
+  feedImageUrl?: string;
   comments?: Comment[];
   onSubmit?: (content: string, parentHash?: string) => void;
   onDelete?: (commentHash: string) => void;
@@ -48,6 +52,7 @@ interface CommentModalProps {
 
 export default function CommentModal({
   onClose,
+  feedImageUrl,
   comments = [],
   onSubmit,
   onDelete,
@@ -180,6 +185,16 @@ export default function CommentModal({
         <View style={styles.headerPlaceholder} />
       </View>
 
+      {!!feedImageUrl && (
+        <View style={styles.feedPreviewContainer}>
+          <Image
+            source={{ uri: getStaticImage('medium', feedImageUrl) }}
+            style={styles.feedPreviewImage}
+            resizeMode="contain"
+          />
+        </View>
+      )}
+
       <View style={[styles.keyboardContainer, { marginBottom: keyboardHeight - (Platform.OS === 'ios' ? insets.bottom : 0) }]}>
         <FlatList
           data={comments}
@@ -289,6 +304,20 @@ const styles = StyleSheet.create({
   },
   headerPlaceholder: {
     width: 32,
+  },
+  feedPreviewContainer: {
+    paddingHorizontal: 0,
+    paddingTop: 8,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#FFF0F3',
+    backgroundColor: '#FFFFFF',
+  },
+  feedPreviewImage: {
+    width: '100%',
+    height: Math.round(SCREEN_WIDTH * 0.88),
+    borderRadius: 0,
+    backgroundColor: '#F7F7F7',
   },
   emptyContainer: {
     alignItems: 'center',

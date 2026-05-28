@@ -103,8 +103,6 @@ export const updateMeal = async (mealHash: string, mealData: any): Promise<ApiRe
  * 식단수정 (이미지 포함)
  */
 export const updateMealWithImage = async (mealHash: string, formData: FormData): Promise<ApiResponse> => {
-    console.log("⭕⭕⭕⭕업데이트실행");
-    console.log("⭕⭕⭕⭕mealHash:", mealHash);
   return fetchPutFormData<ApiResponse>(`/meals/update/${mealHash}`, formData);
 }
 

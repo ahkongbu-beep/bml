@@ -1,7 +1,7 @@
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { register } from '../api/usersApi';
 import { RegisterRequest } from '../types/ApiTypes';
-import { getMyInfo, getUserProfile, getConfirmUser, getUserEmail, setResetUserPassword } from '../api/authApi';
+import { getUserProfile, getConfirmUser, getUserEmail, setResetUserPassword } from '../api/authApi';
 import { setRegisterChildren, setDeleteChildren, setChangePassword } from '../api/usersApi';
 
 /**
@@ -13,14 +13,6 @@ export const useRegister = () => {
   });
 };
 
-export const useGetMyInfo = (userHash: string) => {
-  return useQuery({
-    queryKey: ['myInfo', userHash],
-    queryFn: async () => {
-      return getMyInfo(userHash);
-    }
-  });
-};
 
 /**
  * 타인의 프로필 조회

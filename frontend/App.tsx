@@ -40,6 +40,8 @@ import CommunityDetailScreen from './screens/CommunityDetailScreen';
 import MenuListScreen from './screens/MenuListScreen';
 import GrowthScreen from './screens/GrowthScreen';
 import GrowthReportScreen from './screens/GrowthReportScreen';
+import TermsOfServiceScreen from './screens/TermsOfServiceScreen';
+import PrivacyPolicyScreen from './screens/PrivacyPolicyScreen';
 import { AuthProvider, useAuth } from './libs/contexts/AuthContext';
 import { getNeedChildRegistration, clearNeedChildRegistration } from './libs/utils/storage';
 import { getMessaging, requestPermission, onMessage } from '@react-native-firebase/messaging';
@@ -148,6 +150,8 @@ function MainNavigator() {
       <Stack.Screen name="CommunityModify" component={CommunityModifyScreen} />
       <Stack.Screen name="CommunityDetail" component={CommunityDetailScreen} />
       <Stack.Screen name="MenuList" component={MenuListScreen} />
+      <Stack.Screen name="TermsOfService" component={TermsOfServiceScreen} />
+      <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
     </Stack.Navigator>
   );
 }
@@ -227,10 +231,10 @@ export default function App() {
         <SafeAreaProvider>
           <AuthProvider>
             <AppContent />
-            <Toast />
           </AuthProvider>
         </SafeAreaProvider>
       </PaperProvider>
+      <Toast />
     </QueryClientProvider>
   );
 }

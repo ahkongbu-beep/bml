@@ -59,7 +59,7 @@ export interface FeedItemProps {
   onViewProfile: (userHash: string, nickname: string) => void;
   onBlock: (denyUserHash: string, nickname: string) => void;
   onLike: (mealHash: string) => void;
-  onCommentPress: (id: number) => void;
+  onCommentPress: (id: number, imageUrl?: string) => void;
   onAiSummary?: (
     userHash: string,
     categoryId: number,

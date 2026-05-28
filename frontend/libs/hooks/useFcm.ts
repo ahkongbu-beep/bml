@@ -30,7 +30,6 @@ export const useFcmRegister = (isAuthenticated: boolean) => {
         tokenRef.current = token;
         const platform = Platform.OS === 'ios' ? 'ios' : 'android';
         await registerFcmToken(token, platform);
-        console.log('[FCM] 토큰 등록 완료');
 
         // 토큰 갱신 시 재등록
         const unsubscribeRefresh = onTokenRefresh(m, async (newToken) => {

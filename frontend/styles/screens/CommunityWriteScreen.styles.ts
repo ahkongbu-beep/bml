@@ -135,6 +135,30 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
   },
+  imagePickerRow: {
+    gap: 12,
+    paddingRight: 8,
+  },
+  uploadedImageRow: {
+    marginTop: 12,
+  },
+  imagePickerItem: {
+    width: 180,
+  },
+  uploadedImageContainer: {
+    position: 'relative',
+    width: 120,
+    height: 120,
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#FFD7DE',
+    backgroundColor: '#FFF8FA',
+  },
+  uploadedImageThumb: {
+    width: '100%',
+    height: '100%',
+  },
   imageUploadButton: {
     borderWidth: 1,
     borderColor: '#DEE2E6',

@@ -61,7 +61,6 @@ export default function RegistChildScreen({ navigation, route }: any) {
       })),
     }));
 
-    console.log('유저 정보 갱신 - 자녀 데이터 초기화:', updated);
     setChildrenData(updated);
   }, [user]);
 

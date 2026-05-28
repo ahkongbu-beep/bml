@@ -159,14 +159,16 @@ const MealItem = React.memo(({
       });
 
       if (!response?.success) {
-        toastError(response?.message || '캘린더 저장에 실패했어요.');
+        setShowCopyToCalendarModal(false);
+        setTimeout(() => toastError(response?.error || '캘린더 저장에 실패했어요.'), 300);
         return;
       }
 
       setShowCopyToCalendarModal(false);
-      toastSuccess('내 식단 캘린더에 추가했어요.');
+      setTimeout(() => toastSuccess('내 식단 캘린더에 추가했어요.'), 300);
     } catch {
-      toastError('캘린더 저장에 실패했어요.');
+      setShowCopyToCalendarModal(false);
+      setTimeout(() => toastError('캘린더 저장에 실패했어요.'), 300);
     } finally {
       setIsCopyingToCalendar(false);
     }
@@ -214,6 +216,7 @@ const MealItem = React.memo(({
             <View style={styles.allergiesContainer}>
               {allergy_info.map((allergyName, index) => (
                 <View key={index} style={styles.allergyBadge}>
+                  <View style={styles.allergyBadgeDiagonal} pointerEvents="none" />
                   <Text style={styles.allergyBadgeText}>{allergyName}</Text>
                 </View>
               ))}
@@ -302,7 +305,7 @@ const MealItem = React.memo(({
         {/* 댓글 버튼 */}
         <TouchableOpacity
           style={styles.actionButton}
-          onPress={() => onCommentPress(item.id)}
+          onPress={() => onCommentPress(item.id, item.image_url)}
         >
           <Ionicons name="chatbubble-outline" size={14} color="#FF9AA2" />
           <Text style={styles.actionButtonText}>댓글 {item.comment_count > 0 ? `+${item.comment_count}` : ''}</Text>
@@ -398,6 +401,7 @@ const MealItem = React.memo(({
           </TouchableWithoutFeedback>
         </Modal>
 
+        {/* 캘린더에 저장하기 모달 */}
         <Modal
           visible={showCopyToCalendarModal}
           transparent
@@ -540,12 +544,24 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   allergyBadge: {
+    position: 'relative',
     backgroundColor: '#FFF9E6',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#FFE8B3',
+    overflow: 'hidden',
+  },
+  allergyBadgeDiagonal: {
+    position: 'absolute',
+    top: '50%',
+    left: -6,
+    right: -6,
+    height: 1.5,
+    backgroundColor: '#D79A00',
+    opacity: 0.55,
+    transform: [{ rotate: '-25deg' }],
   },
   allergyBadgeText: {
     fontSize: 11,

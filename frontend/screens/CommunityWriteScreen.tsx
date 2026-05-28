@@ -13,16 +13,15 @@ import {
   Switch,
   Alert,
   ActivityIndicator,
-  StyleSheet,
   Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker';
 import Layout from '../components/Layout';
 import Header from '../components/Header';
+import ImagePickerModal from '../components/ImagePickerModal';
 import { useCreateCommunity } from '../libs/hooks/useCommunities';
 import { useCategoryCodes } from '../libs/hooks/useCategories';
-import { toastError, toastInfo, toastSuccess } from '@/libs/utils/toast';
+import { toastError, toastSuccess } from '@/libs/utils/toast';
 import styles from '../styles/screens/CommunityWriteScreen.styles';
 
 export default function CommunityWriteScreen({ navigation }: any) {
@@ -43,37 +42,6 @@ export default function CommunityWriteScreen({ navigation }: any) {
     return selected ? selected.value : '주제를 선택해주세요';
   };
 
-  // 이미지 선택
-  const handleImagePick = async () => {
-    if (imageUris.length >= 3) {
-      toastError('이미지는 최대 3장까지 등록할 수 있습니다.');
-      return;
-    }
-
-    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-    if (permissionResult.granted === false) {
-      toastError('사진첩 접근 권한이 필요합니다.');
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 0.8,
-    });
-
-    if (!result.canceled && result.assets[0]) {
-      setImageUris([...imageUris, result.assets[0].uri]);
-    }
-  };
-
-  // 이미지 제거
-  const handleImageRemove = (index: number) => {
-    setImageUris(imageUris.filter((_, i) => i !== index));
-  };
-
   // 유효성 검사
   const validateForm = () => {
     if (!title.trim()) {
@@ -89,6 +57,23 @@ export default function CommunityWriteScreen({ navigation }: any) {
       return false;
     }
     return true;
+  };
+
+  const handleAddImage = (uri: string) => {
+    setImageUris((prev) => {
+      if (prev.length >= 3) {
+        return prev;
+      }
+      return [...prev, uri];
+    });
+  };
+
+  const handleReplaceImage = (index: number, uri: string) => {
+    setImageUris((prev) => prev.map((item, i) => (i === index ? uri : item)));
+  };
+
+  const handleRemoveImage = (index: number) => {
+    setImageUris((prev) => prev.filter((_, i) => i !== index));
   };
 
   // 등록하기
@@ -108,7 +93,7 @@ export default function CommunityWriteScreen({ navigation }: any) {
         const fileType = uriParts[uriParts.length - 1];
 
         formData.append('files', {
-          uri: uri,
+          uri,
           name: `community_image_${index}.${fileType}`,
           type: `image/${fileType}`,
         } as any);
@@ -151,25 +136,35 @@ export default function CommunityWriteScreen({ navigation }: any) {
         {/* 이미지 업로드 */}
         <View style={styles.section}>
           <Text style={styles.label}>이미지 (최대 3장)</Text>
-          <View style={styles.imageGrid}>
-            {imageUris.map((uri, index) => (
-              <View key={index} style={styles.imageContainer}>
-                <Image source={{ uri }} style={styles.uploadedImage} />
-                <TouchableOpacity
-                  style={styles.imageRemoveButton}
-                  onPress={() => handleImageRemove(index)}
-                >
-                  <Ionicons name="close-circle" size={24} color="#FF6B6B" />
-                </TouchableOpacity>
-              </View>
-            ))}
-            {imageUris.length < 3 && (
-              <TouchableOpacity style={styles.imageUploadButton} onPress={handleImagePick}>
-                <Ionicons name="image-outline" size={32} color="#868E96" />
-                <Text style={styles.imageUploadText}>이미지 선택</Text>
-              </TouchableOpacity>
-            )}
-          </View>
+          {imageUris.length < 3 && (
+            <ImagePickerModal
+              aspectRatio={4 / 3}
+              imageUri={null}
+              onImageSelected={handleAddImage}
+              onImageRemoved={() => {}}
+            />
+          )}
+
+          {imageUris.length > 0 && (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.imagePickerRow}
+              style={styles.uploadedImageRow}
+            >
+              {imageUris.map((uri, index) => (
+                <View key={`community-image-${index}`} style={styles.uploadedImageContainer}>
+                  <Image source={{ uri }} style={styles.uploadedImageThumb} />
+                  <TouchableOpacity
+                    style={styles.imageRemoveButton}
+                    onPress={() => handleRemoveImage(index)}
+                  >
+                    <Ionicons name="close-circle" size={22} color="#FF6B6B" />
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </ScrollView>
+          )}
         </View>
 
         {/* 주제 선택 */}

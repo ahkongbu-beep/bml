@@ -64,7 +64,6 @@ export default function UserProfileScreen({ route, navigation }: any) {
                 navigation.goBack();
               },
               onError: (error) => {
-                console.log('차단 처리 오류:', error);
                 Alert.alert('오류', '차단 처리 중 오류가 발생했습니다.');
               },
             });
