@@ -8,7 +8,6 @@ export async function GET(request: NextRequest) {
   const callURL = BACKEND_ROUTES.USERS() + (query ? `?${query}` : '');
   try {
     const data = await apiCall(callURL, 'GET');
-  console.log("users", JSON.stringify(data));
     if (!data.success) {
       throw new Error(data.error || '회원 목록 조회에 실패했습니다.');
     }

@@ -54,8 +54,8 @@ export function useFeed() {
       if (!response.success) {
         throw new Error(response.error || '피드 조회 실패');
       }
-
       const newFeeds = response.data || [];
+      console.log("newFeeds", newFeeds);
 
       if (reset) {
         setFeeds(newFeeds);

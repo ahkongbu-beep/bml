@@ -84,7 +84,6 @@ export default function NoticesPage() {
         toast.success("공지사항이 수정되었습니다")
       } else {
         // 등록 모드
-        console.log("등록 모드")
         await createNotice(formData)
         toast.success("공지사항이 등록되었습니다")
       }

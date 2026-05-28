@@ -117,7 +117,6 @@ export default function CategoriesPage() {
   const topicCategories = useMemo(() => {
     return categories.filter(cat => cat.type === "TOPIC_GROUP")
   }, [categories])
-  console.log("topicCategories:", topicCategories)
 
   const paginatedTopicCategories = useMemo(() => {
     const startIndex = (topicCurrentPage - 1) * ITEMS_PER_PAGE

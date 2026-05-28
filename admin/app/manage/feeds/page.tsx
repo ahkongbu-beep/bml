@@ -6,6 +6,7 @@ import Link from "next/link";
 
 export default function FeedListPage() {
   const { feeds, loading, error, fetchFeeds } = useFeed();
+  console.log(JSON.stringify(feeds, null, 2));
 
   // 검색 상태
   const [searchTitle, setSearchTitle] = useState("");

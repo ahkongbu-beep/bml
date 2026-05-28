@@ -24,7 +24,6 @@ export function getAccessToken(request: Request): string | null {
   const cookieHeader = request.headers.get('cookie');
 
   if (!cookieHeader) {
-    console.log("No cookie header found");
     return null;
   }
 
@@ -36,7 +35,6 @@ export function getAccessToken(request: Request): string | null {
   }, {} as Record<string, string>);
 
   const token = cookies['accessToken'];
-  console.log("token from cookie", token);
 
   if (!token) {
     return null;
@@ -87,7 +85,6 @@ export async function apiCall(
   });
   if (!response.ok) {
     const errorText = await response.json();
-    console.log("errorText", errorText);
     throw new Error(`API 요청 실패: ${response.status} - ${JSON.stringify(errorText)}`);
   }
 
@@ -133,7 +130,6 @@ export function createSuccessResponse(
   if (data !== undefined) {
     response.data = data;
   }
-  console.log("response", response);
 
   return NextResponse.json(response);
 }
