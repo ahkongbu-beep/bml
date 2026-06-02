@@ -1,0 +1,59 @@
+diff --git a/node_modules/@react-native-seoul/naver-login/android/build.gradle b/node_modules/@react-native-seoul/naver-login/android/build.gradle
+index 2bbc6fd..5eb4433 100644
+--- a/node_modules/@react-native-seoul/naver-login/android/build.gradle
++++ b/node_modules/@react-native-seoul/naver-login/android/build.gradle
+@@ -1,21 +1,3 @@
+-buildscript {
+-  def kotlin_version = rootProject.ext.has("kotlinVersion") ? rootProject.ext.get("kotlinVersion") : project.properties["RNNaverLogins_kotlinVersion"]
+-
+-  ext.getExtOrDefault = {name ->
+-    return rootProject.ext.has(name) ? rootProject.ext.get(name) : project.properties['RNNaverLogins_' + name]
+-  }
+-
+-  repositories {
+-    mavenCentral()
+-    google()
+-  }
+-
+-  dependencies {
+-    classpath "com.android.tools.build:gradle:${getExtOrDefault('gradleVersion')}"
+-    classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+-  }
+-}
+-
+ def isNewArchitectureEnabled() {
+   return rootProject.hasProperty("newArchEnabled") && rootProject.getProperty("newArchEnabled") == "true"
+ }
+@@ -47,11 +29,11 @@ android {
+     }
+   }
+ 
+-  compileSdkVersion getExtOrDefault('compileSdkVersion').toInteger()
++  compileSdkVersion rootProject.ext.compileSdkVersion
+ 
+   defaultConfig {
+-    minSdkVersion getExtOrDefault('minSdkVersion').toInteger()
+-    targetSdkVersion getExtOrDefault('targetSdkVersion').toInteger()
++    minSdkVersion rootProject.ext.minSdkVersion
++    targetSdkVersion rootProject.ext.targetSdkVersion
+   }
+ 
+   buildTypes {
+@@ -75,15 +57,13 @@ repositories {
+   google()
+ }
+ 
+-def kotlin_version = getExtOrDefault("kotlinVersion")
++def kotlin_version = rootProject.ext.has("kotlinVersion") ? rootProject.ext.get("kotlinVersion") : "1.9.0"
+ 
+ dependencies {
+-  // For < 0.71, this will be from the local maven repo
+-  // For > 0.71, this will be replaced by `com.facebook.react:react-android:$version` by react gradle plugin
+   //noinspection GradleDynamicVersion
+   implementation "com.facebook.react:react-native:+"
+   implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
+-  implementation "com.navercorp.nid:oauth:${getExtOrDefault('naverSdkVersion')}"
++  implementation "com.navercorp.nid:oauth:5.10.0"
+   implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.1'
+ 
+ }
