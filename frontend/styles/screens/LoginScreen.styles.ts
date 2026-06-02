@@ -112,7 +112,21 @@ const styles = StyleSheet.create({
     backgroundColor: '#FEE500',
   },
   naverButton: {
+    marginTop: 12,
     backgroundColor: '#03C75A',
+    ...shadows.medium,
+  },
+  naverButtonN: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    marginRight: 12,
+    lineHeight: 24,
+  },
+  naverButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   googleButton: {
     marginTop: 12,

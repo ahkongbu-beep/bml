@@ -224,7 +224,7 @@ export default function MenuListScreen({ navigation }: any) {
       <ConfirmPortal
         visible={withdrawalConfirmVisible}
         title="회원탈퇴"
-        message="회원탈퇴하시겠습니까? \n모든 데이터가 삭제되며 복구할 수 없습니다."
+        message={`회원탈퇴하시겠습니까? \n모든 데이터가 삭제되며 복구할 수 없습니다.`}
         onConfirm={handleWithdrawalConfirm}
         onCancel={() => setWithdrawalConfirmVisible(false)}
         confirmText="회원탈퇴"

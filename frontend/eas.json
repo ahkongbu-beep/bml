@@ -13,7 +13,8 @@
         "EXPO_PUBLIC_APP_NAME": "BML",
         "EXPO_PUBLIC_APP_SUBTITLE": "건강한 식단 관리",
         "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": "404204939819-ffm7mfhrn45npct70sav27iekp0j3r75.apps.googleusercontent.com",
-        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "404204939819-75t03ftkcbrd44m2hfh5spg4agb5nsi6.apps.googleusercontent.com"
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "404204939819-75t03ftkcbrd44m2hfh5spg4agb5nsi6.apps.googleusercontent.com",
+        "EXPO_PUBLIC_NAVER_CLIENT_ID": "o9FHFkZzPNHTSWJRrc_Y"
       }
     },
     "preview": {
@@ -21,13 +22,17 @@
       "android": {
         "buildType": "apk"
       },
+      "ios": {
+          "simulator": false
+      },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://dev.bml.co.kr",
         "EXPO_PUBLIC_STATIC_BASE_URL": "https://dev.bml.co.kr",
         "EXPO_PUBLIC_APP_NAME": "BML",
         "EXPO_PUBLIC_APP_SUBTITLE": "건강한 식단 관리",
         "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": "404204939819-ffm7mfhrn45npct70sav27iekp0j3r75.apps.googleusercontent.com",
-        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "404204939819-75t03ftkcbrd44m2hfh5spg4agb5nsi6.apps.googleusercontent.com"
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "404204939819-75t03ftkcbrd44m2hfh5spg4agb5nsi6.apps.googleusercontent.com",
+        "EXPO_PUBLIC_NAVER_CLIENT_ID": "o9FHFkZzPNHTSWJRrc_Y"
       }
     },
     "production": {
@@ -41,7 +46,8 @@
         "EXPO_PUBLIC_APP_NAME": "BML",
         "EXPO_PUBLIC_APP_SUBTITLE": "건강한 식단 관리",
         "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID":"404204939819-ffm7mfhrn45npct70sav27iekp0j3r75.apps.googleusercontent.com",
-        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID":"404204939819-75t03ftkcbrd44m2hfh5spg4agb5nsi6.apps.googleusercontent.com"
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID":"404204939819-75t03ftkcbrd44m2hfh5spg4agb5nsi6.apps.googleusercontent.com",
+        "EXPO_PUBLIC_NAVER_CLIENT_ID": "o9FHFkZzPNHTSWJRrc_Y"
       }
     }
   },

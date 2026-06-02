@@ -253,6 +253,7 @@ export const fetchDelete = async <T>(endpoint: string, data?:any): Promise<T> =>
     const headers = await getHeaders();
     const url = `${API_BASE_URL}${endpoint}`;
 
+    console.log("회원탈퇴");
     console.log("DELETE Request URL:", url);
     console.log("DELETE Request Body:", JSON.stringify(data, null, 2));
 
@@ -261,6 +262,8 @@ export const fetchDelete = async <T>(endpoint: string, data?:any): Promise<T> =>
       headers,
       body: data ? JSON.stringify(data) : undefined,
     });
+    console.log("DELETE Response Status:", response.status);
+    console.log("DELETE Response Body:", await response.clone().text());
 
     return handleResponse(response, endpoint, makeRequest);
   };

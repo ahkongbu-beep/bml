@@ -1,16 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import * as WebBrowser from "expo-web-browser";
 WebBrowser.maybeCompleteAuthSession();
 import Toast from 'react-native-toast-message'
 import Navbar from './components/Navbar';
 import { StatusBar } from 'expo-status-bar';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Provider as PaperProvider } from 'react-native-paper';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, ActivityIndicator, StyleSheet, BackHandler, Platform, Alert } from 'react-native';
 import FeedListScreen from './screens/FeedListScreen';
 import FeedSaveScreen from './screens/FeedSaveScreen';
 import FeedCommentScreen from './screens/FeedCommentScreen';
@@ -32,6 +32,7 @@ import UserProfileScreen from './screens/UserProfileScreen';
 import UserSearchAccount from './screens/UserSearchAccount';
 import UserSearchPassword from './screens/UserSearchPassword';
 import RegistChildScreen from './screens/RegistChildScreen';
+import GoogleConsentScreen from './screens/GoogleConsentScreen';
 import MealCopyByFeedScreen from './screens/MealCopyByFeedScreen';
 import CommunityScreen from './screens/CommunityScreen';
 import CommunityWriteScreen from './screens/CommunityWriteScreen';
@@ -43,11 +44,12 @@ import GrowthReportScreen from './screens/GrowthReportScreen';
 import TermsOfServiceScreen from './screens/TermsOfServiceScreen';
 import PrivacyPolicyScreen from './screens/PrivacyPolicyScreen';
 import { AuthProvider, useAuth } from './libs/contexts/AuthContext';
-import { getNeedChildRegistration, clearNeedChildRegistration } from './libs/utils/storage';
+import { getNeedChildRegistration, clearNeedChildRegistration, getNeedGoogleConsent, clearNeedGoogleConsent } from './libs/utils/storage';
 import { getMessaging, requestPermission, onMessage } from '@react-native-firebase/messaging';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
+const navigationRef = createNavigationContainerRef();
 
 // React Query Client 생성
 const queryClient = new QueryClient({
@@ -66,6 +68,13 @@ function TabNavigator() {
 
   useEffect(() => {
     const checkChildRegistration = async () => {
+      const needsConsent = await getNeedGoogleConsent();
+      if (needsConsent) {
+        await clearNeedGoogleConsent();
+        setInitialRoute('GoogleConsent');
+        setIsChecking(false);
+        return;
+      }
       const needsRegistration = await getNeedChildRegistration();
       if (needsRegistration) {
         setInitialRoute('RegistChild');
@@ -114,6 +123,7 @@ function TabNavigator() {
       <Tab.Screen name="SearchPassword" component={UserSearchPassword} />
       <Tab.Screen name="SearchAccount" component={UserSearchAccount} />
       <Tab.Screen name="RegistChild" component={RegistChildScreen} />
+      <Tab.Screen name="GoogleConsent" component={GoogleConsentScreen} />
       <Tab.Screen name="Growth" component={GrowthScreen} />
       <Tab.Screen name="MealCopyByFeed" component={MealCopyByFeedScreen} />
       <Tab.Screen name="Community" component={CommunityScreen} />
@@ -159,6 +169,33 @@ function MainNavigator() {
 function AppContent() {
   const [showSplash, setShowSplash] = useState(true);
   const { isAuthenticated, isLoading } = useAuth();
+  const lastBackPress = useRef<number>(0);
+
+  // Android 뒤로가기: 스택이 남아있으면 뒤로, 루트이면 2번 눌러 종료
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (navigationRef.isReady() && navigationRef.canGoBack()) {
+        // 스택이 있으면 뒤로가기에 맡김
+        return false;
+      }
+      // 루트 화면에서 2번 눌러 종료
+      const now = Date.now();
+      if (now - lastBackPress.current < 2000) {
+        BackHandler.exitApp();
+        return true;
+      }
+      lastBackPress.current = now;
+      Toast.show({
+        type: 'info',
+        text1: '한 번 더 누르면 앱이 종료됩니다.',
+        position: 'bottom',
+        visibilityTime: 2000,
+      });
+      return true;
+    });
+    return () => subscription.remove();
+  }, []);
 
   // 알림 권한 요청 (Android 13+ 필수)
   useEffect(() => {
@@ -201,7 +238,7 @@ function AppContent() {
 
   // 로그인 여부에 따라 화면 분기
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {isAuthenticated ? (
           <Stack.Screen
@@ -216,6 +253,8 @@ function AppContent() {
             <Stack.Screen name="RegistChild" component={RegistChildScreen} />
             <Stack.Screen name="SearchPassword" component={UserSearchPassword} />
             <Stack.Screen name="SearchAccount" component={UserSearchAccount} />
+            <Stack.Screen name="TermsOfService" component={TermsOfServiceScreen} />
+            <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
           </>
         )}
       </Stack.Navigator>

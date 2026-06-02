@@ -1,8 +1,9 @@
 import React from 'react';
-import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Layout from '../components/Layout';
 import Header from '../components/Header';
+import { setConsentPending } from '../libs/utils/consentPending';
 
 const TERMS = {
 	title: '배밀이 서비스 이용약관 (Baby Meal List)',
@@ -34,7 +35,7 @@ const TERMS = {
 		{
 			title: '제4조 (이용계약 체결 및 회원가입)',
 			items: [
-				'1. 이용계약은 회원이 되고자 하는 자가 본 약관의 내용에 동의하고, 이메일 회원가입 또는 소셜 연동 로그인(구글, 카카오)을 통해 가입 신청을 하며 회사가 이를 승낙함으로써 체결됩니다.',
+				'1. 이용계약은 회원이 되고자 하는 자가 본 약관의 내용에 동의하고, 이메일 회원가입 또는 소셜 연동 로그인(구글, 네이버, 카카오)을 통해 가입 신청을 하며 회사가 이를 승낙함으로써 체결됩니다.',
 				'2. 본 서비스는 보호자가 자녀의 정보를 기록·관리하는 서비스로, 만 14세 미만의 아동은 직접 회원가입을 할 수 없으며 보호자(법정대리인)의 계정을 통해 이용되어야 합니다.',
 				'3. 회사는 다음 각 호에 해당하는 신청에 대하여는 승낙을 하지 않거나 사후에 이용계약을 해지할 수 있습니다.',
 				'- 타인의 명의나 이메일 정보를 도용하여 신청한 경우',
@@ -44,8 +45,14 @@ const TERMS = {
 	],
 };
 
-export default function TermsOfServiceScreen({ navigation }: any) {
+export default function TermsOfServiceScreen({ navigation, route }: any) {
 	const insets = useSafeAreaInsets();
+	const agreeType = route?.params?.agreeType as 'terms' | undefined;
+
+	const handleConfirm = () => {
+		if (agreeType) setConsentPending(agreeType);
+		navigation.goBack();
+	};
 
 	return (
 		<Layout>
@@ -82,6 +89,13 @@ export default function TermsOfServiceScreen({ navigation }: any) {
 						</View>
 					))}
 				</ScrollView>
+				{agreeType && (
+					<View style={[styles.confirmContainer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+						<TouchableOpacity style={styles.confirmButton} onPress={handleConfirm}>
+							<Text style={styles.confirmButtonText}>확인 및 동의</Text>
+						</TouchableOpacity>
+					</View>
+				)}
 			</View>
 		</Layout>
 	);
@@ -135,5 +149,23 @@ const styles = StyleSheet.create({
 		lineHeight: 22,
 		color: '#5D5D5D',
 		marginBottom: 8,
+	},
+	confirmContainer: {
+		padding: 16,
+		borderTopWidth: 1,
+		borderTopColor: '#F0F0F0',
+		backgroundColor: '#FFFBF7',
+	},
+	confirmButton: {
+		backgroundColor: '#FF8C00',
+		borderRadius: 10,
+		height: 50,
+		justifyContent: 'center',
+		alignItems: 'center',
+	},
+	confirmButtonText: {
+		fontSize: 16,
+		fontWeight: '700',
+		color: '#FFF',
 	},
 });

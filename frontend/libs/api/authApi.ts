@@ -23,6 +23,17 @@ export const googleLogin = async (data: GoogleLoginRequest): Promise<LoginRespon
 };
 
 /**
+ * 네이버 로그인 (SDK accessToken → JWT)
+ */
+export interface NaverLoginRequest {
+  accessToken: string;
+}
+
+export const naverLogin = async (data: NaverLoginRequest): Promise<LoginResponse> => {
+  return fetchPost<LoginResponse>('/auth/naver', data);
+};
+
+/**
  * 회원가입
  */
 export const register = async (data: RegisterRequest): Promise<ApiResponse<User>> => {

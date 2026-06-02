@@ -347,9 +347,9 @@ export default function StepTwo({
 
           {/* 버튼 */}
           <View style={styles.buttonContainer}>
-            <TouchableOpacity style={styles.backButton} onPress={onBack}>
+            {/* <TouchableOpacity style={styles.backButton} onPress={onBack}>
               <Text style={styles.backButtonText}>{backButtonText}</Text>
-            </TouchableOpacity>
+            </TouchableOpacity> */}
             <TouchableOpacity
               style={[styles.nextButton, (!canProceed() || isLoading) && styles.nextButtonDisabled]}
               onPress={onNext}

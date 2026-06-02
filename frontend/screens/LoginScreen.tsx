@@ -13,10 +13,12 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../libs/contexts/AuthContext';
 import { useGoogleAuth } from '../libs/hooks/useGoogleAuth';
+import { useNaverAuth } from '../libs/hooks/useNaverAuth';
 import Layout from '@/components/Layout';
 import { toastError } from '../libs/utils/toast';
 
@@ -32,7 +34,54 @@ export default function LoginScreen({ navigation }: any) {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
-  const { login, loginLoading, loginError, googleLogin, googleLoginLoading } = useAuth();
+  const { login, loginLoading, loginError, googleLogin, googleLoginLoading, naverCallback } = useAuth();
+
+  // Naver Client ID 존재 여부 확인
+  const hasNaverClientId = !!process.env.EXPO_PUBLIC_NAVER_CLIENT_ID;
+
+  // 네이버 로그인 훅
+  const { promptAsync: naverPromptAsync, isLoading: naverAuthLoading, error: naverError } = useNaverAuth(
+    async (accessToken) => {
+      console.log('[Naver] accessToken 수신, /auth/naver/login 호출');
+      await naverCallback(accessToken);
+      return { success: true };
+    }
+  );
+
+  // Naver 백엔드 callback URI 확인
+  React.useEffect(() => {
+    const apiUrl = process.env.EXPO_PUBLIC_API_URL || '';
+    console.log('[Naver] 백엔드 Callback URI:', `${apiUrl}/auth/naver/callback`);
+    console.log('[Naver] Client ID:', process.env.EXPO_PUBLIC_NAVER_CLIENT_ID);
+  }, []);
+
+  // 네이버 로그인 핸들러
+  const handleNaverLogin = async () => {
+    try {
+      await naverPromptAsync();
+    } catch (error) {
+      toastError('네이버 로그인 중 문제가 발생했습니다.');
+    }
+  };
+
+  // 네이버 로그인 에러 표시
+  React.useEffect(() => {
+    if (naverError) {
+      toastError('네이버 로그인 오류: ' + naverError);
+    }
+  }, [naverError]);
+
+  // [딥링크 테스트] 리스너 등록
+  React.useEffect(() => {
+    const subscription = Linking.addEventListener('url', (event) => {
+      console.log('DEEPLINK', event.url);
+    });
+    return () => subscription.remove();
+  }, []);
+
+  const handleDeepLinkTest = async () => {
+    await Linking.openURL('com.bml.app://auth/naver?code=test');
+  };
 
   // Google Client ID 존재 여부 확인
   const hasGoogleClientId =
@@ -77,18 +126,18 @@ export default function LoginScreen({ navigation }: any) {
     }
   }, [googleError]);
 
-  const handleLogin = () => {
-    if (!email.trim()) {
-      toastError('이메일을 입력해주세요.');
-      return;
-    }
-    if (!password.trim()) {
-      toastError('비밀번호를 입력해주세요.');
-      return;
-    }
+  // const handleLogin = () => {
+  //   if (!email.trim()) {
+  //     toastError('이메일을 입력해주세요.');
+  //     return;
+  //   }
+  //   if (!password.trim()) {
+  //     toastError('비밀번호를 입력해주세요.');
+  //     return;
+  //   }
 
-    login({ email, password });
-  };
+  //   login({ email, password });
+  // };
 
   return (
     <Layout>
@@ -109,7 +158,7 @@ export default function LoginScreen({ navigation }: any) {
           {/* 입력 폼 */}
           <View style={styles.formContainer}>
             {/* 이메일 입력 */}
-            <View style={styles.inputContainer}>
+            {/* <View style={styles.inputContainer}>
               <Ionicons name="mail-outline" size={20} color="#FF9AA2" style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
@@ -121,10 +170,10 @@ export default function LoginScreen({ navigation }: any) {
                 autoCapitalize="none"
                 autoCorrect={false}
               />
-            </View>
+            </View> */}
 
             {/* 비밀번호 입력 */}
-            <View style={styles.inputContainer}>
+            {/* <View style={styles.inputContainer}>
               <Ionicons name="lock-closed-outline" size={20} color="#FF9AA2" style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
@@ -145,17 +194,17 @@ export default function LoginScreen({ navigation }: any) {
                   color="#B0B0B0"
                 />
               </TouchableOpacity>
-            </View>
+            </View> */}
 
             {/* 에러 메시지 */}
-            {loginError && (
+            {/* {loginError && (
               <Text style={styles.errorText}>
                 로그인에 실패했습니다. 이메일과 비밀번호를 확인해주세요.
               </Text>
-            )}
+            )} */}
 
             {/* 로그인 버튼 */}
-            <TouchableOpacity
+            {/* <TouchableOpacity
               style={[styles.loginButton, loginLoading && styles.loginButtonDisabled]}
               onPress={handleLogin}
               disabled={loginLoading}
@@ -165,7 +214,7 @@ export default function LoginScreen({ navigation }: any) {
               ) : (
                 <Text style={styles.loginButtonText}>로그인</Text>
               )}
-            </TouchableOpacity>
+            </TouchableOpacity> */}
 
             {/* 구글 로그인 - Google Client ID가 설정되어 있을 때만 표시 */}
             {hasGoogleClientId && (
@@ -192,7 +241,40 @@ export default function LoginScreen({ navigation }: any) {
               </>
             )}
 
-            {/* 추가 링크 */}
+            {/* [딥링크 테스트 버튼] */}
+            <TouchableOpacity
+              style={[styles.loginButton, { backgroundColor: '#888', marginTop: 8 }]}
+              onPress={handleDeepLinkTest}
+            >
+              <Text style={{ color: '#fff', fontWeight: 'bold' }}>딥링크 테스트</Text>
+            </TouchableOpacity>
+
+            {/* 네이버 로그인 - Naver Client ID가 설정되어 있을 때만 표시 */}
+            {hasNaverClientId && (
+              <>
+                <TouchableOpacity
+                  style={[styles.loginButton, styles.naverButton, naverAuthLoading && styles.loginButtonDisabled]}
+                  onPress={handleNaverLogin}
+                  disabled={naverAuthLoading || loginLoading}
+                >
+                  {naverAuthLoading ? (
+                    <ActivityIndicator color="#FFFFFF" />
+                  ) : (
+                    <View style={styles.googleButtonContent}>
+                      <Text style={styles.naverButtonN}>N</Text>
+                      <Text style={styles.naverButtonText}>Naver로 계속하기</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+
+                {/* 네이버 로그인 에러 메시지 */}
+                {naverError && (
+                  <Text style={styles.errorText}>{naverError}</Text>
+                )}
+              </>
+            )}
+
+            {/* 추가 링크
             <View style={styles.linksContainer}>
               <TouchableOpacity
                 onPress={() => navigation.navigate('SearchAccount')}
@@ -209,7 +291,7 @@ export default function LoginScreen({ navigation }: any) {
               <TouchableOpacity onPress={() => navigation.navigate('Regist')}>
                 <Text style={styles.linkText}>회원가입</Text>
               </TouchableOpacity>
-            </View>
+            </View> */}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>

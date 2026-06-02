@@ -58,7 +58,7 @@ export default function UserSearchPassword({ navigation }: any) {
                 await useRequestPasswordReset('email', result.data!.user_hash);
                 Alert.alert('성공', '비밀번호 재설정 이메일이 발송되었습니다.');
               } catch (error: any) {
-                Alert.alert('오류', error?.message || '비밀번호 재설정 요청 중 오류가 발생했습니다.');
+                Alert.alert('오류', error?.message || error?.error || '비밀번호 재설정 요청 중 오류가 발생했습니다.');
               }
             }
           }
@@ -68,7 +68,7 @@ export default function UserSearchPassword({ navigation }: any) {
       }
     } catch (error: any) {
       setIsLoading(false);
-      Alert.alert('오류', error?.message || '사용자 확인 중 오류가 발생했습니다.');
+      Alert.alert('오류', error?.message || error?.error || '사용자 확인 중 오류가 발생했습니다.');
     }
   };
 
@@ -100,7 +100,7 @@ export default function UserSearchPassword({ navigation }: any) {
                 await useRequestPasswordReset('phone', result.data!.user_hash);
                 Alert.alert('성공', '임시 비밀번호가 문자로 발송되었습니다.');
               } catch (error: any) {
-                Alert.alert('오류', error?.message || '비밀번호 재설정 요청 중 오류가 발생했습니다.');
+                Alert.alert('오류', error?.message || error?.error || '비밀번호 재설정 요청 중 오류가 발생했습니다.');
               }
             }
           }
@@ -110,7 +110,7 @@ export default function UserSearchPassword({ navigation }: any) {
       }
     } catch (error: any) {
       setIsLoading(false);
-      Alert.alert('오류', error?.message || '사용자 확인 중 오류가 발생했습니다.');
+      Alert.alert('오류', error?.message || error?.error || '사용자 확인 중 오류가 발생했습니다.');
     }
   };
 

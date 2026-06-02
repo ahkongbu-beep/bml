@@ -11,6 +11,7 @@ export const STORAGE_KEYS = {
   IS_LOGGED_IN: 'is_logged_in',
   LAST_LOGIN: 'last_login',
   NEED_CHILD_REGISTRATION: 'need_child_registration',
+  NEED_GOOGLE_CONSENT: 'need_google_consent',
 } as const;
 
 interface JWTPayload {
@@ -203,6 +204,35 @@ export const clearNeedChildRegistration = async () => {
     await AsyncStorage.removeItem(STORAGE_KEYS.NEED_CHILD_REGISTRATION);
   } catch (error) {
     console.error('Failed to clear need child registration flag:', error);
+  }
+};
+
+// 구글 회원가입 동의 화면 필요 플래그 저장
+export const saveNeedGoogleConsent = async () => {
+  try {
+    await AsyncStorage.setItem(STORAGE_KEYS.NEED_GOOGLE_CONSENT, JSON.stringify(true));
+  } catch (error) {
+    console.error('Failed to save need google consent flag:', error);
+  }
+};
+
+// 구글 회원가입 동의 화면 필요 플래그 가져오기
+export const getNeedGoogleConsent = async (): Promise<boolean> => {
+  try {
+    const value = await AsyncStorage.getItem(STORAGE_KEYS.NEED_GOOGLE_CONSENT);
+    return value ? JSON.parse(value) : false;
+  } catch (error) {
+    console.error('Failed to get need google consent flag:', error);
+    return false;
+  }
+};
+
+// 구글 회원가입 동의 화면 필요 플래그 삭제
+export const clearNeedGoogleConsent = async () => {
+  try {
+    await AsyncStorage.removeItem(STORAGE_KEYS.NEED_GOOGLE_CONSENT);
+  } catch (error) {
+    console.error('Failed to clear need google consent flag:', error);
   }
 };
 

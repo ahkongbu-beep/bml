@@ -1,8 +1,9 @@
 import React from 'react';
-import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Layout from '../components/Layout';
 import Header from '../components/Header';
+import { setConsentPending } from '../libs/utils/consentPending';
 
 const POLICY = {
 	title: '개인정보처리방침',
@@ -81,8 +82,8 @@ const POLICY = {
 		{
 			title: '8. 개인정보 보호책임자 및 상담 안내',
 			items: [
-				'개인정보 보호책임자/담당부서: OOO',
-				'이메일: bml@gmail.com',
+				'개인정보 보호책임자/담당부서: 조상현',
+				'이메일: bml@gmail.co.kr',
 			],
 		},
 		{
@@ -95,8 +96,14 @@ const POLICY = {
 	],
 };
 
-export default function PrivacyPolicyScreen({ navigation }: any) {
+export default function PrivacyPolicyScreen({ navigation, route }: any) {
 	const insets = useSafeAreaInsets();
+	const agreeType = route?.params?.agreeType as 'privacy' | undefined;
+
+	const handleConfirm = () => {
+		if (agreeType) setConsentPending(agreeType);
+		navigation.goBack();
+	};
 
 	return (
 		<Layout>
@@ -134,6 +141,13 @@ export default function PrivacyPolicyScreen({ navigation }: any) {
 						</View>
 					))}
 				</ScrollView>
+				{agreeType && (
+					<View style={[styles.confirmContainer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+						<TouchableOpacity style={styles.confirmButton} onPress={handleConfirm}>
+							<Text style={styles.confirmButtonText}>확인 및 동의</Text>
+						</TouchableOpacity>
+					</View>
+				)}
 			</View>
 		</Layout>
 	);
@@ -193,5 +207,23 @@ const styles = StyleSheet.create({
 		lineHeight: 22,
 		color: '#5D5D5D',
 		marginBottom: 8,
+	},
+	confirmContainer: {
+		padding: 16,
+		borderTopWidth: 1,
+		borderTopColor: '#F0F0F0',
+		backgroundColor: '#FFFBF7',
+	},
+	confirmButton: {
+		backgroundColor: '#FF8C00',
+		borderRadius: 10,
+		height: 50,
+		justifyContent: 'center',
+		alignItems: 'center',
+	},
+	confirmButtonText: {
+		fontSize: 16,
+		fontWeight: '700',
+		color: '#FFF',
 	},
 });

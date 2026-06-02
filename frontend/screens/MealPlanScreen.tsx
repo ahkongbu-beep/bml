@@ -454,8 +454,8 @@ export default function MealPlanScreen({ navigation }: any) {
                     borderRadius: 6,
                     backgroundColor: isSelected
                       ? '#FF9AA2'
-                      : hasData
-                        ? (hasReferFeed ? '#E8F5F1' : '#FFE5E5')
+                      : hasReferFeed
+                        ? '#E8F5F1'
                         : '#FFFFFF',
                     opacity: isDisabled ? 0.75 : 1,
                     paddingTop: 2,
@@ -464,6 +464,9 @@ export default function MealPlanScreen({ navigation }: any) {
                   <Text style={{ color: textColor, fontWeight: isSelected ? '700' : '500', fontSize: 14 }}>
                     {date.day}
                   </Text>
+                  {hasData && !hasReferFeed && !isSelected && (
+                    <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: '#FF9AA2', marginTop: 1 }} />
+                  )}
                 </TouchableOpacity>
               );
             }}

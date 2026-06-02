@@ -8,6 +8,8 @@ import {
   getUserProfile,
   googleLogin as googleLoginApi,
   GoogleLoginRequest,
+  naverLogin as naverLoginApi,
+  NaverLoginRequest,
   withdrawalApi,
   refreshAccessToken,
 } from '../api/authApi';
@@ -19,6 +21,7 @@ import {
   saveToken,
   logout as clearStorage,
   saveNeedChildRegistration,
+  saveNeedGoogleConsent,
   isTokenExpired,
   isTokenExpiringSoon,
   getRefreshToken,
@@ -32,6 +35,7 @@ interface AuthContextType {
   isLoading: boolean;
   login: (credentials: LoginRequest) => void;
   googleLogin: (data: GoogleLoginRequest) => void;
+  naverCallback: (tempCode: string) => Promise<void>;
   logout: () => void;
   logoutLocal: () => Promise<void>;
   updateProfile: (data: UpdateProfileRequest) => void;
@@ -176,8 +180,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUser(user);
           setIsAuthenticated(true);
 
-          // 구글 로그인 성공 후 user_childs가 비어있으면 자녀 등록 화면으로 이동
+          // 구글 로그인 성공 후 user_childs가 비어있으면 동의 화면 및 자녀 등록 화면으로 이동
           if (!user.user_childs || user.user_childs.length === 0) {
+            await saveNeedGoogleConsent();
             await saveNeedChildRegistration();
           }
         }
@@ -186,6 +191,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     },
   });
+
+  // 네이버 SDK accessToken → 백엔드 JWT 교환
+  const naverCallback = async (accessToken: string) => {
+    const data = await naverLoginApi({ accessToken });
+    if (data.success && data.data) {
+      const { user, token, refresh_token } = data.data;
+      if (token && user) {
+        await saveToken(token, refresh_token);
+        await saveUserInfo(user);
+        setUser(user);
+        setIsAuthenticated(true);
+
+        if (!user.user_childs || user.user_childs.length === 0) {
+          await saveNeedGoogleConsent();
+          await saveNeedChildRegistration();
+        }
+      }
+    } else {
+      throw new Error(data.message || '네이버 로그인에 실패했습니다.');
+    }
+  };
 
   // 로그아웃 Mutation
   const logoutMutation = useMutation({
@@ -209,15 +235,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // 회원탈퇴
   const withdrawalMutation = useMutation({
-    mutationFn: () => withdrawalApi(),
-    onMutate: async () => {
+    mutationFn: async () => {
+      // FCM 토큰 삭제 후 탈퇴 API 호출 (토큰이 유효한 상태에서 호출해야 함)
       await unregisterFcm();
+      return withdrawalApi();
+    },
+    onSuccess: async () => {
+      // API 성공 후 로컬 스토리지 정리
       await clearStorage();
       setUser(null);
       setIsAuthenticated(false);
-    },
-    onSuccess: async () => {
-      // 로컬 로그아웃은 onMutate에서 즉시 처리됨
     },
     onError: async () => {
       // 백엔드 에러가 발생해도 프론트엔드에서 로그아웃 처리
@@ -267,6 +294,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isLoading,
     login: loginMutation.mutate,
     googleLogin: googleLoginMutation.mutate,
+    naverCallback,
     logout: logoutMutation.mutate,
     logoutLocal,
     withdrawal: withdrawalMutation.mutate,

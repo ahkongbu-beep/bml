@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,9 +8,14 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Alert,
+  Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { consumeConsentPending } from '../../libs/utils/consentPending';
+import { getMessaging, requestPermission, AuthorizationStatus } from '@react-native-firebase/messaging';
 
 interface StepThreeProps {
   marketingAgree: number;
@@ -33,17 +38,54 @@ export default function StepThree({
 }: StepThreeProps) {
   const [privacyAgree, setPrivacyAgree] = useState(false);
   const [termsAgree, setTermsAgree] = useState(false);
+  const navigation = useNavigation<any>();
+
+  // 약관 화면에서 확인 누르고 돌아왔을 때 자동 체크
+  useFocusEffect(
+    useCallback(() => {
+      const pending = consumeConsentPending();
+      if (pending.privacy) setPrivacyAgree(true);
+      if (pending.terms) setTermsAgree(true);
+    }, [])
+  );
 
   const canSubmit = () => {
     return privacyAgree && termsAgree;
   };
 
-  const toggleAllAgree = () => {
+  const handlePushAgreeChange = async (newValue: number) => {
+    if (newValue === 1) {
+      // 동의 ON 시 현재 알림 권한 확인
+      const authStatus = await requestPermission(getMessaging());
+      const granted =
+        authStatus === AuthorizationStatus.AUTHORIZED ||
+        authStatus === AuthorizationStatus.PROVISIONAL;
+
+      if (!granted) {
+        Alert.alert(
+          '알림 권한 없음',
+          '푸시 알림을 받으려면 기기 설정에서 알림을 허용해주세요.',
+          [
+            { text: '취소', style: 'cancel' },
+            {
+              text: '설정 열기',
+              onPress: () => Linking.openSettings(),
+            },
+          ]
+        );
+        // 권한 없으면 동의 ON 하지 않음
+        return;
+      }
+    }
+    onPushAgreeChange(newValue);
+  };
+
+  const toggleAllAgree = async () => {
     const newValue = !(privacyAgree && termsAgree);
     setPrivacyAgree(newValue);
     setTermsAgree(newValue);
     onMarketingAgreeChange(newValue ? 1 : 0);
-    onPushAgreeChange(newValue ? 1 : 0);
+    await handlePushAgreeChange(newValue ? 1 : 0);
   };
 
   const allAgreed = privacyAgree && termsAgree && marketingAgree === 1 && pushAgree === 1;
@@ -80,11 +122,11 @@ export default function StepThree({
         <View style={styles.divider} />
 
         {/* 필수 - 개인정보 처리방침 */}
-        <TouchableOpacity
-          style={styles.agreeItem}
-          onPress={() => setPrivacyAgree(!privacyAgree)}
-        >
-          <View style={styles.checkboxRow}>
+        <View style={styles.agreeItem}>
+          <TouchableOpacity
+            style={styles.checkboxRow}
+            onPress={() => setPrivacyAgree(!privacyAgree)}
+          >
             <View style={[styles.checkbox, privacyAgree && styles.checkboxChecked]}>
               {privacyAgree && <Ionicons name="checkmark" size={20} color="#FFF" />}
             </View>
@@ -94,18 +136,18 @@ export default function StepThree({
                 <Text style={styles.agreeText}>개인정보 처리방침</Text>
               </View>
             </View>
-          </View>
-          <TouchableOpacity>
-            <Ionicons name="chevron-forward" size={20} color="#999" />
           </TouchableOpacity>
-        </TouchableOpacity>
+          <TouchableOpacity style={styles.viewButton} onPress={() => navigation.navigate('PrivacyPolicy', { agreeType: 'privacy' })}>
+            <Text style={styles.viewButtonText}>보기</Text>
+          </TouchableOpacity>
+        </View>
 
         {/* 필수 - 이용약관 */}
-        <TouchableOpacity
-          style={styles.agreeItem}
-          onPress={() => setTermsAgree(!termsAgree)}
-        >
-          <View style={styles.checkboxRow}>
+        <View style={styles.agreeItem}>
+          <TouchableOpacity
+            style={styles.checkboxRow}
+            onPress={() => setTermsAgree(!termsAgree)}
+          >
             <View style={[styles.checkbox, termsAgree && styles.checkboxChecked]}>
               {termsAgree && <Ionicons name="checkmark" size={20} color="#FFF" />}
             </View>
@@ -115,11 +157,11 @@ export default function StepThree({
                 <Text style={styles.agreeText}>이용약관</Text>
               </View>
             </View>
-          </View>
-          <TouchableOpacity>
-            <Ionicons name="chevron-forward" size={20} color="#999" />
           </TouchableOpacity>
-        </TouchableOpacity>
+          <TouchableOpacity style={styles.viewButton} onPress={() => navigation.navigate('TermsOfService', { agreeType: 'terms' })}>
+            <Text style={styles.viewButtonText}>보기</Text>
+          </TouchableOpacity>
+        </View>
 
         <View style={styles.divider} />
 
@@ -149,7 +191,7 @@ export default function StepThree({
         {/* 선택 - 푸시 알림 수신 동의 */}
         <TouchableOpacity
           style={styles.agreeItem}
-          onPress={() => onPushAgreeChange(pushAgree === 1 ? 0 : 1)}
+          onPress={() => handlePushAgreeChange(pushAgree === 1 ? 0 : 1)}
         >
           <View style={styles.checkboxRow}>
             <View style={[styles.checkbox, pushAgree === 1 && styles.checkboxChecked]}>
@@ -225,6 +267,7 @@ const styles = StyleSheet.create({
   checkboxRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
   },
   checkbox: {
     width: 24,
@@ -323,6 +366,18 @@ const styles = StyleSheet.create({
   },
   submitButtonDisabled: {
     backgroundColor: '#CCC',
+  },
+  viewButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: '#DDD',
+    borderRadius: 6,
+    marginLeft: 8,
+  },
+  viewButtonText: {
+    fontSize: 13,
+    color: '#666',
   },
   submitButtonText: {
     fontSize: 16,
