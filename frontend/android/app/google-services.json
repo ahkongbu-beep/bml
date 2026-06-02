@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "978876711130",
+    "project_id": "bml-project-cfab3",
+    "storage_bucket": "bml-project-cfab3.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:978876711130:android:6103b961b420c180f365e3",
+        "android_client_info": {
+          "package_name": "com.bml.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBBRIz_7_5JCkd40pk9Vborb57Jixzzmtw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
