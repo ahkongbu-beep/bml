@@ -80,6 +80,7 @@
           }
       ],
       "./plugins/withNaverLoginAndroid",
+      "./plugins/withKakaoMavenRepo",
 
       [
           "@react-native-firebase/app"
