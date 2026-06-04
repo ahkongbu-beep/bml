@@ -25,7 +25,6 @@ backend/get_user_header.py
 backend/app/batch/test.py
 
 # Frontend
-frontend/android/
 frontend/.expo/devices.json
 frontend/google-services.json
 frontend/TODOLIST.md

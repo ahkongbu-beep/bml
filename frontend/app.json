@@ -69,12 +69,20 @@
       }
     },
     "plugins": [
-      "expo-web-browser",
-      "@react-native-google-signin/google-signin",
-      [
+    "expo-web-browser",
+    "@react-native-google-signin/google-signin",
+
+    [
+        "@react-native-seoul/naver-login",
+        {
+        "urlScheme": "com.bml.app"
+        }
+    ],
+
+    [
         "@react-native-firebase/app"
-      ],
-      "@react-native-firebase/messaging"
+    ],
+    "@react-native-firebase/messaging"
     ]
   }
 }
