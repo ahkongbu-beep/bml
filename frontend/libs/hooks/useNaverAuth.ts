@@ -13,7 +13,6 @@ export const useNaverAuth = (
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-
   const promptAsync = async () => {
     const consumerKey = process.env.EXPO_PUBLIC_NAVER_CLIENT_ID || '';
     const consumerSecret = process.env.EXPO_PUBLIC_NAVER_CLIENT_SECRET || '';
@@ -35,8 +34,7 @@ export const useNaverAuth = (
         serviceUrlScheme: 'com.bml.app',
       });
 
-      const { failureResponse, successResponse }: NaverLoginResponse = await NaverLogin.login();
-
+      const { failureResponse, successResponse } = await NaverLogin.login();
       if (failureResponse) {
         if (failureResponse.isCancel) {
           return;
@@ -48,8 +46,6 @@ export const useNaverAuth = (
         throw new Error('액세스 토큰을 받지 못했습니다.');
       }
 
-      console.log('[Naver] accessToken 수신');
-
       if (onSuccess) {
         const res = await onSuccess(successResponse.accessToken);
         if (!res.success) {
@@ -57,7 +53,6 @@ export const useNaverAuth = (
         }
       }
     } catch (err: any) {
-      console.log(err);
       setError(err.message || '네이버 로그인 중 오류가 발생했습니다.');
     } finally {
       setIsLoading(false);
