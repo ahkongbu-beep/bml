@@ -1,5 +1,11 @@
 import { useState } from 'react';
 import NaverLogin, { NaverLoginResponse } from '@react-native-seoul/naver-login';
+import { NativeModules } from 'react-native';
+
+console.log('[NaverDebug] NaverLogin default export:', NaverLogin);
+console.log('[NaverDebug] NaverLogin.initialize:', NaverLogin?.initialize);
+console.log('[NaverDebug] NaverLogin.login:', NaverLogin?.login);
+console.log('[NaverDebug] NativeModules.RNNaverLogin:', NativeModules.RNNaverLogin);
 
 interface UseNaverAuthReturn {
   promptAsync: () => Promise<void>;
@@ -53,6 +59,7 @@ export const useNaverAuth = (
         }
       }
     } catch (err: any) {
+      console.error('네이버 로그인 오류:', err);
       setError(err.message || '네이버 로그인 중 오류가 발생했습니다.');
     } finally {
       setIsLoading(false);
