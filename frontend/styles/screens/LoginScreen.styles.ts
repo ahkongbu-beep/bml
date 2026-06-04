@@ -109,7 +109,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   kakaoButton: {
+    marginTop: 12,
     backgroundColor: '#FEE500',
+    ...shadows.medium,
+  },
+  kakaoButtonIcon: {
+    fontSize: 20,
+    marginRight: 10,
+  },
+  kakaoButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#3C1E1E',
   },
   naverButton: {
     marginTop: 12,

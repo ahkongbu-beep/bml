@@ -10,6 +10,8 @@ import {
   GoogleLoginRequest,
   naverLogin as naverLoginApi,
   NaverLoginRequest,
+  kakaoLogin as kakaoLoginApi,
+  KakaoLoginRequest,
   withdrawalApi,
   refreshAccessToken,
 } from '../api/authApi';
@@ -36,6 +38,7 @@ interface AuthContextType {
   login: (credentials: LoginRequest) => void;
   googleLogin: (data: GoogleLoginRequest) => void;
   naverCallback: (tempCode: string) => Promise<void>;
+  kakaoCallback: (accessToken: string) => Promise<void>;
   logout: () => void;
   logoutLocal: () => Promise<void>;
   updateProfile: (data: UpdateProfileRequest) => void;
@@ -213,6 +216,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // 카카오 SDK accessToken → 백엔드 JWT 교환
+  const kakaoCallback = async (accessToken: string) => {
+    const data = await kakaoLoginApi({ accessToken });
+    if (data.success && data.data) {
+      const { user, token, refresh_token } = data.data;
+      if (token && user) {
+        await saveToken(token, refresh_token);
+        await saveUserInfo(user);
+        setUser(user);
+        setIsAuthenticated(true);
+
+        if (!user.user_childs || user.user_childs.length === 0) {
+          await saveNeedGoogleConsent();
+          await saveNeedChildRegistration();
+        }
+      }
+    } else {
+      throw new Error(data.message || '카카오 로그인에 실패했습니다.');
+    }
+  };
+
   // 로그아웃 Mutation
   const logoutMutation = useMutation({
     mutationFn: () => logoutApi(user?.view_hash || ''),
@@ -295,6 +319,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     login: loginMutation.mutate,
     googleLogin: googleLoginMutation.mutate,
     naverCallback,
+    kakaoCallback,
     logout: logoutMutation.mutate,
     logoutLocal,
     withdrawal: withdrawalMutation.mutate,

@@ -34,6 +34,17 @@ export const naverLogin = async (data: NaverLoginRequest): Promise<LoginResponse
 };
 
 /**
+ * 카카오 로그인 (SDK accessToken → JWT)
+ */
+export interface KakaoLoginRequest {
+  accessToken: string;
+}
+
+export const kakaoLogin = async (data: KakaoLoginRequest): Promise<LoginResponse> => {
+  return fetchPost<LoginResponse>('/auth/kakao', data);
+};
+
+/**
  * 회원가입
  */
 export const register = async (data: RegisterRequest): Promise<ApiResponse<User>> => {

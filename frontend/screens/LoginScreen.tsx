@@ -19,6 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../libs/contexts/AuthContext';
 import { useGoogleAuth } from '../libs/hooks/useGoogleAuth';
 import { useNaverAuth } from '../libs/hooks/useNaverAuth';
+import { useKakaoAuth } from '../libs/hooks/useKakaoAuth';
 import Layout from '@/components/Layout';
 import { toastError } from '../libs/utils/toast';
 
@@ -34,10 +35,13 @@ export default function LoginScreen({ navigation }: any) {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
-  const { login, loginLoading, loginError, googleLogin, googleLoginLoading, naverCallback } = useAuth();
+  const { login, loginLoading, loginError, googleLogin, googleLoginLoading, naverCallback, kakaoCallback } = useAuth();
 
   // Naver Client ID 존재 여부 확인
   const hasNaverClientId = !!process.env.EXPO_PUBLIC_NAVER_CLIENT_ID;
+
+  // Kakao Native App Key 존재 여부 확인
+  const hasKakaoAppKey = !!process.env.EXPO_PUBLIC_KAKAO_NATIVE_APP_KEY;
 
   // 네이버 로그인 훅
   const { promptAsync: naverPromptAsync, isLoading: naverAuthLoading, error: naverError } = useNaverAuth(
@@ -64,20 +68,37 @@ export default function LoginScreen({ navigation }: any) {
     }
   };
 
+  // 카카오 로그인 훅
+  const { promptAsync: kakaoPromptAsync, isLoading: kakaoAuthLoading, error: kakaoError } = useKakaoAuth(
+    async (accessToken) => {
+      console.log('[Kakao] accessToken 수신, /auth/kakao 호출');
+      await kakaoCallback(accessToken);
+      return { success: true };
+    }
+  );
+
+  // 카카오 로그인 핸들러
+  const handleKakaoLogin = async () => {
+    try {
+      await kakaoPromptAsync();
+    } catch (error) {
+      toastError('카카오 로그인 중 문제가 발생했습니다.');
+    }
+  };
+
+  // 카카오 로그인 에러 표시
+  React.useEffect(() => {
+    if (kakaoError) {
+      toastError('카카오 로그인 오류: ' + kakaoError);
+    }
+  }, [kakaoError]);
+
   // 네이버 로그인 에러 표시
   React.useEffect(() => {
     if (naverError) {
       toastError('네이버 로그인 오류: ' + naverError);
     }
   }, [naverError]);
-
-  // [딥링크 테스트] 리스너 등록
-  React.useEffect(() => {
-    const subscription = Linking.addEventListener('url', (event) => {
-      console.log('DEEPLINK', event.url);
-    });
-    return () => subscription.remove();
-  }, []);
 
   const handleDeepLinkTest = async () => {
     await Linking.openURL('com.bml.app://auth/naver?code=test');
@@ -241,14 +262,6 @@ export default function LoginScreen({ navigation }: any) {
               </>
             )}
 
-            {/* [딥링크 테스트 버튼] */}
-            <TouchableOpacity
-              style={[styles.loginButton, { backgroundColor: '#888', marginTop: 8 }]}
-              onPress={handleDeepLinkTest}
-            >
-              <Text style={{ color: '#fff', fontWeight: 'bold' }}>딥링크 테스트</Text>
-            </TouchableOpacity>
-
             {/* 네이버 로그인 - Naver Client ID가 설정되어 있을 때만 표시 */}
             {hasNaverClientId && (
               <>
@@ -270,6 +283,31 @@ export default function LoginScreen({ navigation }: any) {
                 {/* 네이버 로그인 에러 메시지 */}
                 {naverError && (
                   <Text style={styles.errorText}>{naverError}</Text>
+                )}
+              </>
+            )}
+
+            {/* 카카오 로그인 - Kakao App Key가 설정되어 있을 때만 표시 */}
+            {hasKakaoAppKey && (
+              <>
+                <TouchableOpacity
+                  style={[styles.loginButton, styles.kakaoButton, kakaoAuthLoading && styles.loginButtonDisabled]}
+                  onPress={handleKakaoLogin}
+                  disabled={kakaoAuthLoading || loginLoading}
+                >
+                  {kakaoAuthLoading ? (
+                    <ActivityIndicator color="#3C1E1E" />
+                  ) : (
+                    <View style={styles.googleButtonContent}>
+                      <Text style={styles.kakaoButtonIcon}>💬</Text>
+                      <Text style={styles.kakaoButtonText}>Kakao로 계속하기</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+
+                {/* 카카오 로그인 에러 메시지 */}
+                {kakaoError && (
+                  <Text style={styles.errorText}>{kakaoError}</Text>
                 )}
               </>
             )}
