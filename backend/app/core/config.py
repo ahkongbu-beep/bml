@@ -16,6 +16,8 @@ class Settings():
     # CORS 설정
     BACKEND_CORS_ORIGINS: list = ["http://localhost:3000", "http://localhost:3001"]
     FRONTEND_URL : str = os.getenv("FRONTEND_URL", "")
+    RESEND_API_KEY : str = os.getenv("RESEND_API_KEY", "")
+    BML_MAIL : str = os.getenv("BML_MAIL", "")
     BACKEND_SHOP_URL : str = os.getenv("BACKEND_SHOP_URL", '')
     SECRET_KEY: str = os.getenv("SECRET_KEY", "")
     PASSWORD_RESET_TOKEN_EXPIRE_TIME_MINUTES: int = int(os.getenv("PASSWORD_RESET_TOKEN_EXPIRE_TIME_MINUTES", "10"))
@@ -28,4 +30,6 @@ class Settings():
     GOOGLE_SECRET_KEY: str = os.getenv("GOOGLE_SECRET_KEY", "")
     GOOGLE_CLIENT_ID: str = os.getenv("GOOGLE_CLIENT_ID", "")
     GOOGLE_REDIRECT_URI: str = os.getenv("GOOGLE_REDIRECT_URI", "http://localhost")
+    NAVER_SECRET_KEY: str = os.getenv("NAVER_SECRET_KEY", "")
+    NAVER_CLIENT_ID: str = os.getenv("NAVER_CLIENT_ID", "")
 settings = Settings()

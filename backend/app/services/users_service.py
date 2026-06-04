@@ -473,6 +473,7 @@ def confirm_user(db, search_type, user_email: str = None, user_phone: str = None
     회원 검증 email or phone
     """
     from app.models.users import Users
+    from app.services.auth_service import send_mail
     query = db.query(Users)
 
     if search_type == 'email':
@@ -486,7 +487,17 @@ def confirm_user(db, search_type, user_email: str = None, user_phone: str = None
     if not user:
         return CommonResponse(success=False, error="해당 정보로 가입된 계정이 없습니다.", data=None)
 
-    return CommonResponse(success=True, message="회원 정보를 일치합니다.", data={"user_hash": user.view_hash})
+    if search_type == 'email':
+        send_mail(
+            type="find_password",
+            title="BML 비밀번호 찾기 인증 코드",
+            email=user.email
+        )
+        message = f"해당 이메일로 인증코드를 발송하였습니다."
+    else:
+        message = f"해당 휴대폰 번호로 인증코드를 발송하였습니다."
+
+    return CommonResponse(success=True, message=message, data={"user_hash": user.view_hash})
 
 """ 비밀번호 초기화 """
 def reset_password(db, data):

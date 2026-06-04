@@ -581,7 +581,7 @@ async def create_meal(db, body: dict) -> CommonResponse:
             return CommonResponse(success=False, error="유효하지 않은 카테고리 정보입니다.", data=None)
 
         # 동일 식단 여부 체크
-        is_exist = MealsCalendarsRepository.duplicate_check(db, user.id, body['input_date'], category_code.id, body['child_id'])
+        is_exist = MealsCalendarsRepository.duplicate_check(db, user.id, body['input_date'], category_code.id, body['child_id'], 0)
 
         if is_exist:
             raise Exception("해당 날짜에 동일한 카테고리의 식단이 이미 존재합니다.")
@@ -747,7 +747,7 @@ async def copy_meal_calendar(db, body: dict) -> CommonResponse:
 
         user_child = get_child_by_id(db, child_id)
 
-        is_exist = MealsCalendarsRepository.duplicate_check(db, user.id, input_date, category_code.id, user_child.id)
+        is_exist = MealsCalendarsRepository.duplicate_check(db, user.id, input_date, category_code.id, user_child.id, original_meal.id)
         if is_exist:
             raise Exception("해당 날짜에 동일한 카테고리의 식단이 이미 존재합니다.")
 
@@ -850,6 +850,9 @@ async def get_scrap_list(db, params: dict) -> CommonResponse:
         scrap_list = MealsScrapsRepository.get_scrap_list_by_user_id(db, user.id)
         scrap_ids = [scrap.meal_id for scrap in scrap_list]
 
+        if not scrap_ids:
+            return CommonResponse(success=True, error=None, data=[])  # 스크랩한 식단이 없을 때 빈 리스트 반환
+
         search_params = {
             "meal_ids": scrap_ids,
         }
@@ -924,11 +927,10 @@ async def scrap_meal(db, params: dict) -> CommonResponse:
         # 이미 스크랩 했는지 체크
         # 이미 있을때는 is_active 토글, 없을때는 새로 생성
         meal_scrap = MealsScrapsRepository.get_scrap_by_user_and_meal(db, user.id, meal_calendar.id)
+
         if meal_scrap:
             is_active = "Y" if meal_scrap.is_active == "N" else "N"
-
             MealsScrapsRepository.update(db, meal_scrap, is_active=is_active)
-
         else:
             MealsScrapsRepository.create(db, {
                 "user_id": user.id,

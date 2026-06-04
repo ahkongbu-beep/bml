@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Depends, Request
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.schemas.auth_schemas import (
     EmailLoginRequest,
+    ExchangeTokenRequest,
     GoogleLoginRequest,
     KakaoLoginRequest,
     NaverLoginRequest,
@@ -74,6 +76,39 @@ async def kakao_login(
     """
     return await auth_service.kakao_login(db, request.accessToken)
 
+@router.get("/naver/callback")
+async def naver_callback(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """
+    네이버 로그인 콜백
+    성공 시 com.bml.app://auth/naver?code=TEMP_CODE 로 리다이렉트습니다.
+    """
+    print("⭕⭕ Received Naver callback with query params:", request.query_params)
+    code = request.query_params.get("code")
+    state = request.query_params.get("state")
+    result = await auth_service.naver_callback(db, code, state)
+    if result.success:
+        temp_code = result.data["temp_code"]
+        return RedirectResponse(url=f"com.bml.app://auth/naver?code={temp_code}")
+    return RedirectResponse(url=f"com.bml.app://auth/naver?error=login_failed")
+
+
+@router.post("/exchange", response_model=CommonResponse)
+async def exchange_token(
+    request: ExchangeTokenRequest,
+):
+    """
+    임시 코드(temp_code)를 JWT로 교환
+
+    - **code**: 네이버 콜백에서 발급한 1회성 코드 (30초 TTL)
+
+    ## 응답
+    - token, refresh_token, user 정보 반환
+    """
+    print("⭕⭕ Received token exchange request with code:", request.code)
+    return auth_service.exchange_temp_code(request.code)
 
 @router.post("/naver", response_model=CommonResponse)
 async def naver_login(

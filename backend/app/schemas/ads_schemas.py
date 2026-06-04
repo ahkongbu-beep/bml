@@ -29,6 +29,7 @@ class AdsAddRequest(BaseModel):
     amount: int
     start_date: str
     end_date: str
+    target_link: Optional[str] = None
     contents: Optional[str] = None
     is_active: Optional[str] = "Y"
 

@@ -20,7 +20,7 @@ def validate_user(user):
     if not user.fcm_token:
         return False
 
-    if not user.is_push_agree or user.is_push_agree == 0:
+    if not user.push_agree or user.push_agree == 0:
         return False
 
     return True
@@ -34,6 +34,7 @@ def user_noti_week():
         if validate_user(user) == False:
             continue
 
+        print("""Sending notification to user: {} (Last login: {})""".format(user.nickname, user.last_login_at))
         send_fcm(
             token=user.fcm_token,
             title="🥗 BML 식단 알림",
@@ -53,6 +54,7 @@ def user_noti_month():
         if validate_user(user) == False:
             continue
 
+        print("""Sending notification to user: {} (Last login: {})""".format(user.nickname, user.last_login_at))
         send_fcm(
             token=user.fcm_token,
             title="🥗 BML 식단 알림",

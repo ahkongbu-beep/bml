@@ -38,6 +38,10 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
     user: dict
 
+class ExchangeTokenRequest(BaseModel):
+    """임시 코드 → JWT 교환 요청"""
+    code: str
+
 class FcmTokenRequest(BaseModel):
     """FCM 토큰 등록/삭제 요청"""
     fcm_token: str

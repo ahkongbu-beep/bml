@@ -13,14 +13,17 @@ from app.models.users_childs_allergies import UsersChildsAllergies
 
 class MealsCalendarsRepository:
     @staticmethod
-    def duplicate_check(session, user_id: int, input_date: str, category_code: int, child_id: int):
-        return session.query(MealsCalendars).filter(
+    def duplicate_check(session, user_id: int, input_date: str, category_code: int, child_id: int, refer_feed_id: int = None):
+        query = session.query(MealsCalendars).filter(
             MealsCalendars.user_id == user_id,
             MealsCalendars.input_date == input_date,
             MealsCalendars.category_code == category_code,
             MealsCalendars.child_id == child_id,
             MealsCalendars.is_active == "Y"
-        ).first() is not None
+        )
+        if refer_feed_id is not None:
+            query = query.filter(MealsCalendars.refer_feed_id == refer_feed_id)
+        return query.first() is not None
 
     @staticmethod
     def get_deleted_meals(db, is_active: str, search_date: str, target_id: int):
@@ -321,6 +324,7 @@ class MealsCalendarsRepository:
             eq(MealsCalendars.meal_stage_detail, "meal_stage_detail"),
             eq(MealsCalendars.month, "month"),
             eq(MealsCalendars.child_id, "child_id"),
+            eq(MealsCalendars.view_hash, "view_hash"),
 
             MealsCalendars.user_id == params["my_user_id"]
             if params.get("view_type") == "mine" else None,

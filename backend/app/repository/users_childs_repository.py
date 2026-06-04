@@ -11,6 +11,12 @@ class UsersChildsRepository:
         ).first()
 
     @staticmethod
+    def get_childs_by_user_id(session, user_id: int):
+        return session.query(UsersChilds).filter(
+            UsersChilds.user_id == user_id
+        ).all()
+
+    @staticmethod
     def get_child_by_user_id_and_name(session, user_id: int, child_name: str):
         return session.query(UsersChilds).filter(
             UsersChilds.user_id == user_id,

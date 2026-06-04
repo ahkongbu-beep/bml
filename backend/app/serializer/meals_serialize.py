@@ -8,6 +8,14 @@ from app.schemas.common_schemas import CommonResponse
 from app.schemas.ingredient_schemas import IngredientMapperItemSchema
 
 def meal_serialize(meal):
+    image_url_list = None
+    if hasattr(meal, 'image_url') and meal.image_url:
+        # 이미지 경로를 리스트로 변환
+        if isinstance(meal.image_url, list):
+            image_url_list = meal.image_url
+        else:
+            image_url_list = [meal.image_url]
+
     return MealItem(
         meal_id=meal.id,
         category_code=str(meal.category_code),
@@ -16,6 +24,8 @@ def meal_serialize(meal):
         nickname=meal.nickname,
         profile_image=meal.profile_image,
         user_hash=meal.user_hash,
+        image_url=image_url_list,  # 리스트로 변환
+        is_published=meal.is_public,
         username=meal.username,
         input_date=str(meal.input_date) if meal.input_date else None,
         meal_stage=meal.meal_stage,

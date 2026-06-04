@@ -4,6 +4,7 @@
 - 소셜 로그인 (구글, 카카오, 네이버)
 - 로그아웃
 """
+
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -13,20 +14,23 @@ from app.repository.user_repository import UserRepository
 from app.models.users import Users
 
 from app.services.users_service import validate_user, validate_user_email, get_sns_user, update_user_last_login
+from app.services.users_childs_service import UsersChildsRepository
 
 from app.schemas.users_schemas import UserResponse
 from app.schemas.common_schemas import CommonResponse
 from app.schemas.auth_schemas import SocialUserInfo
 from app.libs.password_utils import verify_password
 from app.libs.jwt_utils import create_access_token, create_refresh_token, verify_token
+from app.libs.redis_client import redis_client
 import httpx
+import uuid
+import json
 from app.core.config import settings
 from typing import Optional
 
 
 def email_login(db: Session, email: str, password: str) -> CommonResponse:
     """이메일 로그인"""
-
     try:
         user = validate_user_email(db, email)
 
@@ -105,7 +109,6 @@ async def google_login(db: Session, id_token: str, access_token: Optional[str] =
         traceback.print_exc()
         return CommonResponse(success=False, message=f"구글 로그인 중 오류가 발생했습니다: {str(e)}", data=None)
 
-
 async def kakao_login(db: Session, access_token: str) -> CommonResponse:
     """
     카카오 로그인
@@ -138,8 +141,87 @@ async def kakao_login(db: Session, access_token: str) -> CommonResponse:
         return CommonResponse(success=False, message=f"카카오 로그인 중 오류가 발생했습니다: {str(e)}", data=None)
 
 
+async def naver_callback(db: Session, code: str, state: str) -> CommonResponse:
+    """
+    네이버 로그인 콜백 처리
+    - code: 네이버에서 발급한 인증 코드
+    - state: CSRF 방지용 상태값
+    결과를 Redis에 저장하고 1회성 temp_code를 반환합니다.
+    """
+    print(f"[Naver Callback] ▶ code={code!r}, state={state!r}")
+    try:
+        # 네이버 액세스 토큰 요청
+        async with httpx.AsyncClient() as client:
+            token_response = await client.post(
+                "https://nid.naver.com/oauth2.0/token",
+                params={
+                    "grant_type": "authorization_code",
+                    "client_id": settings.NAVER_CLIENT_ID,
+                    "client_secret": settings.NAVER_SECRET_KEY,
+                    "code": code,
+                    "state": state
+                }
+            )
+
+            print(f"[Naver Callback] token_response status={token_response.status_code}")
+            print(f"[Naver Callback] token_response body={token_response.text}")
+
+            if token_response.status_code != 200:
+                return CommonResponse(success=False, message="네이버 액세스 토큰을 가져오는데 실패했습니다.", data=None)
+
+            token_data = token_response.json()
+            access_token = token_data.get("access_token")
+            print(f"[Naver Callback] access_token={'✅ 존재' if access_token else '❌ 없음'}")
+
+            if not access_token:
+                return CommonResponse(success=False, message="네이버 액세스 토큰이 응답에 없습니다.", data=None)
+
+            # 액세스 토큰으로 사용자 정보 가져오기 → JWT 발급
+            login_result = await naver_login(db, access_token)
+            print(f"[Naver Callback] naver_login result: success={login_result.success}, message={login_result.message!r}")
+            if not login_result.success:
+                return login_result
+
+            # 1회성 임시 코드 생성 후 Redis에 30초 TTL로 저장
+            temp_code = uuid.uuid4().hex
+
+            def _json_default(obj):
+                if hasattr(obj, 'isoformat'):
+                    return obj.isoformat()
+                raise TypeError(f'Object of type {obj.__class__.__name__} is not JSON serializable')
+
+            redis_client.setex(
+                f"temp_code:{temp_code}",
+                30,
+                json.dumps(login_result.data, default=_json_default)
+            )
+            print(f"[Naver Callback] ✅ temp_code={temp_code} → Redis 저장 완료 (30s TTL)")
+
+            return CommonResponse(success=True, message="임시 코드가 발급되었습니다.", data={"temp_code": temp_code})
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return CommonResponse(success=False, message=f"네이버 로그인 콜백 처리 중 오류가 발생했습니다: {str(e)}", data=None)
+
+
+def exchange_temp_code(temp_code: str) -> CommonResponse:
+    """
+    임시 코드(temp_code)를 JWT 토큰으로 교환 (1회성, 30초 TTL)
+    """
+    key = f"temp_code:{temp_code}"
+    raw = redis_client.get(key)
+    if not raw:
+        return CommonResponse(success=False, message="유효하지 않거나 만료된 코드입니다.", data=None)
+
+    # 1회성: 조회 즉시 삭제
+    redis_client.delete(key)
+
+    return CommonResponse(success=True, message="로그인에 성공했습니다.", data=json.loads(raw))
+
 async def naver_login(db: Session, access_token: str) -> CommonResponse:
     """네이버 로그인"""
+    print(f"[Naver Login] ▶ access_token={access_token[:10]}...")
     try:
         # 네이버 사용자 정보 API 호출
         async with httpx.AsyncClient() as client:
@@ -148,15 +230,21 @@ async def naver_login(db: Session, access_token: str) -> CommonResponse:
                 headers={"Authorization": f"Bearer {access_token}"}
             )
 
+            print(f"[Naver Login] user info status={response.status_code}")
+
             if response.status_code != 200:
+                print(f"[Naver Login] ❌ user info 요청 실패: {response.text}")
                 return CommonResponse(success=False, message="네이버 사용자 정보를 가져오는데 실패했습니다.", data=None)
 
             naver_response = response.json()
+            print(f"[Naver Login] user info response: {naver_response}")
 
             if naver_response.get('resultcode') != '00':
+                print(f"[Naver Login] ❌ resultcode={naver_response.get('resultcode')}")
                 return CommonResponse(success=False, message="네이버 로그인에 실패했습니다.", data=None)
 
             naver_user = naver_response.get('response', {})
+            print(f"[Naver Login] social_id={naver_user.get('id')!r}, email={naver_user.get('email')!r}, name={naver_user.get('name')!r}")
 
             # 사용자 정보 추출
             social_user_info = SocialUserInfo(
@@ -170,6 +258,8 @@ async def naver_login(db: Session, access_token: str) -> CommonResponse:
             return _handle_social_login(db, social_user_info)
 
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return CommonResponse(success=False, message=f"네이버 로그인 중 오류가 발생했습니다: {str(e)}", data=None)
 
 
@@ -177,8 +267,11 @@ def _handle_social_login(db: Session, social_info: SocialUserInfo, refresh_token
     """소셜 로그인 공통 처리"""
     from app.libs.hash_utils import generate_sha256_hash
 
+    print(f"[Social Login] ▶ provider={social_info.provider}, social_id={social_info.social_id!r}, email={social_info.email!r}")
+
     # DB에서 사용자 검색
     user = get_sns_user(db, social_info.provider, social_info.social_id)
+    print(f"[Social Login] DB 조회 결과: {'기존 유저 id=' + str(user.id) if user else '신규 유저 → 자동 회원가입'}")
 
     # 신규 사용자인 경우 자동 회원가입
     if not user:
@@ -207,6 +300,7 @@ def _handle_social_login(db: Session, social_info: SocialUserInfo, refresh_token
         db.add(user)
         db.flush()  # ID 생성 위해 flush
         db.refresh(user)
+        print(f"[Social Login] ✅ 신규 유저 생성 완료: id={user.id}, view_hash={user.view_hash!r}")
     else:
         # 기존 사용자: view_hash가 없다면 생성
         if not user.view_hash:
@@ -243,7 +337,16 @@ def _handle_social_login(db: Session, social_info: SocialUserInfo, refresh_token
         user.profile_image = social_info.profile_image
         db.flush()
 
-    db.commit()
+    print(f"[Social Login] db.commit() 직전: user.id={user.id}, is_active={user.is_active}, deleted_at={user.deleted_at}")
+    try:
+        db.commit()
+        print(f"[Social Login] ✅ db.commit() 완료")
+    except Exception as e:
+        import traceback
+        print(f"[Social Login] ❌ db.commit() 실패: {e}")
+        traceback.print_exc()
+        db.rollback()
+        raise
 
     return _generate_login_response(db, user)
 
@@ -258,6 +361,7 @@ def _generate_login_response(db: Session, user: Users) -> CommonResponse:
         "nickname": user.nickname,
         "role": user.role.value if hasattr(user.role, 'value') else user.role
     }
+
     access_token = create_access_token(token_data)
     refresh_token = create_refresh_token(token_data)
 
@@ -297,6 +401,7 @@ def _generate_login_response(db: Session, user: Users) -> CommonResponse:
         }
     )
 
+
 async def logout(db: Session, user_hash: str) -> CommonResponse:
     """
     로그아웃
@@ -310,6 +415,7 @@ async def logout(db: Session, user_hash: str) -> CommonResponse:
         data=None
     )
 
+
 async def remove_deny_user(db: Session, user_hash: str) -> CommonResponse:
     """
     회원 탈퇴
@@ -318,9 +424,9 @@ async def remove_deny_user(db: Session, user_hash: str) -> CommonResponse:
     if not user:
         return CommonResponse(success=False, message="회원 정보를 찾을 수 없습니다.", data=None)
 
+    print(f"Attempting to delete user ID: {user.id}, Email: {user.email}, SNS Type: {user.sns_login_type}")
     # 구글 revoke 처리
     if user.sns_login_type == 'GOOGLE':
-        print(f"Revoking Google tokens for user ID: {user.id}, Token: {user.referer_token}")
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.post(
@@ -329,13 +435,22 @@ async def remove_deny_user(db: Session, user_hash: str) -> CommonResponse:
                     headers={'Content-Type': 'application/x-www-form-urlencoded'}
                 )
                 if response.status_code != 200:
-                    print(f"Google revoke failed: {response.text}")
+                    print(f"⭕⭕Google revoke failed: {response.text}")
         except Exception as e:
-            print(f"Error during Google revoke: {str(e)}")
+            print(f"⭕⭕Error during Google revoke: {str(e)}")
 
     # 회원 탈퇴 처리 (예: is_active 플래그 변경)
     user.is_active = 0
     user.deleted_at = func.now()
+    user.referer_token = None  # Refresh Token 제거
+    # 탈퇴한 사용자의 FCM 토큰도 제거
+    UserRepository.clear_fcm_token(db, user.id, None)
+
+    # 탈퇴한 사용자 아이정보 제거
+    user_childs = UsersChildsRepository.get_childs_by_user_id(db, user.id)
+    for child in user_childs:
+        UsersChildsRepository.delete(db, child, is_commit=False)
+
     db.commit()
 
     return CommonResponse(
@@ -346,7 +461,9 @@ async def remove_deny_user(db: Session, user_hash: str) -> CommonResponse:
 
 
 def refresh_access_token(db: Session, refresh_token: str) -> CommonResponse:
-    """Refresh Token으로 새로운 Access Token 발급"""
+    """
+    Refresh Token으로 새로운 Access Token 발급
+    """
     # Refresh Token 검증
     payload = verify_token(refresh_token)
 
@@ -389,7 +506,9 @@ def refresh_access_token(db: Session, refresh_token: str) -> CommonResponse:
 
 
 def register_fcm_token(db: Session, user_hash: str, fcm_token: str) -> CommonResponse:
-    """FCM 토큰 등록"""
+    """
+    FCM 토큰 등록
+    """
     user = validate_user(db, user_hash)
     if not user:
         return CommonResponse(success=False, message="사용자를 찾을 수 없습니다.", data=None)
@@ -399,10 +518,39 @@ def register_fcm_token(db: Session, user_hash: str, fcm_token: str) -> CommonRes
 
 
 def unregister_fcm_token(db: Session, user_hash: str, fcm_token: str) -> CommonResponse:
-    """FCM 토큰 삭제"""
+    """
+    FCM 토큰 삭제
+    """
     user = validate_user(db, user_hash)
     if not user:
         return CommonResponse(success=False, message="사용자를 찾을 수 없습니다.", data=None)
 
     UserRepository.clear_fcm_token(db, user.id, fcm_token)
     return CommonResponse(success=True, message="FCM 토큰이 삭제되었습니다.", data=None)
+
+def send_mail(type: str, title: str, email: str):
+    """
+    이메일 전송
+    - SMTP 서버 설정 필요
+    """
+    import requests
+
+    response = requests.post(
+        "https://api.resend.com/email",
+        headers={
+            "Authorization": f"Bearer {settings.RESEND_API_KEY}",
+            "Content-Type": "application/json"
+        },
+        json={
+            "from": f"BML <{settings.BML_MAIL}>",
+            "to": email,
+            "subject": title,
+            "text": "이메일 내용"
+        }
+    )
+
+    print("⭕⭕",response.status_code)
+    print("⭕⭕",response.text)
+
+    return response.json()
+

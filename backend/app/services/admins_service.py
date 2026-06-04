@@ -9,8 +9,9 @@ from app.schemas.users_childs_schemas import ChildSchema
 from app.services.notices_service import get_notice_by_view_hash, get_notice_count, get_notice_list, list_notices, create_notice as create_notice_service, update_notice as update_notice_service, toggle_notice
 from app.services.users_childs_service import child_list as child_list_service
 from app.services.users_service import get_all_users, get_user_by_nickname, get_user_count, validate_user
-from app.services.meals_service import get_meals_list, get_meals_count, update_meal_process, validate_meal_calendar_view_hash
+from app.services.meals_service import build_comment_tree, get_meals_list, get_meals_count, update_meal_process, validate_meal_calendar_view_hash
 from app.services.categories_codes_service import get_category_code_by_id, get_category_list, insert_category_process, update_category_process, get_category_by_type_and_sort
+from app.services.meals_comments_service import get_comment_list_by_user_meal_id
 
 from app.serializer.meals_serialize import meal_serialize
 
@@ -372,10 +373,8 @@ def meal_list(db, params: MealListRequest) -> CommonResponse:
         search_params = params.model_dump(exclude_none=True)
 
         total = get_meals_count(db, search_params)
-        meal_result = get_meals_list(db, search_params, include=["category", "user"])
+        meal_result = get_meals_list(db, search_params, include=["category", "user", "image"])
         meal_list = [meal_serialize(row) for row in meal_result]
-
-        print("⭕⭕⭕, meal_list", meal_list)
 
         data = MealListResponse(
             offset=params.offset,
@@ -393,15 +392,25 @@ def meal_detail(db, meal_hash: str) -> CommonResponse:
     """
     식단 상세 조회 서비스 함수
     """
-
+    print("⭕⭕ meal_hash", meal_hash)
     try:
-        meal_result = get_meals_list(db, {"meal_hash": meal_hash}, include=["category", "user"])
+        meal_result = get_meals_list(db, {"view_hash": meal_hash}, include=["category", "user", "image"])
         if not meal_result:
             raise ValueError("유효하지 않은 식단입니다.")
 
-        meal = meal_result[0]
-        data = meal_serialize(meal)
+        print("⭕⭕ meal_result", len(meal_result))
 
+        meal = meal_result[0]
+
+        print("⭕⭕", meal.id)
+
+        comments = get_comment_list_by_user_meal_id(db, {"meal_id": meal.id}, extra ={})
+        build_comments = build_comment_tree(comments)
+
+        data = {
+            "meal": meal_serialize(meal),
+            "comments": build_comments
+        }
         return CommonResponse(success=True, message="식단 상세 조회 성공", data=data)
 
     except ValueError as e:

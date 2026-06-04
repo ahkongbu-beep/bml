@@ -22,7 +22,12 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
     EXCLUDE_PREFIXES = (
         "/advertisers/add",
         "/advertisers/",
+        "/auth/naver/callback",
+        "/auth/naver/",
+        "/auth/exchange"
     )
+
+    print("⭕⭕ JWTAuthMiddleware initialized with exclude paths:", EXCLUDE_PATHS)
 
     async def dispatch(self, request: Request, call_next):
         path = request.url.path
@@ -52,9 +57,15 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
             else:
                 # 토큰이 유효하지 않으면 None으로 설정
                 request.state.user_hash = None
+                request.state.user_id = None
+                request.state.email = None
+                request.state.nickname = None
         else:
             # Authorization 헤더가 없으면 None으로 설정
             request.state.user_hash = None
+            request.state.user_id = None
+            request.state.email = None
+            request.state.nickname = None
 
         response = await call_next(request)
         return response

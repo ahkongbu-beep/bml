@@ -2,6 +2,7 @@ from app.repository.passwords_resets_tokens_repository import PasswordResetToken
 from app.core.config import settings
 from sqlalchemy import func
 from datetime import datetime
+
 def validate_use_password_reset(db, user_id: int):
     reset_count = PasswordResetTokenRepository.get_password_reset_count_by_id(db, user_id)
     if reset_count >= settings.PASSWORD_RESET_DAILY_LIMIT:

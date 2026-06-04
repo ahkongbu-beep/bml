@@ -18,3 +18,9 @@ services:
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
     restart: always
+
+  redis:
+    image: redis:7
+    container_name: bml_redis_dev
+    ports:
+      - "6379:6379"

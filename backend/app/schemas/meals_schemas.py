@@ -152,9 +152,11 @@ class MealItem(BaseModel):
     username: Optional[str] = None
     user_hash: Optional[str] = None
     profile_image: Optional[str] = None
+    is_published: Optional[str] = None
     input_date: Optional[str] = None
     meal_stage: Optional[int] = None
     meal_stage_detail: Optional[str] = None
+    image_url: Optional[List[str]] = None
     contents: Optional[str] = None
     month: Optional[str] = None
     meal_condition: Optional[str] = None
