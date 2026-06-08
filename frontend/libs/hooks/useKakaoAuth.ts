@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { login as kakaoLogin, KakaoOAuthToken } from '@react-native-seoul/kakao-login';
+import KakaoLoginModule, { login as kakaoLogin, KakaoOAuthToken } from '@react-native-seoul/kakao-login';
 
 interface UseKakaoAuthReturn {
   promptAsync: () => Promise<void>;
@@ -17,6 +17,10 @@ export const useKakaoAuth = (
     try {
       setIsLoading(true);
       setError(null);
+
+      console.log('[Kakao] NativeModule 상태:', KakaoLoginModule);
+      console.log('[Kakao] login 함수 상태:', typeof kakaoLogin);
+      console.log('[Kakao] KAKAO_NATIVE_APP_KEY:', process.env.EXPO_PUBLIC_KAKAO_NATIVE_APP_KEY);
 
       const token: KakaoOAuthToken = await kakaoLogin();
 

@@ -15,7 +15,8 @@
         "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": "404204939819-ffm7mfhrn45npct70sav27iekp0j3r75.apps.googleusercontent.com",
         "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "404204939819-75t03ftkcbrd44m2hfh5spg4agb5nsi6.apps.googleusercontent.com",
         "EXPO_PUBLIC_NAVER_CLIENT_ID": "o9FHFkZzPNHTSWJRrc_Y",
-        "EXPO_PUBLIC_NAVER_CLIENT_SECRET": "2h7JiqGOst"
+        "EXPO_PUBLIC_NAVER_CLIENT_SECRET": "2h7JiqGOst",
+        "EXPO_PUBLIC_KAKAO_NATIVE_APP_KEY": "00be5758c4f1badc3e15ef81ac9d1100"
       }
     },
     "preview": {
@@ -34,7 +35,8 @@
         "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": "404204939819-ffm7mfhrn45npct70sav27iekp0j3r75.apps.googleusercontent.com",
         "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "404204939819-75t03ftkcbrd44m2hfh5spg4agb5nsi6.apps.googleusercontent.com",
         "EXPO_PUBLIC_NAVER_CLIENT_ID": "o9FHFkZzPNHTSWJRrc_Y",
-        "EXPO_PUBLIC_NAVER_CLIENT_SECRET": "2h7JiqGOst"
+        "EXPO_PUBLIC_NAVER_CLIENT_SECRET": "2h7JiqGOst",
+        "EXPO_PUBLIC_KAKAO_NATIVE_APP_KEY": "00be5758c4f1badc3e15ef81ac9d1100"
       }
     },
     "production": {
@@ -50,7 +52,8 @@
         "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID":"404204939819-ffm7mfhrn45npct70sav27iekp0j3r75.apps.googleusercontent.com",
         "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID":"404204939819-75t03ftkcbrd44m2hfh5spg4agb5nsi6.apps.googleusercontent.com",
         "EXPO_PUBLIC_NAVER_CLIENT_ID": "o9FHFkZzPNHTSWJRrc_Y",
-        "EXPO_PUBLIC_NAVER_CLIENT_SECRET": "2h7JiqGOst"
+        "EXPO_PUBLIC_NAVER_CLIENT_SECRET": "2h7JiqGOst",
+        "EXPO_PUBLIC_KAKAO_NATIVE_APP_KEY": "00be5758c4f1badc3e15ef81ac9d1100"
       }
     }
   },

@@ -2,11 +2,6 @@ import { useState } from 'react';
 import NaverLogin, { NaverLoginResponse } from '@react-native-seoul/naver-login';
 import { NativeModules } from 'react-native';
 
-console.log('[NaverDebug] NaverLogin default export:', NaverLogin);
-console.log('[NaverDebug] NaverLogin.initialize:', NaverLogin?.initialize);
-console.log('[NaverDebug] NaverLogin.login:', NaverLogin?.login);
-console.log('[NaverDebug] NativeModules.RNNaverLogin:', NativeModules.RNNaverLogin);
-
 interface UseNaverAuthReturn {
   promptAsync: () => Promise<void>;
   isLoading: boolean;

@@ -72,7 +72,6 @@
     "plugins": [
       "expo-web-browser",
       "@react-native-google-signin/google-signin",
-
       [
           "@react-native-seoul/naver-login",
           {

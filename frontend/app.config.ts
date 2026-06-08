@@ -16,7 +16,7 @@ export default (): ExpoConfig => {
     plugins: [
       ...(baseConfig.plugins || []),
       ...(kakaoAppKey
-        ? [['@react-native-seoul/kakao-login', { kakaoAppKey }]]
+        ? [['@react-native-seoul/kakao-login', { kakaoAppKey, kotlinVersion: '2.1.0', android: { authCodeHandlerActivity: true } }]]
         : []),
     ],
   };

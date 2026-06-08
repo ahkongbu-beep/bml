@@ -52,13 +52,6 @@ export default function LoginScreen({ navigation }: any) {
     }
   );
 
-  // Naver 백엔드 callback URI 확인
-  React.useEffect(() => {
-    const apiUrl = process.env.EXPO_PUBLIC_API_URL || '';
-    console.log('[Naver] 백엔드 Callback URI:', `${apiUrl}/auth/naver/callback`);
-    console.log('[Naver] Client ID:', process.env.EXPO_PUBLIC_NAVER_CLIENT_ID);
-  }, []);
-
   // 네이버 로그인 핸들러
   const handleNaverLogin = async () => {
     try {
