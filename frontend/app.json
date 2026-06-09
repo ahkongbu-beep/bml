@@ -74,6 +74,18 @@
       "expo-web-browser",
       "@react-native-google-signin/google-signin",
       [
+          "expo-build-properties",
+          {
+              "ios": {
+                  "useFrameworks": "static",
+                  "podfileProperties": {
+                  "ios.deploymentTarget": "15.1",
+                    "useModularHeaders": true
+                  }
+              }
+          }
+      ],
+      [
           "@react-native-seoul/naver-login",
           {
             "urlScheme": "com.bml.app"
@@ -81,9 +93,13 @@
       ],
       "./plugins/withNaverLoginAndroid",
       "./plugins/withKakaoMavenRepo",
-
       [
-          "@react-native-firebase/app"
+          "@react-native-firebase/app",
+          {
+            "ios": {
+              "googleServicesFile": "./GoogleService-Info.plist"
+            }
+          }
       ],
       "@react-native-firebase/messaging"
     ]
