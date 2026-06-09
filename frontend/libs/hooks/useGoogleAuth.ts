@@ -6,6 +6,7 @@ import { User } from '../types/UserType';
 interface GoogleAuthConfig {
   androidClientId: string;
   webClientId: string;
+  iosClientId?: string;
 }
 
 interface UseGoogleAuthReturn {
@@ -26,9 +27,9 @@ export const useGoogleAuth = (
     GoogleSignin.configure({
       webClientId: config.webClientId, // ID 토큰 발급용
       offlineAccess: true, // refresh token 발급을 위해 필요
-      iosClientId: config.webClientId, // iOS용 (선택)
+      iosClientId: config.iosClientId || config.webClientId, // iOS용
     });
-  }, [config.webClientId]);
+  }, [config.webClientId, config.iosClientId]);
 
   const handlePromptAsync = async () => {
     if (!config.webClientId) {

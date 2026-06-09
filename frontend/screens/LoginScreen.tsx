@@ -104,6 +104,7 @@ export default function LoginScreen({ navigation }: any) {
   const googleConfig = {
     androidClientId: androidId || '',
     webClientId: webId || '',
+    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '',
   };
 
   // 구글 로그인 훅 - Client ID가 없어도 안전하게 동작
