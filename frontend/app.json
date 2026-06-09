@@ -77,15 +77,11 @@
           "expo-build-properties",
           {
             "ios": {
-              "useFrameworks": "static",
-              "deploymentTarget": "15.1",
-              "podfileProperties": {
-                "use_modular_headers": true,
-                "ios.deploymentTarget": "15.1"
-              }
+              "deploymentTarget": "15.1"
             }
           }
       ],
+      "./plugins/withNonModularHeaders",
       [
           "@react-native-seoul/naver-login",
           {
