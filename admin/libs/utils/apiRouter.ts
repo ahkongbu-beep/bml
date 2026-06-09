@@ -1,12 +1,7 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ||
   (process.env.NODE_ENV === 'production'
-<<<<<<< Updated upstream
     ? process.env.BACKEND_URL || 'https://bml.co.kr'
     : 'https://dev.bml.co.kr'); // 개발 모드 API 주소
-=======
-    ? process.env.BACKEND_URL || 'https://dev.bml.co.kr' // 프로덕션 모드 API 주소
-    : 'http://localhost:8000'); // 개발 모드 API 주소
->>>>>>> Stashed changes
 
 export const FRONTEND_ROUTES = {
   NOTICES : () => `/api/notices`,
@@ -17,6 +12,9 @@ export const FRONTEND_ROUTES = {
   FEEDS: () => `/api/feeds`,
   SUMMARY: () => `/api/summaries`,
   DASHBOARD: () => `/api/dashboard`,
+  INGREDIENTS: () => `/api/ingredients`,
+  ALLERGIES: () => `/api/allergies`,
+  ORG_INGREDIENTS: () => `/api/org-ingredients`,
 }
 
 export const BACKEND_ROUTES = {
@@ -28,4 +26,7 @@ export const BACKEND_ROUTES = {
   FEEDS: () => `${API_BASE}/admin/meals`,
   SUMMARY: () => `${API_BASE}/summaries`,
   DASHBOARD: () => `${API_BASE}/admin/dashboard`,
+  INGREDIENTS: () => `${API_BASE}/admin/ingredients`,
+  ALLERGIES: () => `${API_BASE}/admin/allergies`,
+  ORG_INGREDIENTS: () => `${API_BASE}/admin/org_ingredients`,
 }

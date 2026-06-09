@@ -55,7 +55,6 @@ export function useFeed() {
         throw new Error(response.error || '피드 조회 실패');
       }
       const newFeeds = response.data || [];
-      console.log("newFeeds", newFeeds);
 
       if (reset) {
         setFeeds(newFeeds);
@@ -66,7 +65,7 @@ export function useFeed() {
       }
 
       setHasMore(newFeeds.length === LIMIT);
-
+        console.log(JSON.stringify(response, null, 2)); // --- IGNORE ---
       return response;
     } catch (err) {
       setError(err instanceof Error ? err.message : "피드 조회 실패했습니다");
@@ -76,11 +75,11 @@ export function useFeed() {
     }
   };
 
-  const fetchFeedDetail = async (feedId: number) => {
+  const fetchFeedDetail = async (mealHash: string) => {
     try {
       setLoading(true);
       setError(null);
-      const response = await apiCall(`${FRONTEND_ROUTES.FEEDS()}/${feedId}`, 'GET');
+      const response = await apiCall(`${FRONTEND_ROUTES.FEEDS()}/${mealHash}`, 'GET');
 
       if (!response.success) {
         throw new Error(response.error || '피드 조회 실패');

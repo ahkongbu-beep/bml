@@ -22,7 +22,17 @@ export interface FeedComment {
 }
 
 export interface FeedDetail extends Feed {
+  image_url?: string[];
   comments?: FeedComment[];
+  nickname?: string;
+  profile_image?: string;
+  category_code?: string;
+  category_name?: string;
+  input_date?: string;
+  meal_stage?: number;
+  meal_stage_detail?: string;
+  meal_condition?: string;
+  is_active?: string;
 }
 
 export interface Feed {
@@ -32,7 +42,7 @@ export interface Feed {
   user_profile?: string;
   title: string;
   content: string;
-  image_url?: string;
+  image_url?: string | string[];
   is_published: 'Y' | 'N';
   is_public?: 'Y' | 'N';
   view_count: number;
@@ -45,6 +55,7 @@ export interface Feed {
   is_bookmarked?: boolean;
   user_hash?: string | null;
   user?: FeedUser;
+  view_hash: string;
 }
 
 export interface FeedCreateRequest {

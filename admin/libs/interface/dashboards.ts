@@ -1,3 +1,13 @@
+export interface GenderCount {
+  gender: string;
+  count: number;
+}
+
+export interface AgeCount {
+  age_group: string;
+  count: number;
+}
+
 export interface DashboardStats {
   last_regist_feed_time: string;       // 최근 피드 생성 시간
   last_regist_user_time: string; // 최근 회원 가입 시간
@@ -5,4 +15,6 @@ export interface DashboardStats {
   total_feeds: number;
   total_users: number;
   total_hotdeals: number;
+  gender_count: GenderCount[];
+  age_count: AgeCount[];
 }

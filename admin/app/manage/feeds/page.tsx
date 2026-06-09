@@ -3,10 +3,10 @@ import React, { useState, useEffect } from "react";
 import { useFeed } from "@/hooks/useFeed";
 import Image from "next/image";
 import Link from "next/link";
+import { getStaticImage } from "@/libs/utils/common";
 
 export default function FeedListPage() {
   const { feeds, loading, error, fetchFeeds } = useFeed();
-  console.log(JSON.stringify(feeds, null, 2));
 
   // 검색 상태
   const [searchTitle, setSearchTitle] = useState("");
@@ -36,7 +36,7 @@ export default function FeedListPage() {
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchTitle, searchNickname, startDate, endDate, sortBy]);
-
+    console.log("feeds", feeds); // --- IGNORE ---
   return (
     <div className="space-y-6">
       {/* 페이지 헤더 */}
@@ -157,11 +157,11 @@ export default function FeedListPage() {
                     </td>
                     <td className="px-4 md:px-6 py-4 whitespace-nowrap">
                       {feed.images && feed.images.length > 0 && feed.images[0] &&
-                       (feed.images[0].startsWith('http://') || feed.images[0].startsWith('https://')) ? (
-                        <Link href={`/manage/feeds/${feed.id}`}>
+                       (feed.images[0]) ? (
+                        <Link href={`/manage/feeds/${feed.view_hash}`}>
                           <div className="relative w-16 h-16 rounded-lg overflow-hidden cursor-pointer hover:opacity-80 transition-opacity">
                             <Image
-                              src={feed.images[0]}
+                              src={getStaticImage('thumbnail', feed.images[0])}
                               alt={feed.title}
                               fill
                               sizes="64px"
@@ -177,7 +177,7 @@ export default function FeedListPage() {
                       )}
                     </td>
                     <td className="px-4 md:px-6 py-4 text-sm text-white">
-                      <Link href={`/manage/feeds/${feed.id}`} className="hover:text-indigo-400 transition-colors">
+                      <Link href={`/manage/feeds/${feed.view_hash}`} className="hover:text-indigo-400 transition-colors">
                         <div className="font-medium truncate max-w-xs">{feed.title}</div>
                         <div className="text-xs text-gray-400 mt-1 truncate max-w-xs">{feed.content}</div>
                       </Link>

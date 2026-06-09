@@ -8,7 +8,9 @@ import {
   UserListResponse,
   UserActionResponse,
   UserUpdateStatusParams,
-  UserResetPasswordParams
+  UserResetPasswordParams,
+  GenderCount,
+  AgeCount
 } from '@/libs/interface/users';
 
 import { apiCall } from "@/libs/utils/apiHelper"
@@ -20,6 +22,8 @@ export const useUsers = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [genderCount, setGenderCount] = useState<GenderCount[]>([]);
+  const [ageCount, setAgeCount] = useState<AgeCount[]>([]);
 
   // 회원 목록 조회 (검색 포함)
   const fetchUsers = async (params: UserSearchParams = {}) => {
@@ -56,6 +60,8 @@ export const useUsers = () => {
         setTotal(total);
         setCurrentPage(page);
         setTotalPages(totalPages);
+        setGenderCount(result.data.gender_count || []);
+        setAgeCount(result.data.age_count || []);
         return result;
       } else {
         throw new Error(result.error || '회원 목록을 불러오는데 실패했습니다.');
@@ -113,6 +119,8 @@ export const useUsers = () => {
     currentPage,
     totalPages,
     loading,
+    genderCount,
+    ageCount,
     fetchUsers,
     updateUserStatus,
     resetPassword,

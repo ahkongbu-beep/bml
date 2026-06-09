@@ -48,6 +48,16 @@ export interface UserResetPasswordParams {
   view_hash: string;
 }
 
+export interface GenderCount {
+  gender: string;
+  count: number;
+}
+
+export interface AgeCount {
+  age_group: string;
+  count: number;
+}
+
 export interface UserListResponse {
   success: boolean;
   message?: string;
@@ -60,6 +70,8 @@ export interface UserListResponse {
     offset?: number;
     limit: number;
     total_pages?: number;
+    gender_count?: GenderCount[];
+    age_count?: AgeCount[];
   };
 }
 

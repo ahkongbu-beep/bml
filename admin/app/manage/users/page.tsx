@@ -8,7 +8,7 @@ import Pager from '@/components/pager';
 import UserDetailModal from '@/components/manage/modals/UserDetailModal';
 
 export default function UsersManagePage() {
-  const { users, total, currentPage, totalPages, loading, fetchUsers, updateUserStatus, resetPassword } = useUsers();
+  const { users, total, currentPage, totalPages, loading, genderCount, ageCount, fetchUsers, updateUserStatus, resetPassword } = useUsers();
   const userList = Array.isArray(users) ? users : [];
 
   const [searchParams, setSearchParams] = useState<UserSearchParams>({
@@ -192,6 +192,67 @@ export default function UsersManagePage() {
             </button>
           </div>
         </form>
+      </div>
+
+      {/* 성별 & 연령 통계 */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* 성별 통계 */}
+        <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800">
+          <h3 className="text-lg font-bold text-white mb-4">성별 통계</h3>
+          <div className="space-y-3">
+            {genderCount.map((item) => {
+              const label = item.gender === "M" ? "남아" : item.gender === "W" ? "여아" : item.gender
+              const genderTotal = genderCount.reduce((sum, g) => sum + g.count, 0)
+              const percent = genderTotal > 0 ? Math.round((item.count / genderTotal) * 100) : 0
+              return (
+                <div key={item.gender} className="flex items-center space-x-4">
+                  <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-indigo-600/20 flex-shrink-0">
+                    <span className="text-lg">{item.gender === "M" ? "👦" : "👧"}</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm font-medium text-white">{label}</span>
+                      <span className="text-sm text-gray-400">{item.count}명 ({percent}%)</span>
+                    </div>
+                    <div className="w-full h-2 bg-gray-800 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full ${item.gender === "M" ? "bg-blue-500" : "bg-pink-500"}`}
+                        style={{ width: `${percent}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* 연령 통계 */}
+        <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800">
+          <h3 className="text-lg font-bold text-white mb-4">연령 분포</h3>
+          <div className="space-y-3">
+            {ageCount.map((item) => {
+              const maxCount = Math.max(...ageCount.map(a => a.count), 1)
+              const percent = maxCount > 0 ? Math.round((item.count / maxCount) * 100) : 0
+              return (
+                <div key={item.age_group} className="flex items-center space-x-4">
+                  <span className="text-sm text-gray-400 w-28 flex-shrink-0">{item.age_group}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="w-full h-6 bg-gray-800 rounded-lg overflow-hidden relative">
+                      <div
+                        className="h-full bg-indigo-500/60 rounded-lg"
+                        style={{ width: `${percent}%` }}
+                      />
+                      <span className="absolute inset-0 flex items-center justify-end pr-2 text-xs text-gray-300">
+                        {item.count}명
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
       </div>
 
       {/* 회원 목록 */}

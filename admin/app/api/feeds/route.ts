@@ -17,6 +17,7 @@ type RawMealItem = {
   like_count?: number;
   created_at?: string;
   updated_at?: string;
+  view_hash?: string;
   user?: {
     nickname?: string;
     profile_image?: string;
@@ -46,6 +47,7 @@ function normalizeMealToFeed(item: RawMealItem) {
     like_count: item.like_count ?? 0,
     created_at: item.created_at ?? "",
     updated_at: item.updated_at ?? "",
+    view_hash: item.view_hash ?? "",
     user: {
       nickname: item.user?.nickname ?? item.nickname ?? "",
       profile_image: item.user?.profile_image ?? item.profile_image ?? "",
