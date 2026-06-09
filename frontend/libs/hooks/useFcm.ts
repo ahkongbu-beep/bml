@@ -15,6 +15,9 @@ export const useFcmRegister = (isAuthenticated: boolean) => {
 
     const register = async () => {
       try {
+        // 로그인 직후 토큰 저장이 완료될 때까지 약간 대기
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
         // 권한 요청 (iOS)
         const m = getMessaging();
         const authStatus = await requestPermission(m);
@@ -29,7 +32,24 @@ export const useFcmRegister = (isAuthenticated: boolean) => {
 
         tokenRef.current = token;
         const platform = Platform.OS === 'ios' ? 'ios' : 'android';
-        await registerFcmToken(token, platform);
+
+        // 재시도 로직 (최초 가입 시 백엔드 준비가 안 될 수 있음)
+        let retries = 3;
+        while (retries > 0) {
+          try {
+            await registerFcmToken(token, platform);
+            console.log('[FCM] 토큰 등록 성공');
+            break;
+          } catch (e: any) {
+            retries--;
+            if (retries > 0) {
+              console.warn(`[FCM] 토큰 등록 재시도 (${3 - retries}/3)`, e?.message);
+              await new Promise(resolve => setTimeout(resolve, 2000));
+            } else {
+              throw e;
+            }
+          }
+        }
 
         // 토큰 갱신 시 재등록
         const unsubscribeRefresh = onTokenRefresh(m, async (newToken) => {

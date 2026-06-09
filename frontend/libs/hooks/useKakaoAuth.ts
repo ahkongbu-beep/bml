@@ -8,7 +8,7 @@ interface UseKakaoAuthReturn {
 }
 
 export const useKakaoAuth = (
-  onSuccess?: (accessToken: string) => Promise<{ success: boolean; message?: string }>
+  onSuccess?: (accessToken: string, refreshToken: string) => Promise<{ success: boolean; message?: string }>
 ): UseKakaoAuthReturn => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -18,10 +18,6 @@ export const useKakaoAuth = (
       setIsLoading(true);
       setError(null);
 
-      console.log('[Kakao] NativeModule 상태:', KakaoLoginModule);
-      console.log('[Kakao] login 함수 상태:', typeof kakaoLogin);
-      console.log('[Kakao] KAKAO_NATIVE_APP_KEY:', process.env.EXPO_PUBLIC_KAKAO_NATIVE_APP_KEY);
-
       const token: KakaoOAuthToken = await kakaoLogin();
 
       if (!token.accessToken) {
@@ -29,14 +25,13 @@ export const useKakaoAuth = (
       }
 
       if (onSuccess) {
-        const res = await onSuccess(token.accessToken);
+        const res = await onSuccess(token.accessToken, token.refreshToken);
         if (!res.success) {
           throw new Error(res.message || '로그인 처리에 실패했습니다.');
         }
       }
     } catch (err: any) {
       // 사용자 취소는 무시
-        console.log('Kakao login error:', err);
       if (err?.message?.includes('cancelled') || err?.message?.includes('cancel')) {
         return;
       }

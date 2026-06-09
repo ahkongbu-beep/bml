@@ -110,10 +110,10 @@ export default function PrivacyPolicyScreen({ navigation, route }: any) {
 			<View style={styles.container}>
 				<Header
 					title="개인정보처리방침"
-					leftButton={{
-						icon: 'arrow-back',
-						onPress: () => navigation.goBack(),
-					}}
+					// leftButton={{
+					// 	icon: 'arrow-back',
+					// 	// onPress: () => navigation.goBack(),
+					// }}
 				/>
 
 				<ScrollView

@@ -107,9 +107,9 @@ export default function StepTwo({
       const updated = currentChild.allergies.filter(a => a.allergy_code !== allergyCode);
       updateCurrentChild({ allergies: updated });
     } else {
-      // 선택되지 않은 경우 추가 (최대 5개)
-      if (currentChild.allergies.length >= 5) {
-        Alert.alert('알림', '알레르기는 최대 5개까지 선택 가능합니다.');
+      // 선택되지 않은 경우 추가 (최대 3개)
+      if (currentChild.allergies.length >= 3) {
+        Alert.alert('알림', '알레르기는 최대 3개까지 선택 가능합니다.');
         return;
       }
 
@@ -124,37 +124,6 @@ export default function StepTwo({
 
   const isAllergySelected = (allergyCode: string) => {
     return currentChild.allergies.some(a => a.allergy_code === allergyCode);
-  };
-
-  // 알레르기 이모지 매핑
-  const getAllergyEmoji = (allergyName: string) => {
-    const emojiMap: { [key: string]: string } = {
-      '우유': '🥛',
-      '달걀': '🥚',
-      '계란': '🥚',
-      '땅콩': '🥜',
-      '게': '🦀',
-      '새우': '🦐',
-      '생선류': '🐟',
-      '고등어': '🐟',
-      '조개': '🦪',
-      '밀': '🌾',
-      '밀가루': '🌾',
-      '메밀': '🌾',
-      '대두(콩)': '🫘',
-      '견과류': '🫘',
-      '과일류': '🍑',
-      '토마토': '🍅',
-      '돼지고기': '🥓',
-      '소고기': '🥩',
-      '닭고기': '🍗',
-      '오징어': '🦑',
-      '고추': '🌶️',
-      '브로콜리': '🥦',
-      '당근': '🥕',
-      '옥수수': '🌽',
-    };
-    return emojiMap[allergyName] || '🍽️';
   };
 
   const canProceed = () => {
@@ -315,7 +284,7 @@ export default function StepTwo({
               ]}
               onPress={() => toggleAllergy(allergy.food_code, allergy.food_name)}
             >
-              <Text style={styles.allergyEmoji}>{getAllergyEmoji(allergy.food_name)}</Text>
+              <Text style={styles.allergyEmoji}>{allergy.icon || '🍽️'}</Text>
               <Text
                 style={[
                   styles.allergyButtonText,

@@ -27,6 +27,7 @@ export const googleLogin = async (data: GoogleLoginRequest): Promise<LoginRespon
  */
 export interface NaverLoginRequest {
   accessToken: string;
+  refreshToken?: string;
 }
 
 export const naverLogin = async (data: NaverLoginRequest): Promise<LoginResponse> => {
@@ -38,6 +39,7 @@ export const naverLogin = async (data: NaverLoginRequest): Promise<LoginResponse
  */
 export interface KakaoLoginRequest {
   accessToken: string;
+  refreshToken?: string;
 }
 
 export const kakaoLogin = async (data: KakaoLoginRequest): Promise<LoginResponse> => {

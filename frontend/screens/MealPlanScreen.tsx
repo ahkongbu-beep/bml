@@ -55,7 +55,7 @@ export default function MealPlanScreen({ navigation }: any) {
   const deleteMealMutation = useDeleteMeal();
   const uploadMonthImageMutation = useUploadCalendarMonthImage();
   const { user } = useAuth();
-  const hasMultipleChildren = (user.user_childs?.length ?? 0) > 1;
+  const hasMultipleChildren = (user?.user_childs?.length ?? 0) > 1;
 
   const { data: mealsCalendar, isLoading: mealsLoading, refetch } = useMeals({ month: currentMonth, child_id: selectedChildId });
   const { data: monthImage, isLoading: monthImageLoading, isFetching: monthImageFetching, refetch: refetchMonthImage } = useMonthImage(currentMonth);
@@ -262,7 +262,7 @@ export default function MealPlanScreen({ navigation }: any) {
   };
 
   useEffect(() => {
-    const childs = user.user_childs ?? [];
+    const childs = user?.user_childs ?? [];
     if (childs.length === 0) {
       setSelectedChildId(null);
       return;
@@ -271,7 +271,7 @@ export default function MealPlanScreen({ navigation }: any) {
     if (selectedChildId === null || !childs.some((child) => child.id === selectedChildId)) {
       setSelectedChildId(childs[0].id);
     }
-  }, [user.user_childs, selectedChildId]);
+  }, [user?.user_childs, selectedChildId]);
 
   // 화면 포커스 시 자동 새로고침 (식단 등록/수정 후 복귀 포함)
   useFocusEffect(
@@ -371,7 +371,7 @@ export default function MealPlanScreen({ navigation }: any) {
               <View style={styles.childSelector}>
                 <Text style={styles.childSelectorLabel}>자녀 선택</Text>
                 <View style={styles.childSelectorOptions}>
-                  {user.user_childs?.map((child) => (
+                  {user?.user_childs?.map((child) => (
                     <TouchableOpacity
                       key={child.id}
                       style={[

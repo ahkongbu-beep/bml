@@ -208,6 +208,7 @@ export const fetchPost = async <T>(endpoint: string, data?: any): Promise<T> => 
     const url = `${API_BASE_URL}${endpoint}`;
 
     console.log("POST Request URL:", url);
+    console.log("POST Request Headers:", headers);
     console.log("POST Request Body:", JSON.stringify(data, null, 2));
 
     const response = await fetch(url, {

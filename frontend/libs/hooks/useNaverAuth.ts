@@ -9,7 +9,7 @@ interface UseNaverAuthReturn {
 }
 
 export const useNaverAuth = (
-  onSuccess?: (accessToken: string) => Promise<{ success: boolean; message?: string }>
+  onSuccess?: (accessToken: string, refreshToken: string) => Promise<{ success: boolean; message?: string }>
 ): UseNaverAuthReturn => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,18 +43,19 @@ export const useNaverAuth = (
         throw new Error(failureResponse.message || '네이버 로그인에 실패했습니다.');
       }
 
+      console.log("successResponse", successResponse);
+
       if (!successResponse?.accessToken) {
         throw new Error('액세스 토큰을 받지 못했습니다.');
       }
 
       if (onSuccess) {
-        const res = await onSuccess(successResponse.accessToken);
+        const res = await onSuccess(successResponse.accessToken, successResponse.refreshToken);
         if (!res.success) {
           throw new Error(res.message || '로그인 처리에 실패했습니다.');
         }
       }
     } catch (err: any) {
-      console.error('네이버 로그인 오류:', err);
       setError(err.message || '네이버 로그인 중 오류가 발생했습니다.');
     } finally {
       setIsLoading(false);

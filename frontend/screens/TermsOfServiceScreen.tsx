@@ -59,10 +59,10 @@ export default function TermsOfServiceScreen({ navigation, route }: any) {
 			<View style={styles.container}>
 				<Header
 					title="이용약관"
-					leftButton={{
-						icon: 'arrow-back',
-						onPress: () => navigation.goBack(),
-					}}
+					// leftButton={{
+					// 	icon: 'arrow-back',
+					// 	// onPress: () => navigation.goBack(),
+					// }}
 				/>
 
 				<ScrollView

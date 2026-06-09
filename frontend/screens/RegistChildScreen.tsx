@@ -127,7 +127,7 @@ export default function RegistChildScreen({ navigation, route }: any) {
       <Header
         title="자녀 정보 등록"
         showBack={true}
-        onBackPress={() => navigation.goBack()}
+        // onBackPress={() => navigation.goBack()}
       />
       {/* StepTwo 내부에 SafeArea/Keyboard 처리가 포함되어 있어 중복 래핑을 제거합니다. */}
       <StepTwo

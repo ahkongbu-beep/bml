@@ -45,9 +45,8 @@ export default function LoginScreen({ navigation }: any) {
 
   // 네이버 로그인 훅
   const { promptAsync: naverPromptAsync, isLoading: naverAuthLoading, error: naverError } = useNaverAuth(
-    async (accessToken) => {
-      console.log('[Naver] accessToken 수신, /auth/naver/login 호출');
-      await naverCallback(accessToken);
+    async (accessToken, refreshToken) => {
+      await naverCallback(accessToken, refreshToken);
       return { success: true };
     }
   );
@@ -63,9 +62,8 @@ export default function LoginScreen({ navigation }: any) {
 
   // 카카오 로그인 훅
   const { promptAsync: kakaoPromptAsync, isLoading: kakaoAuthLoading, error: kakaoError } = useKakaoAuth(
-    async (accessToken) => {
-      console.log('[Kakao] accessToken 수신, /auth/kakao 호출');
-      await kakaoCallback(accessToken);
+    async (accessToken, refreshToken) => {
+      await kakaoCallback(accessToken, refreshToken);
       return { success: true };
     }
   );

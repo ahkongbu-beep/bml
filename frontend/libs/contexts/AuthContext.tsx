@@ -37,8 +37,8 @@ interface AuthContextType {
   isLoading: boolean;
   login: (credentials: LoginRequest) => void;
   googleLogin: (data: GoogleLoginRequest) => void;
-  naverCallback: (tempCode: string) => Promise<void>;
-  kakaoCallback: (accessToken: string) => Promise<void>;
+  naverCallback: (accessToken: string, refreshToken?: string) => Promise<void>;
+  kakaoCallback: (accessToken: string, refreshToken?: string) => Promise<void>;
   logout: () => void;
   logoutLocal: () => Promise<void>;
   updateProfile: (data: UpdateProfileRequest) => void;
@@ -57,9 +57,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-
-  // FCM 토큰 등록/해제
-  const { unregister: unregisterFcm } = useFcmRegister(isAuthenticated);
 
   // 초기 로드 시 저장된 사용자 정보 확인 및 백엔드에서 최신 정보 가져오기
   useEffect(() => {
@@ -131,7 +128,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             } catch (profileError: any) {
               // 401 에러면 토큰 만료로 간주하고 로그아웃
               if (profileError?.status === 401) {
-                console.log('인증 실패. 로그아웃 처리합니다.');
                 await clearStorage();
                 setUser(null);
                 setIsAuthenticated(false);
@@ -196,8 +192,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
 
   // 네이버 SDK accessToken → 백엔드 JWT 교환
-  const naverCallback = async (accessToken: string) => {
-    const data = await naverLoginApi({ accessToken });
+  const naverCallback = async (accessToken: string, refreshToken?: string) => {
+    const data = await naverLoginApi({ accessToken, refreshToken });
     if (data.success && data.data) {
       const { user, token, refresh_token } = data.data;
       if (token && user) {
@@ -217,8 +213,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   // 카카오 SDK accessToken → 백엔드 JWT 교환
-  const kakaoCallback = async (accessToken: string) => {
-    const data = await kakaoLoginApi({ accessToken });
+  const kakaoCallback = async (accessToken: string, refreshToken?: string) => {
+    const data = await kakaoLoginApi({ accessToken, refreshToken });
     if (data.success && data.data) {
       const { user, token, refresh_token } = data.data;
       if (token && user) {
@@ -310,6 +306,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error('Failed to refresh user profile:', error);
     }
   };
+
+  // FCM 토큰 등록/해제
+  const { unregister: unregisterFcm } = useFcmRegister(isAuthenticated);
 
   const value = {
     user,
