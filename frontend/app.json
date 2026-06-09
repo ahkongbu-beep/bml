@@ -76,13 +76,14 @@
       [
           "expo-build-properties",
           {
-              "ios": {
-                  "useFrameworks": "static",
-                  "podfileProperties": {
-                  "ios.deploymentTarget": "15.1",
-                    "useModularHeaders": true
-                  }
+            "ios": {
+              "useFrameworks": "static",
+              "deploymentTarget": "15.1",
+              "podfileProperties": {
+                "use_modular_headers": true,
+                "ios.deploymentTarget": "15.1"
               }
+            }
           }
       ],
       [
