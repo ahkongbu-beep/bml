@@ -139,7 +139,6 @@ const handleResponse = async (response: Response, endpoint: string, retryFn?: ()
           return retryFn();
         } else {
           // Refresh token도 만료되었으므로 로그아웃
-          console.log('토큰 갱신 실패. 로그아웃 처리합니다.');
           isRefreshing = false;
           await clearStorage();
           throw new ApiError(status, errorData, errorData.message);

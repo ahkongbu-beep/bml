@@ -953,7 +953,6 @@ export default function MealRegistScreen({ route, navigation }: any) {
                     onPress={() => handleSelectIngredientAmount(option.value)}
                     activeOpacity={0.8}
                   >
-                    <Text style={styles.amountCircles}>{'●'.repeat(option.circles)}</Text>
                     <Text style={styles.amountButtonText}>{option.label}</Text>
                   </TouchableOpacity>
                 ))}

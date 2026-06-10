@@ -80,7 +80,6 @@ export const useFcmRegister = (isAuthenticated: boolean) => {
         await unregisterFcmToken(tokenRef.current);
         await deleteToken(getMessaging());
         tokenRef.current = null;
-        console.log('[FCM] 토큰 삭제 완료');
       }
     } catch (e) {
       console.warn('[FCM] 토큰 삭제 실패', e);

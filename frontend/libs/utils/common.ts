@@ -71,6 +71,9 @@ export const getStaticImage = (type: string, imagePath?: unknown): string => {
   const IS_DEV = process.env.EXPO_PUBLIC_STATIC_BASE_URL === 'https://dev.bml.co.kr';
   const STATIC_BASE_URL = process.env.EXPO_PUBLIC_STATIC_BASE_URL || (IS_DEV ? 'https://dev.bml.co.kr' : 'https://bml.co.kr');
 
+  if (normalizedPath.includes('.png')) {
+    return `${STATIC_BASE_URL}${normalizedPath}`;
+  }
   return `${STATIC_BASE_URL}${normalizedPath}_${type}.webp`;
 };
 

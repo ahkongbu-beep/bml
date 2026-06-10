@@ -1,11 +1,11 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   Modal,
   TouchableOpacity,
-  ScrollView,
+  FlatList,
   Image,
   Dimensions,
 } from 'react-native';
@@ -40,6 +40,14 @@ const MealDetailModal: React.FC<MealDetailModalProps> = ({
   onViewSource,
 }) => {
   const category = MEAL_CATEGORIES.find((c) => c.name === meal?.category_name);
+  const flatListRef = useRef<FlatList>(null);
+
+  useEffect(() => {
+    if (visible && flatListRef.current) {
+      flatListRef.current.scrollToOffset({ offset: 0, animated: false });
+    }
+  }, [visible, meal?.view_hash]);
+
   if (!meal) return null;
 
   // 식단 상태 매핑
@@ -55,11 +63,10 @@ const MealDetailModal: React.FC<MealDetailModalProps> = ({
     <Modal
       visible={visible}
       animationType="slide"
-      transparent={true}
+      transparent={false}
       onRequestClose={onClose}
     >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContainer}>
+      <View key={meal?.view_hash} style={styles.modalContainer}>
           {/* 헤더 */}
           <LinearGradient
             colors={[category?.color || '#FFE5E5', '#FFFFFF']}
@@ -80,10 +87,14 @@ const MealDetailModal: React.FC<MealDetailModalProps> = ({
           </LinearGradient>
 
           {/* 컨텐츠 */}
-          <ScrollView
-            style={styles.modalContent}
+          <FlatList
+            ref={flatListRef}
+            data={[meal]}
+            keyExtractor={() => meal.view_hash || 'detail'}
             showsVerticalScrollIndicator={false}
-          >
+            contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: 20 }}
+            renderItem={() => (
+              <>
             {/* 이미지 */}
             {meal.image_url && (
               <View style={styles.imageSection}>
@@ -238,8 +249,10 @@ const MealDetailModal: React.FC<MealDetailModalProps> = ({
               </View>
             )}
 
-            <View style={{ height: 100 }} />
-          </ScrollView>
+            <View style={{ height: 20 }} />
+              </>
+            )}
+          />
 
           {/* 하단 버튼 */}
           <View style={styles.modalFooter}>
@@ -271,7 +284,6 @@ const MealDetailModal: React.FC<MealDetailModalProps> = ({
               </TouchableOpacity>
             )}
           </View>
-        </View>
       </View>
     </Modal>
   );
@@ -284,15 +296,8 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContainer: {
+    flex: 1,
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    height: '90%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 10,
   },
   modalHeader: {
     paddingHorizontal: 20,

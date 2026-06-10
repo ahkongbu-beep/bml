@@ -15,7 +15,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Calendar } from 'react-native-calendars';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
+import { MEAL_STAGE } from '../libs/utils/codes/MealState';
 /* 상수 및 유틸리티 함수 정의 */
 import { Feed, FeedItemProps } from '../libs/types/FeedType';
 import { formatDate, diffMonthsFrom, getStaticImage } from '@/libs/utils/common';
@@ -174,6 +174,11 @@ const MealItem = React.memo(({
     }
   };
 
+  // 태그 스코어에 따른 정렬
+  const sortMapperTags = (tags: any[]) => {
+    return tags.sort((a, b) => parseFloat(b.mapper_score) - parseFloat(a.mapper_score));
+  }
+
   return (
     <View style={styles.feedContainer}>
       {/* 사용자 정보 */}
@@ -253,7 +258,15 @@ const MealItem = React.memo(({
       <View style={styles.contentContainer}>
         {/* 주 식재료 */}
         <View style={styles.tagsSection}>
-          {item.mapped_tags.length > 0 && item.mapped_tags.map((tag, idx) => {
+          {/* 주 식재료가 없는 경우 meal_stage_detail 을 넣어줌 */}
+          {item.mapped_tags && sortMapperTags(item.mapped_tags).length === 0 && (
+            <View style={[styles.tag, { backgroundColor: '#FFF5F0', borderColor: '#FFCDB2', borderStyle: 'dashed' }]}>
+              <Ionicons name="restaurant-outline" size={12} color="#E88B6A" />
+              <Text style={[styles.tagText, { color: '#E88B6A' }]}>{(MEAL_STAGE.find(stage => stage.id === item.meal_stage)?.items.find(detail => detail.id === item.meal_stage_detail)?.label || '기타').replace(/\n/g, ' ')}</Text>
+            </View>
+          )}
+
+          {sortMapperTags(item.mapped_tags).length > 0 && sortMapperTags(item.mapped_tags).map((tag, idx) => {
             const score = parseFloat(tag.mapper_score);
             const bgColor = getAmountColor(score);
             const borderColor = getBorderColor(score);
@@ -278,11 +291,7 @@ const MealItem = React.memo(({
           })}
         </View>
         <Text style={styles.content}>
-          {(item.contents || '').split('\n').map((line, index) => (
-            <Text key={index}>
-              {line}
-            </Text>
-          ))}
+          {(item.contents || '').replace(/\n+/g, ' ').trim()}
         </Text>
       </View>
 
@@ -383,7 +392,7 @@ const MealItem = React.memo(({
                       try {
                         await toggleScrap(item.view_hash);
                         setIsScrap(prev => !prev);
-                        toastSuccess(isScrap ? '스크랩이 해제되었어요.' : '스크랩에 저장되었어요!');
+                        toastSuccess(isScrap ? '스크랩에 저장되었어요!' : '스크랩이 해제되었어요.');
                       } catch {
                         toastError('스크랩 저장에 실패했어요.');
                       }
@@ -392,7 +401,7 @@ const MealItem = React.memo(({
                     <Ionicons name="bookmark-outline" size={22} color="#FF9AA2" />
                     <View style={styles.saveModalOptionText}>
                       <Text style={styles.saveModalOptionTitle}>스크랩 {isScrap ? '해제' : ''}</Text>
-                      <Text style={styles.saveModalOptionDesc}>내 스크랩 목록에 저장해요</Text>
+                      <Text style={styles.saveModalOptionDesc}>{isScrap ? '내 스크랩 목록에서 해제해요' : '내 스크랩 목록에 저장해요'}</Text>
                     </View>
                   </TouchableOpacity>
                 </View>

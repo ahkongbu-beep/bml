@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Dimensions,
   Image,
   Modal,
   PanResponder,
@@ -10,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Ionicons } from '@expo/vector-icons';
 import { toastError, toastInfo } from '@/libs/utils/toast';
@@ -54,6 +56,8 @@ export default function ImagePickerModal({ imageUri, onImageSelected, onImageRem
   const [cropImageRect, setCropImageRect] = useState<CropImageRect | null>(null);
   const [cropBox, setCropBox] = useState<CropBox>({ x: 0, y: 0, width: 0, height: 0 });
   const [isCropping, setIsCropping] = useState(false);
+  const [isRotating, setIsRotating] = useState(false);
+  const originalUriRef = useRef<string | null>(null);
 
   const cropDragStart = useRef({ x: 0, y: 0 });
   const cropLayoutInitializedRef = useRef(false);
@@ -107,8 +111,8 @@ export default function ImagePickerModal({ imageUri, onImageSelected, onImageRem
       height: renderedHeight,
     };
 
-    const maxCropWidth = renderedWidth * 0.9;
-    const maxCropHeight = renderedHeight * 0.9;
+    const maxCropWidth = renderedWidth;
+    const maxCropHeight = renderedHeight;
     const cropWidthByHeight = maxCropHeight * aspectRatio;
     const initialCropWidth = Math.min(maxCropWidth, cropWidthByHeight);
     const initialCropHeight = initialCropWidth / aspectRatio;
@@ -328,6 +332,72 @@ export default function ImagePickerModal({ imageUri, onImageSelected, onImageRem
     })
   ).current;
 
+  const handleRotate = async () => {
+    if (!cropSourceUri || !cropImageSize || isRotating) return;
+
+    try {
+      setIsRotating(true);
+
+      const result = await ImageManipulator.manipulateAsync(
+        cropSourceUri,
+        [{ rotate: 90 }],
+        { compress: 0.9, format: ImageManipulator.SaveFormat.JPEG }
+      );
+
+      const containerWidth = Dimensions.get('window').width - 64;
+      const containerHeight = Dimensions.get('window').height * 0.45;
+
+      const imageAspect = result.width / result.height;
+      const previewAspect = containerWidth / containerHeight;
+
+      let renderedWidth = containerWidth;
+      let renderedHeight = containerHeight;
+
+      if (imageAspect > previewAspect) {
+        renderedHeight = containerWidth / imageAspect;
+      } else {
+        renderedWidth = containerHeight * imageAspect;
+      }
+
+      const offsetX = (containerWidth - renderedWidth) / 2;
+      const offsetY = (containerHeight - renderedHeight) / 2;
+
+      const nextRect = {
+        x: offsetX,
+        y: offsetY,
+        width: renderedWidth,
+        height: renderedHeight,
+      };
+
+      const maxCropWidth = renderedWidth;
+      const maxCropHeight = renderedHeight;
+      const cropWidthByHeight = maxCropHeight * aspectRatio;
+      const initialCropWidth = Math.min(maxCropWidth, cropWidthByHeight);
+      const initialCropHeight = initialCropWidth / aspectRatio;
+
+      const nextBox = {
+        width: initialCropWidth,
+        height: initialCropHeight,
+        x: (renderedWidth - initialCropWidth) / 2,
+        y: (renderedHeight - initialCropHeight) / 2,
+      };
+
+      cropLayoutInitializedRef.current = true;
+
+      setCropSourceUri(result.uri);
+      setCropImageSize({ width: result.width, height: result.height });
+      setCropPreviewSize({ width: containerWidth, height: containerHeight });
+      setCropImageRect(nextRect);
+      setCropBox(nextBox);
+      cropBoxRef.current = nextBox;
+      cropImageRectRef.current = nextRect;
+    } catch {
+      toastError('이미지 회전에 실패했습니다.');
+    } finally {
+      setIsRotating(false);
+    }
+  };
+
   const resetCropState = () => {
     cropLayoutInitializedRef.current = false;
     cropPreviewLayoutLockedRef.current = false;
@@ -337,17 +407,23 @@ export default function ImagePickerModal({ imageUri, onImageSelected, onImageRem
     setCropPreviewSize(null);
     setCropImageRect(null);
     setCropBox({ x: 0, y: 0, width: 0, height: 0 });
+    originalUriRef.current = null;
   };
 
   const openCropModal = (sourceUri: string, imageWidth: number, imageHeight: number) => {
     cropLayoutInitializedRef.current = false;
     cropPreviewLayoutLockedRef.current = false;
     lastPreviewSizeRef.current = null;
+
+    const containerWidth = Dimensions.get('window').width - 64;
+    const containerHeight = Dimensions.get('window').height * 0.45;
+
     setCropSourceUri(sourceUri);
     setCropImageSize({ width: imageWidth, height: imageHeight });
-    setCropPreviewSize(null);
+    setCropPreviewSize({ width: containerWidth, height: containerHeight });
     setCropImageRect(null);
     setCropModalVisible(true);
+    originalUriRef.current = sourceUri;
   };
 
   const handlePickImage = async () => {
@@ -496,9 +572,9 @@ export default function ImagePickerModal({ imageUri, onImageSelected, onImageRem
             <Text style={styles.cropDescription}>모서리를 드래그해 크기를 조절하고, 가운데를 드래그해 위치를 이동하세요.</Text>
 
             <View
-              style={styles.cropPreviewArea}
+              style={[styles.cropPreviewWrapper, { height: Dimensions.get('window').height * 0.45 }]}
               onLayout={(event) => {
-                if (cropPreviewLayoutLockedRef.current) {
+                if (cropLayoutInitializedRef.current) {
                   return;
                 }
 
@@ -514,53 +590,56 @@ export default function ImagePickerModal({ imageUri, onImageSelected, onImageRem
                 }
 
                 lastPreviewSizeRef.current = { width, height };
-                cropPreviewLayoutLockedRef.current = true;
                 setCropPreviewSize({ width, height });
               }}
             >
-              {cropSourceUri ? (
-                <Image
-                  source={{ uri: cropSourceUri }}
-                  resizeMode="contain"
-                  style={styles.cropPreviewImage}
-                  onError={() => {
-                    setCropModalVisible(false);
-                    resetCropState();
-                    toastError('이미지 정보를 불러오지 못했습니다.');
-                  }}
-                />
-              ) : null}
+              <View style={styles.cropPreviewArea}>
+                {cropSourceUri ? (
+                  <Image
+                    source={{ uri: cropSourceUri }}
+                    resizeMode="contain"
+                    style={styles.cropPreviewImage}
+                    onError={() => {
+                      setCropModalVisible(false);
+                      resetCropState();
+                      toastError('이미지 정보를 불러오지 못했습니다.');
+                    }}
+                  />
+                ) : null}
+              </View>
 
               {cropImageRect && cropBox.width > 0 && cropBox.height > 0 ? (
-                <View
-                  style={[
-                    styles.cropBox,
-                    {
-                      left: cropImageRect.x + cropBox.x,
-                      top: cropImageRect.y + cropBox.y,
-                      width: cropBox.width,
-                      height: cropBox.height,
-                    },
-                  ]}
-                >
-                  <View style={styles.cropMoveArea} {...cropPanResponder.panHandlers}>
-                    <View style={styles.cropMoveBadge}>
+                <>
+                  {/* 드래그 오버레이: 전체 영역에서 터치를 받아 끊김 방지 */}
+                  <View
+                    style={StyleSheet.absoluteFill}
+                    {...cropPanResponder.panHandlers}
+                  />
+                  <View
+                    style={[
+                      styles.cropBox,
+                      {
+                        left: cropImageRect.x + cropBox.x,
+                        top: cropImageRect.y + cropBox.y,
+                        width: cropBox.width,
+                        height: cropBox.height,
+                      },
+                    ]}
+                    pointerEvents="box-none"
+                  >
+                    <View style={styles.cropMoveBadge} pointerEvents="none">
                       <Ionicons name="move" size={14} color="#FFFFFF" />
                     </View>
+                    <View style={[styles.cropHandle, styles.cropHandleTopLeft]} {...topLeftHandleResponder.panHandlers} />
+                    <View style={[styles.cropHandle, styles.cropHandleTopRight]} {...topRightHandleResponder.panHandlers} />
+                    <View style={[styles.cropHandle, styles.cropHandleBottomLeft]} {...bottomLeftHandleResponder.panHandlers} />
+                    <View style={[styles.cropHandle, styles.cropHandleBottomRight]} {...bottomRightHandleResponder.panHandlers} />
+                    <View style={[styles.cropCornerMark, styles.cropCornerTopLeft]} />
+                    <View style={[styles.cropCornerMark, styles.cropCornerTopRight]} />
+                    <View style={[styles.cropCornerMark, styles.cropCornerBottomLeft]} />
+                    <View style={[styles.cropCornerMark, styles.cropCornerBottomRight]} />
                   </View>
-                  <View style={[styles.cropHandle, styles.cropHandleTopLeft]} {...topLeftHandleResponder.panHandlers} />
-                  <View style={[styles.cropHandle, styles.cropHandleTopRight]} {...topRightHandleResponder.panHandlers} />
-                  <View style={[styles.cropHandle, styles.cropHandleBottomLeft]} {...bottomLeftHandleResponder.panHandlers} />
-                  <View style={[styles.cropHandle, styles.cropHandleBottomRight]} {...bottomRightHandleResponder.panHandlers} />
-                  <View style={[styles.cropCornerMark, styles.cropCornerTopLeft]} />
-                  <View style={[styles.cropCornerMark, styles.cropCornerTopRight]} />
-                  <View style={[styles.cropCornerMark, styles.cropCornerBottomLeft]} />
-                  <View style={[styles.cropCornerMark, styles.cropCornerBottomRight]} />
-                  {/* move hint */}
-                  <View style={styles.cropMoveHint} pointerEvents="none">
-                    <Ionicons name="move" size={14} color="#FFFFFF" />
-                  </View>
-                </View>
+                </>
               ) : null}
             </View>
 
@@ -572,6 +651,18 @@ export default function ImagePickerModal({ imageUri, onImageSelected, onImageRem
                 activeOpacity={0.8}
               >
                 <Text style={styles.cropCancelButtonText}>취소</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.rotateButton}
+                onPress={handleRotate}
+                disabled={isCropping || isRotating}
+                activeOpacity={0.8}
+              >
+                {isRotating ? (
+                  <ActivityIndicator size="small" color="#FF6B7A" />
+                ) : (
+                  <Ionicons name="refresh" size={18} color="#FF6B7A" />
+                )}
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.cropApplyButton}
@@ -665,10 +756,24 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#7A7A7A',
   },
-  cropPreviewArea: {
+  rotateButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FFD7DE',
+    backgroundColor: '#FFF8FA',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cropPreviewWrapper: {
     marginTop: 14,
     width: '100%',
     height: 360,
+    position: 'relative',
+  },
+  cropPreviewArea: {
+    ...StyleSheet.absoluteFillObject,
     borderRadius: 14,
     overflow: 'hidden',
     backgroundColor: '#F7F7F7',
@@ -682,6 +787,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#FFFFFF',
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    zIndex: 2,
   },
   cropMoveArea: {
     ...StyleSheet.absoluteFillObject,
@@ -689,6 +795,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cropMoveBadge: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    marginTop: -11,
+    marginLeft: -11,
     backgroundColor: 'rgba(0, 0, 0, 0.45)',
     width: 22,
     height: 22,
@@ -698,25 +809,25 @@ const styles = StyleSheet.create({
   },
   cropHandle: {
     position: 'absolute',
-    width: 28,
-    height: 28,
-    zIndex: 3,
+    width: 36,
+    height: 36,
+    zIndex: 5,
   },
   cropHandleTopLeft: {
-    left: -14,
-    top: -14,
+    left: -18,
+    top: -18,
   },
   cropHandleTopRight: {
-    right: -14,
-    top: -14,
+    right: -18,
+    top: -18,
   },
   cropHandleBottomLeft: {
-    left: -14,
-    bottom: -14,
+    left: -18,
+    bottom: -18,
   },
   cropHandleBottomRight: {
-    right: -14,
-    bottom: -14,
+    right: -18,
+    bottom: -18,
   },
   cropCornerMark: {
     position: 'absolute',

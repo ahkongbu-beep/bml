@@ -41,6 +41,7 @@ import CommunityDetailScreen from './screens/CommunityDetailScreen';
 import MenuListScreen from './screens/MenuListScreen';
 import GrowthScreen from './screens/GrowthScreen';
 import GrowthReportScreen from './screens/GrowthReportScreen';
+import MealDetailScreen from './screens/MealDetailScreen';
 import TermsOfServiceScreen from './screens/TermsOfServiceScreen';
 import PrivacyPolicyScreen from './screens/PrivacyPolicyScreen';
 import { AuthProvider, useAuth } from './libs/contexts/AuthContext';
@@ -146,6 +147,7 @@ function MainNavigator() {
       <Stack.Screen name="MealRegist" component={MealRegistScreen} />
       <Stack.Screen name="MealMyDetail" component={MealMyDetailScreen} />
       <Stack.Screen name="MealUserDetail" component={MealUserDetailScreen} />
+      <Stack.Screen name="MealDetail" component={MealDetailScreen} />
       <Stack.Screen name="FeedLikeList" component={FeedLikeListScreen} />
       <Stack.Screen name="SummaryList" component={SummaryListScreen} />
       <Stack.Screen name="UserProfile" component={UserProfileScreen} />

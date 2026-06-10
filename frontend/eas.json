@@ -16,7 +16,6 @@
         "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "404204939819-75t03ftkcbrd44m2hfh5spg4agb5nsi6.apps.googleusercontent.com",
         "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "404204939819-bg5o4ncjr6kipa12bvi8kdsss2jk032e.apps.googleusercontent.com",
         "EXPO_PUBLIC_NAVER_CLIENT_ID": "o9FHFkZzPNHTSWJRrc_Y",
-        "EXPO_PUBLIC_NAVER_CLIENT_SECRET": "2h7JiqGOst",
         "EXPO_PUBLIC_KAKAO_NATIVE_APP_KEY": "00be5758c4f1badc3e15ef81ac9d1100"
       }
     },
@@ -37,14 +36,13 @@
         "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "404204939819-75t03ftkcbrd44m2hfh5spg4agb5nsi6.apps.googleusercontent.com",
         "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "404204939819-bg5o4ncjr6kipa12bvi8kdsss2jk032e.apps.googleusercontent.com",
         "EXPO_PUBLIC_NAVER_CLIENT_ID": "o9FHFkZzPNHTSWJRrc_Y",
-        "EXPO_PUBLIC_NAVER_CLIENT_SECRET": "2h7JiqGOst",
         "EXPO_PUBLIC_KAKAO_NATIVE_APP_KEY": "00be5758c4f1badc3e15ef81ac9d1100"
       }
     },
     "testflight": {
         "autoIncrement": true,
         "ios": {
-            "image": "macos-sequoia-15.6-xcode-16.4"
+            "image": "latest"
         },
         "env": {
             "EXPO_PUBLIC_API_URL": "https://dev.bml.co.kr",
@@ -55,7 +53,6 @@
             "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "404204939819-75t03ftkcbrd44m2hfh5spg4agb5nsi6.apps.googleusercontent.com",
             "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "404204939819-bg5o4ncjr6kipa12bvi8kdsss2jk032e.apps.googleusercontent.com",
             "EXPO_PUBLIC_NAVER_CLIENT_ID": "o9FHFkZzPNHTSWJRrc_Y",
-            "EXPO_PUBLIC_NAVER_CLIENT_SECRET": "2h7JiqGOst",
             "EXPO_PUBLIC_KAKAO_NATIVE_APP_KEY": "00be5758c4f1badc3e15ef81ac9d1100"
         }
     },
@@ -73,7 +70,6 @@
         "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID":"404204939819-75t03ftkcbrd44m2hfh5spg4agb5nsi6.apps.googleusercontent.com",
         "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID":"404204939819-bg5o4ncjr6kipa12bvi8kdsss2jk032e.apps.googleusercontent.com",
         "EXPO_PUBLIC_NAVER_CLIENT_ID": "o9FHFkZzPNHTSWJRrc_Y",
-        "EXPO_PUBLIC_NAVER_CLIENT_SECRET": "2h7JiqGOst",
         "EXPO_PUBLIC_KAKAO_NATIVE_APP_KEY": "00be5758c4f1badc3e15ef81ac9d1100"
       }
     }

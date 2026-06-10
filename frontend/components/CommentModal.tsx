@@ -1,6 +1,6 @@
 // frontend/components/CommentModal.tsx
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,7 @@ import {
   FlatList,
   Keyboard,
   KeyboardEvent,
+  Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
@@ -62,24 +63,33 @@ export default function CommentModal({
 
   const [commentText, setCommentText] = useState('');
   const [replyingTo, setReplyingTo] = useState<{ hash: string; nickname: string } | null>(null);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const keyboardOffset = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
     const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
 
     const showSub = Keyboard.addListener(showEvent, (e: KeyboardEvent) => {
-      setKeyboardHeight(e.endCoordinates.height);
+      const offset = e.endCoordinates.height - (Platform.OS === 'ios' ? insets.bottom : 0);
+      Animated.timing(keyboardOffset, {
+        toValue: Math.max(0, offset),
+        duration: Platform.OS === 'ios' ? e.duration || 250 : 150,
+        useNativeDriver: false,
+      }).start();
     });
     const hideSub = Keyboard.addListener(hideEvent, () => {
-      setKeyboardHeight(0);
+      Animated.timing(keyboardOffset, {
+        toValue: 0,
+        duration: Platform.OS === 'ios' ? 250 : 150,
+        useNativeDriver: false,
+      }).start();
     });
 
     return () => {
       showSub.remove();
       hideSub.remove();
     };
-  }, []);
+  }, [insets.bottom]);
 
   /* =============================
      handlers
@@ -176,7 +186,7 @@ export default function CommentModal({
   ============================= */
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <TouchableOpacity onPress={onClose} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#333" />
@@ -195,7 +205,7 @@ export default function CommentModal({
         </View>
       )}
 
-      <View style={[styles.keyboardContainer, { marginBottom: keyboardHeight - (Platform.OS === 'ios' ? insets.bottom : 0) }]}>
+      <Animated.View style={[styles.keyboardContainer, { transform: [{ translateY: Animated.multiply(keyboardOffset, -1) }] }]}>
         <FlatList
           data={comments}
           keyExtractor={(item) => item.view_hash}
@@ -210,7 +220,7 @@ export default function CommentModal({
           style={styles.commentListArea}
         />
 
-        <View style={styles.inputContainer}>
+        <View style={[styles.inputContainer, { paddingBottom: 12 + insets.bottom }]}>
           {replyingTo && (
             <View style={styles.replyingToContainer}>
               <Text style={styles.replyingToText}>
@@ -255,7 +265,7 @@ export default function CommentModal({
             </TouchableOpacity>
           </View>
         </View>
-      </View>
+      </Animated.View>
     </SafeAreaView>
   );
 }

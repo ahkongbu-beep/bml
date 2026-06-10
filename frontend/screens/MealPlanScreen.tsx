@@ -20,7 +20,6 @@ import Layout from '@/components/Layout';
 import { LoadingPage } from '../components/Loading';
 import MealPlanItem from '../components/MealPlanItem';
 import ConfirmPortal from '../components/ConfirmPortal';
-import MealDetailModal from '../components/MealDetailModal';
 import ImagePickerModal from '../components/ImagePickerModal';
 
 import { Calendar } from 'react-native-calendars';
@@ -32,6 +31,7 @@ import { MealItem } from '../libs/types/MealType';
 
 import { normalizeDate, getStaticImage, calculateAge } from '../libs/utils/common';
 import { toastError, toastSuccess, toastInfo } from '@/libs/utils/toast';
+import { Dimensions } from 'react-native';
 
 
 export default function MealPlanScreen({ navigation }: any) {
@@ -46,8 +46,6 @@ export default function MealPlanScreen({ navigation }: any) {
   const [menuPosition, setMenuPosition] = useState<{ x: number; y: number } | null>(null);
   const [deleteDialogVisible, setDeleteDialogVisible] = useState(false);
   const [mealToDelete, setMealToDelete] = useState<MealItem | null>(null);
-  const [selectedMeal, setSelectedMeal] = useState<MealItem | null>(null);
-  const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [monthImagePickerVisible, setMonthImagePickerVisible] = useState(false);
@@ -58,6 +56,7 @@ export default function MealPlanScreen({ navigation }: any) {
   const hasMultipleChildren = (user?.user_childs?.length ?? 0) > 1;
 
   const { data: mealsCalendar, isLoading: mealsLoading, refetch } = useMeals({ month: currentMonth, child_id: selectedChildId });
+  console.log("mealsCalendar", JSON.stringify(mealsCalendar));
   const { data: monthImage, isLoading: monthImageLoading, isFetching: monthImageFetching, refetch: refetchMonthImage } = useMonthImage(currentMonth);
   const today = new Date().toISOString().split('T')[0];
 
@@ -78,6 +77,12 @@ export default function MealPlanScreen({ navigation }: any) {
 
   // 선택된 날짜의 식단 데이터
   const selectedMeals = selectedDate ? (normalizedMealsData[selectedDate] || []) : [];
+
+  // react-native-calendars에게 데이터 변경을 알리기 위한 markedDates
+  const markedDates = Object.keys(normalizedMealsData).reduce((acc, date) => {
+    acc[date] = { marked: true };
+    return acc;
+  }, {} as Record<string, { marked: boolean }>);
 
   const handleEditMeal = (meal: MealItem) => {
     if (meal.refer_feed_id) {
@@ -139,54 +144,8 @@ export default function MealPlanScreen({ navigation }: any) {
     });
   }
 
-  // refer_feed_id가 있는 식단은 원본 피드로 이동 (복사된 식단은 상세에서 원본 피드로 이동 가능)
-  const handleReferDetailMeal = () => {
-    if (selectedMeal?.refer_info?.refer_meal_hash && selectedMeal?.refer_info?.refer_user_hash) {
-      setDetailModalVisible(false);
-      navigation.navigate('MealUserDetail', {
-        mealHash: selectedMeal.refer_info.refer_meal_hash,
-        userHash: selectedMeal.refer_info.refer_user_hash
-      });
-      return;
-    }
-
-    toastInfo('원본 식단 정보를 찾을 수 없습니다.');
-  }
-
   const handleMealPress = (meal: MealItem) => {
-    setSelectedMeal(meal);
-    setDetailModalVisible(true);
-  };
-
-  const handleCloseDetailModal = () => {
-    setDeleteConfirmVisible(false);
-    setDetailModalVisible(false);
-    setSelectedMeal(null);
-  };
-
-  const handleEditFromModal = () => {
-    if (selectedMeal) {
-      setDetailModalVisible(false);
-      navigation.getParent()?.navigate('MealRegist', { meal: selectedMeal, selectedDate });
-      setSelectedMeal(null);
-    }
-  };
-
-  const handleDeleteFromModal = () => {
-    if (selectedMeal) {
-      setDetailModalVisible(false);
-      setMealToDelete(selectedMeal);
-      setDeleteConfirmVisible(true);
-      setSelectedMeal(null);
-    }
-  };
-
-  const handleViewSourceFromModal = () => {
-    if (selectedMeal?.refer_feed_id > 0) {
-      setDetailModalVisible(false);
-      handleDetailFeed(selectedMeal.refer_feed_id);
-      setSelectedMeal(null);
-    }
+    navigation.getParent()?.navigate('MealDetail', { meal, selectedDate });
   };
 
   const handleChildPress = (childId: string | number) => {
@@ -352,7 +311,7 @@ export default function MealPlanScreen({ navigation }: any) {
             <View style={styles.monthImagePlaceholder}>
               <Ionicons name="image-outline" size={36} color="#D0D0D0" />
               <Text style={styles.monthImagePlaceholderText}>
-                이번 달 우리 아이 사진을 등록해주세요
+                이번 달의 순간을 기록해보세요
               </Text>
               <TouchableOpacity
                 style={styles.monthImageRegisterButton}
@@ -410,7 +369,9 @@ export default function MealPlanScreen({ navigation }: any) {
 
           {/* 캘린더 */}
           <Calendar
+            key={currentMonth}
             current={`${currentMonth}-01`}
+            markedDates={markedDates}
             onDayPress={(day) => setSelectedDate(day.dateString)}
             onMonthChange={handleMonthChange}
             dayComponent={({ date, state }) => {
@@ -427,6 +388,10 @@ export default function MealPlanScreen({ navigation }: any) {
               const isSelected = dateString === selectedDate;
               const isToday = dateString === today;
               const isDisabled = state === 'disabled';
+
+              if (hasData) {
+                console.log(`[Calendar Day] ${dateString}: hasData=${hasData}, hasReferFeed=${hasReferFeed}, meals=${meals.length}`);
+              }
 
               const textColor = isSelected
                 ? '#FFFFFF'
@@ -455,8 +420,10 @@ export default function MealPlanScreen({ navigation }: any) {
                     backgroundColor: isSelected
                       ? '#FF9AA2'
                       : hasReferFeed
-                        ? '#E8F5F1'
-                        : '#FFFFFF',
+                        ? '#C8E6C9'
+                        : hasData
+                          ? '#FFF0F0'
+                          : '#FFFFFF',
                     opacity: isDisabled ? 0.75 : 1,
                     paddingTop: 2,
                   }}
@@ -625,21 +592,6 @@ export default function MealPlanScreen({ navigation }: any) {
         confirmColor="#FF6B6B"
       />
 
-      {/* 식단 상세 모달 */}
-      {selectedMeal && (
-        <MealDetailModal
-          visible={detailModalVisible}
-          meal={selectedMeal}
-          userInfo={user}
-          onClose={handleCloseDetailModal}
-          onEdit={handleEditFromModal}
-          onDelete={handleDeleteFromModal}
-          onViewSource={
-            selectedMeal.refer_feed_id ? () => handleReferDetailMeal() : undefined
-          }
-        />
-      )}
-
       <Modal
         visible={monthImagePickerVisible}
         transparent
@@ -657,7 +609,7 @@ export default function MealPlanScreen({ navigation }: any) {
 
             <ImagePickerModal
               imageUri={selectedMonthImageUri}
-              aspectRatio={1}
+              aspectRatio={(Dimensions.get('window').width - 32) / 190}
               onImageSelected={(uri) => {
                 setSelectedMonthImageUri(uri);
                 setMonthImagePickerVisible(false);

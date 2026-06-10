@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import styles from '../styles/screens/MyProfileScreen.styles';
 import {
   View,
@@ -18,11 +18,20 @@ import ScrapGrid from '../components/ScrapGrid';
 import { LoadingPage } from '../components/Loading';
 import Layout from '../components/Layout';
 import { getStaticImage } from '../libs/utils/common';
+import { useRoute } from '@react-navigation/native';
 
 export default function MyProfileScreen({ navigation }: any) {
+  const route = useRoute();
   const { user, isLoading } = useAuth();
   const [viewType, setViewType] = useState<'grid' | 'list'>('grid');
   const [activeTab, setActiveTab] = useState<'myFeeds' | 'scraps'>('myFeeds');
+
+  useEffect(() => {
+    const params = route.params as { activeTab?: 'myFeeds' | 'scraps' } | undefined;
+    if (params?.activeTab) {
+      setActiveTab(params.activeTab);
+    }
+  }, [route.params]);
 
   // 훅은 항상 최상단에서 조건 없이 호출해야 함 (Rules of Hooks)
   const { data: myFeedsData, isLoading: feedsLoading, refetch: refetchFeeds } = useMyFeeds();

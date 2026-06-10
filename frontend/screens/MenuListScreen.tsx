@@ -127,14 +127,14 @@ export default function MenuListScreen({ navigation }: any) {
             <Ionicons name="chevron-forward" size={22} color="#C0C0C0" />
           </TouchableOpacity>
 
-          {/* 좋아요 리스트 */}
+          {/* 스크랩 리스트 */}
           <TouchableOpacity
             style={styles.menuItem}
-            onPress={() => navigation.navigate('FeedLikeList')}
+            onPress={() => navigation.navigate('Tabs', { screen: 'MyProfile', params: { activeTab: 'scraps' } })}
           >
             <View style={styles.menuLeft}>
               <Ionicons name="heart-outline" size={24} color="#FF9AA2" />
-              <Text style={styles.menuText}>좋아요 리스트</Text>
+              <Text style={styles.menuText}>스크랩 리스트</Text>
             </View>
             <Ionicons name="chevron-forward" size={22} color="#C0C0C0" />
           </TouchableOpacity>

@@ -260,8 +260,8 @@ export const useUploadCalendarMonthImage = () => {
   return useMutation({
     mutationFn: async (formData: FormData) => uploadCalendarMonthImage(formData),
     onSuccess: () => {
-      // ⭐ 현재 월 포함 list 캐시만 갱신
       queryClient.invalidateQueries({ queryKey: mealKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: ['monthImage'] });
     },
   });
 };
