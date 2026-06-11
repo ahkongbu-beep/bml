@@ -5,7 +5,7 @@ import toast from "react-hot-toast"
 import { useNotice } from "@/hooks/useNotice"
 import { useCategoriesByType } from "@/hooks/useCategories"
 import { NoticeCategoryItem } from "@/libs/interface/categories"
-import { NoticeUpdateRequest } from "@/libs/interface/notices"
+import { Notice, NoticeUpdateRequest } from "@/libs/interface/notices"
 
 export default function NoticesPage() {
   const { notices, loading, error, fetchNotices, createNotice, toggleNotice, updateNotice } = useNotice()
@@ -99,12 +99,12 @@ export default function NoticesPage() {
         isImportant: false,
       })
     } catch {
-      toast.error(formData.id !== null ? "공지사항 수정에 실패했습니다" : "공지사항 등록에 실패했습니다")
+      toast.error(formData.viewHash !== null ? "공지사항 수정에 실패했습니다" : "공지사항 등록에 실패했습니다")
     }
   }
 
   // 공지사항 수정 모달 열기
-  const handleEdit = (notice: NoticeUpdateRequest) => {
+  const handleEdit = (notice: Notice) => {
     // 카테고리 텍스트로 카테고리 id 찾기
     const matchedCategory = categories.find((cat: NoticeCategoryItem) => cat.value === notice.categoryText)
 
@@ -115,7 +115,7 @@ export default function NoticesPage() {
       category: matchedCategory ? String(matchedCategory.id) : "",
       author: notice.author,
       isActive: notice.isActive,
-      isImportant: notice.isImportant || false,
+      isImportant: !!notice.isImportant,
     })
     setIsModalOpen(true)
   }

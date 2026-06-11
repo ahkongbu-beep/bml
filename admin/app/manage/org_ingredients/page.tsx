@@ -55,7 +55,7 @@ export default function OrgIngredientsPage() {
     if (item.ingredient_nutrition) {
       for (const n of item.ingredient_nutrition) {
         if (n.nutrient_name in nutrientValues) {
-          nutrientValues[n.nutrient_name] = parseFloat(n.amount) || 0
+          nutrientValues[n.nutrient_name as keyof typeof nutrientValues] = parseFloat(n.amount) || 0
         }
       }
     }

@@ -19,7 +19,7 @@ export function useNotice() {
     setError(null)
 
     try {
-      const resultData = await apiCall(FRONTEND_ROUTES.NOTICES(), 'GET') as CommonResponse<NoticeItem[]>
+      const resultData = await apiCall(FRONTEND_ROUTES.NOTICES(), 'GET') as CommonResponse<{ notice_list: NoticeItem[] }>
 
       if (!resultData.success) {
         throw new Error(resultData.error || '공지사항 조회에 실패했습니다.')

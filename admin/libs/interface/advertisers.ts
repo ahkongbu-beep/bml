@@ -1,6 +1,8 @@
 export interface AdvertiserListItem {
   account_id: string;
   account_name: string;
+  account_email: string;
+  account_tel: string | null;
   company: string;
   company_number: string;
   account_image: string | null;
@@ -9,8 +11,8 @@ export interface AdvertiserListItem {
 }
 
 export interface AdvertiserDetail extends AdvertiserListItem {
-  account_tel?: string | null;
   company_biz?: string | null;
+  account_email: string;
   company_item?: string | null;
   description?: string | null;
 }

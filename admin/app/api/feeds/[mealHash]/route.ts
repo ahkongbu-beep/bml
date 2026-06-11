@@ -17,7 +17,7 @@ export async function GET(
 
     // 새 데이터 구조: { meal: {...}, comments: [...] }
     const rawData = data.data as { meal?: Record<string, unknown>; comments?: unknown[] } | Record<string, unknown>;
-    const meal = (rawData as { meal?: Record<string, unknown> })?.meal ?? rawData;
+    const meal: Record<string, unknown> = (rawData as { meal?: Record<string, unknown> })?.meal ?? rawData as Record<string, unknown>;
     const comments = (rawData as { comments?: unknown[] })?.comments ?? [];
 
     const imageUrl = Array.isArray(meal.image_url)

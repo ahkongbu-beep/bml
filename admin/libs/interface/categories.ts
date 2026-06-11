@@ -34,4 +34,5 @@ export interface CategoryResponse {
   age_group: Category[]
   notices_group: Category[]
   meals_group: Category[]
+  topic_group: Category[]
 }

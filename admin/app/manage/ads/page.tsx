@@ -71,7 +71,7 @@ function AdvertiserLiveSearchSelect({
   const selectedAdvertiser = useMemo(() => {
     return advertisers.find((advertiser) => {
       if (mode === "id") {
-        return advertiser.id === value
+        return advertiser.account_id === value
       }
       return advertiser.view_hash === value
     })
@@ -102,7 +102,7 @@ function AdvertiserLiveSearchSelect({
   }, [advertisers, keyword])
 
   const selectAdvertiser = (advertiser: AdvertiserListItem) => {
-    const nextValue = mode === "id" ? advertiser.id : advertiser.view_hash
+    const nextValue = mode === "id" ? advertiser.account_id : advertiser.view_hash
     setKeyword(getAdvertiserLabel(advertiser))
     onChange(nextValue)
     setIsOpen(false)

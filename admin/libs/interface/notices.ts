@@ -6,7 +6,7 @@ export interface Notice {
   createdAt: string
   updatedAt: string
   author: string
-  isImportant?: string
+  isImportant: boolean
   ip:string
   isActive: boolean
   viewHash:string
@@ -33,7 +33,7 @@ export interface NoticeCreateRequest {
   category: string
   author: string
   isActive: boolean
-  isImportant?: string
+  isImportant?: boolean
 }
 
 export interface NoticeUpdateRequest {
@@ -41,6 +41,7 @@ export interface NoticeUpdateRequest {
   title: string
   content: string
   category: string
+  isActive: boolean
   isImportant: boolean
 }
 
