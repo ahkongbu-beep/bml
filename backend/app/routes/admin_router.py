@@ -2,7 +2,7 @@ from app.core.database import get_db
 
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
-from app.schemas.admin_schmas import AllergySaveRequest, NoticeListRequest, NoticesCreateRequest, NoticesUpdateRequest, UserListRequest, MealListRequest, MealForceUpdate, CategoryListRequest, CategoryCreateOrUpdateRequest
+from app.schemas.admin_schmas import AllergySaveRequest, NoticeListRequest, NoticesCreateRequest, NoticesUpdateRequest, UserListRequest, MealListRequest, MealForceUpdate, CategoryListRequest, CategoryCreateOrUpdateRequest, IngredientNutritionRequest, OrgIngredientCreateRequest
 from app.schemas.common_schemas import CommonResponse
 
 from app.services import admins_service
@@ -146,3 +146,56 @@ def update_allergy(request: Request, food_code: str, params: AllergySaveRequest,
 
     params.food_code = food_code
     return admins_service.update_allergy(db, params)
+
+# ====================================================================================
+# 재료요청 관리 엔드포인트
+# ====================================================================================
+@router.get("/org_ingredients")
+def list_org_ingredients(request: Request, db: Session = Depends(get_db)):
+    """
+    원재료 리스트 조회 API 엔드포인트
+    """
+    return admins_service.org_ingredient_list(db)
+
+@router.post("/org_ingredients")
+def create_org_ingredient(request: Request, body: OrgIngredientCreateRequest, db: Session = Depends(get_db)):
+    """
+    원재료 등록 API 엔드포인트
+    """
+    return admins_service.create_org_ingredient(db, body)
+
+@router.put("/org_ingredients/{ingredient_id}")
+def update_org_ingredient(request: Request, ingredient_id: int, body: IngredientNutritionRequest, db: Session = Depends(get_db)):
+    """
+    원재료 수정 API 엔드포인트
+    """
+    return admins_service.update_org_ingredient(db, ingredient_id, body)
+
+@router.post("/ingredients/request")
+def request_ingredient(request: Request, body: IngredientNutritionRequest, db: Session = Depends(get_db)):
+    """
+    사용자 재료 요청 API 엔드포인트
+    """
+    return admins_service.ingredient_request(db, body)
+
+@router.get("/ingredients")
+def list_ingredients(request: Request, db: Session = Depends(get_db)):
+    """
+    사용자 재료 요청 리스트 조회 API 엔드포인트
+    """
+    return admins_service.ingredient_list(db)
+
+@router.post("/ingredients/{request_id}/approve")
+def approve_ingredient_request(request: Request, request_id: int, body: IngredientNutritionRequest, db: Session = Depends(get_db)):
+    """
+    사용자 재료 요청 승인 API 엔드포인트
+    """
+    return admins_service.approve_ingredient_request(db, request_id, body)
+
+@router.put("/ingredients/{request_id}/status")
+def reject_ingredient_request(request: Request, request_id: int, db: Session = Depends(get_db)):
+    """
+    사용자 재료 요청 거절 API 엔드포인트
+    """
+    return admins_service.reject_ingredient_request(db, request_id)
+

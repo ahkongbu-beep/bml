@@ -53,7 +53,7 @@ def get_feed_type_calendars_data(result):
             if input_date is None:
                 return ""
             if hasattr(input_date, 'year') and hasattr(input_date, 'month') and hasattr(input_date, 'day'):
-                return f"{input_date.year}-{input_date.month}-{input_date.day}"
+                return f"{input_date.year}-{input_date.month:02d}-{input_date.day:02d}"
             return str(input_date)
 
         return [

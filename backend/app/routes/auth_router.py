@@ -74,7 +74,7 @@ async def kakao_login(
     - 기존 사용자: 로그인 처리
     - 신규 사용자: 자동 회원가입 후 로그인
     """
-    return await auth_service.kakao_login(db, request.accessToken)
+    return await auth_service.kakao_login(db, request.accessToken, request.refreshToken)
 
 @router.get("/naver/callback")
 async def naver_callback(
@@ -124,7 +124,7 @@ async def naver_login(
     - 기존 사용자: 로그인 처리
     - 신규 사용자: 자동 회원가입 후 로그인
     """
-    return await auth_service.naver_login(db, request.accessToken)
+    return await auth_service.naver_login(db, request.accessToken, request.refreshToken)
 
 
 @router.post("/logout", response_model=CommonResponse)

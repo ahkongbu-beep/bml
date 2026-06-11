@@ -2,7 +2,7 @@ from app.repository.ingredients_repository import IngredientsRepository
 from app.repository.ingredients_requests_repository import IngredientsRequestRepository
 from app.serializer.ingredient_serialize import build_ingredient_response
 from app.schemas.common_schemas import CommonResponse
-from app.services.users_service import validate_user
+from app.services.users_service import validate_user, get_admin_users
 
 def process_tags(db, ingredients):
     """
@@ -64,11 +64,15 @@ def ingredient_request(db, user_hash, body):
     """
     사용자 요청으로 새로운 재료 추가
     """
+    from app.libs.utils.fcm import send_fcm
     # 새로운 재료 추가
     try:
         user = validate_user(db, user_hash)
 
-        ingredient_names = body.names.split(',')
+        if isinstance(body.names, list):
+            ingredient_names = body.names
+        else:
+            ingredient_names = body.names.split(',')
 
         err_message = []
         for ingredient_name in ingredient_names:
@@ -95,6 +99,25 @@ def ingredient_request(db, user_hash, body):
             raise Exception(", ".join(err_message))
 
         db.commit()
+
+        admin_users = get_admin_users(db)
+        for admin in admin_users:
+            if not admin.fcm_token:
+                continue
+
+            res = send_fcm(
+                token=admin.fcm_token,
+                title="새로운 재료 요청",
+                body=f"{user.nickname}님이 '{body.names}' 재료 추가를 요청했습니다.",
+                data={
+                    "type": "ingredient_request",
+                    "screen": "AdminIngredientRequests"
+                }
+            )
+            if isinstance(res, dict) and res.get("error") == "unregistered":
+                admin.fcm_token = None
+                db.commit()
+
         return CommonResponse(success=True, message="재료 요청되었습니다.", data=None)
     except Exception as e:
         db.rollback()

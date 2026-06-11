@@ -5,6 +5,7 @@ class FoodsItems(Base):
     __tablename__ = "foods_items"
 
     id = Column(Integer, primary_key=True, index=True)
+    icon=Column(String(20), nullable=True)
 
     food_code = Column(String(50), nullable=False, unique=True, index=True)
     food_type = Column(String(50), nullable=False, default="food")

@@ -27,8 +27,6 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
         "/auth/exchange"
     )
 
-    print("⭕⭕ JWTAuthMiddleware initialized with exclude paths:", EXCLUDE_PATHS)
-
     async def dispatch(self, request: Request, call_next):
         path = request.url.path
 

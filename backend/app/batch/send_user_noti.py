@@ -34,8 +34,7 @@ def user_noti_week():
         if validate_user(user) == False:
             continue
 
-        print("""Sending notification to user: {} (Last login: {})""".format(user.nickname, user.last_login_at))
-        send_fcm(
+        res = send_fcm(
             token=user.fcm_token,
             title="🥗 BML 식단 알림",
             body="오늘 식단을 아직 등록하지 않으셨어요!",
@@ -44,6 +43,9 @@ def user_noti_week():
                 "screen": "MealPlan"
             }
         )
+        if isinstance(res, dict) and res.get("error") == "unregistered":
+            user.fcm_token = None
+            db.commit()
 
 def user_noti_month():
     db = SessionLocal()
@@ -55,7 +57,7 @@ def user_noti_month():
             continue
 
         print("""Sending notification to user: {} (Last login: {})""".format(user.nickname, user.last_login_at))
-        send_fcm(
+        res = send_fcm(
             token=user.fcm_token,
             title="🥗 BML 식단 알림",
             body="한 달 동안 식단을 등록하지 않으셨어요!",
@@ -64,6 +66,9 @@ def user_noti_month():
                 "screen": "MealPlan"
             }
         )
+        if isinstance(res, dict) and res.get("error") == "unregistered":
+            user.fcm_token = None
+            db.commit()
 
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "week":

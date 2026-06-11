@@ -1,3 +1,5 @@
+import logging
+
 from sqlalchemy import case, func
 
 from app.models.meals_calendar import MealsCalendars
@@ -388,6 +390,8 @@ class MealsCalendarsRepository:
 
     @staticmethod
     def get_meals_list(session, params, extra=None):
+        import logging
+
         if extra is None:
             extra = {}
 
@@ -473,11 +477,16 @@ class MealsCalendarsRepository:
         if effective_params.get("offset") is not None and effective_params.get("limit") is not None:
             query = query.offset(effective_params["offset"]).limit(effective_params["limit"])
 
-        return query.all()
+        result = query.all()
+        logging.basicConfig()
+        logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO)
+        return result
 
     @staticmethod
     def copy_meal(session, origin_meal_calendar, new_user_id, new_child_id, new_input_date, new_view_hash):
         try:
+            month = new_input_date[:7] if new_input_date else origin_meal_calendar.month
+
             new_meal_calendar = MealsCalendars(
                 category_code=origin_meal_calendar.category_code,
                 refer_feed_id=origin_meal_calendar.id,
@@ -490,11 +499,12 @@ class MealsCalendarsRepository:
                 like_count=0,
                 meal_condition=origin_meal_calendar.meal_condition,
                 contents=origin_meal_calendar.contents,
-                month=origin_meal_calendar.month,
+                month=month,
                 input_date=new_input_date,
                 view_hash=new_view_hash,
                 child_id=new_child_id
             )
+
             session.add(new_meal_calendar)
             session.flush()  # 변경사항을 DB에 반영하지만 커밋하지는 않음
             return new_meal_calendar

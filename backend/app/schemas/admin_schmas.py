@@ -68,6 +68,14 @@ class UserListRequest(BaseModel):
     order_by: Optional[str] = None
     order_direction: Optional[str] = None
 
+class GenderCount(BaseModel):
+    gender: str
+    count: int
+
+class AgeCount(BaseModel):
+    age_group: str
+    count: int
+
 class UserListResponse(BaseModel):
     """
     사용자 리스트 조회 응답 모델
@@ -76,6 +84,8 @@ class UserListResponse(BaseModel):
     offset: int
     limit: int
     user_list: list[UserResponse]
+    gender_count: Optional[list[GenderCount]] = None
+    age_count: Optional[list[AgeCount]] = None
 
 class UserDetailResponse(BaseModel):
     """
@@ -152,6 +162,32 @@ class AllergySaveRequest(BaseModel):
     """
     알레르기 정보 저장 요청 모델
     """
+    icon: str
     food_name: str
     food_type: str
     food_code: Optional[str] = None
+
+class NutrientsList(BaseModel):
+    protein: Optional[float] = None
+    fat: Optional[float] = None
+    carbohydrate: Optional[float] = None
+    vitamin_a: Optional[float] = None
+    vitamin_c: Optional[float] = None
+    potassium: Optional[float] = None
+    calcium: Optional[float] = None
+    iron: Optional[float] = None
+
+class IngredientNutritionRequest(BaseModel):
+    """
+    재료 영양 정보 저장 요청 모델
+    """
+    category: str
+    nutrients: NutrientsList
+
+class OrgIngredientCreateRequest(BaseModel):
+    """
+    원재료 등록 요청 모델
+    """
+    name: str
+    category: str
+    nutrients: NutrientsList

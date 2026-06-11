@@ -289,5 +289,22 @@ class CommunitiesRepository:
 
         query = CommunitiesRepository.build_base_query(session, effective_params, include)
         query = CommunitiesRepository.apply_filters(query, effective_params, include)
-
         return query.count()
+
+    @staticmethod
+    def get_my_community_list(session, user_id):
+        """
+        내가 쓴 글 목록
+        """
+        return session.query(Communities).filter(
+            Communities.user_id == user_id,
+            Communities.deleted_at.is_(None),
+            Communities.is_active == 'Y'
+        ).all()
+
+    @staticmethod
+    def update(session, params, where_clause: dict, is_commit=True):
+        params['updated_at'] = datetime.now(pytz.timezone('Asia/Seoul'))
+        session.query(Communities).filter_by(**where_clause).update(params)
+        session.flush()
+        return True

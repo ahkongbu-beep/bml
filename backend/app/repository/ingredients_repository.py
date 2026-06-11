@@ -5,6 +5,10 @@ from app.models.nutrients import Nutrients
 class IngredientsRepository:
 
     @staticmethod
+    def get_org_ingredient_list(session):
+        return session.query(Ingredients).filter(Ingredients.is_active == 'Y').all()
+
+    @staticmethod
     def get_ingredient_by_id(session, ingredient_id: int):
         return session.query(Ingredients).filter(Ingredients.id == ingredient_id).first()
 
@@ -28,6 +32,22 @@ class IngredientsRepository:
 
         query = query.order_by(Ingredients.category.desc())
         return query.all()
+
+    @staticmethod
+    def create(session, ingredient_params: dict):
+        new_ingredient = Ingredients(**ingredient_params)
+        session.add(new_ingredient)
+        session.flush()
+        session.refresh(new_ingredient)
+        return new_ingredient
+
+    @staticmethod
+    def modify(session, ingredient, update_params: dict):
+        for key, value in update_params.items():
+            setattr(ingredient, key, value)
+        session.flush()
+        session.refresh(ingredient)
+        return ingredient
 
     @staticmethod
     def get_ingredients_join_nutrient(session):

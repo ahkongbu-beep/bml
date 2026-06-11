@@ -32,4 +32,5 @@ class Settings():
     GOOGLE_REDIRECT_URI: str = os.getenv("GOOGLE_REDIRECT_URI", "http://localhost")
     NAVER_SECRET_KEY: str = os.getenv("NAVER_SECRET_KEY", "")
     NAVER_CLIENT_ID: str = os.getenv("NAVER_CLIENT_ID", "")
+    KAKAO_REST_API_KEY: str = os.getenv("KAKAO_REST_API_KEY", "")
 settings = Settings()

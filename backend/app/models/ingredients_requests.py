@@ -7,7 +7,7 @@ class IngredientsRequests(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, nullable=False, comment="Users.pk")
     name = Column(String(255), nullable=False, default="", comment="재료 이름")
-    status = Column(Enum('Y', 'N'), default='N', comment="요청 상태 (Y: 승인, N: 대기)")
+    status = Column(Enum('Y', 'N', 'D'), default='N', comment="요청 상태 (Y: 승인, N: 대기, D: 거절)")
     created_at = Column(
         DateTime,
         nullable=False,

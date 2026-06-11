@@ -47,47 +47,18 @@ async def google_login(db: Session, id_token: str, access_token: Optional[str] =
     """
     구글 로그인
     """
+    from app.libs.social.google import GoogleOAuth
+
     try:
-        # 구글 ID 토큰 검증
-        from google.oauth2 import id_token as google_id_token
-        from google.auth.transport import requests
-
-        # 환경 변수에서 구글 클라이언트 ID 가져오기
-        GOOGLE_CLIENT_ID = settings.GOOGLE_CLIENT_ID
-        GOOGLE_SECRET_KEY = settings.GOOGLE_SECRET_KEY
-        GOOGLE_REDIRECT_URI = settings.GOOGLE_REDIRECT_URI
-
-        if not GOOGLE_CLIENT_ID:
-            return CommonResponse(success=False, message="서버 설정 오류: Google Client ID가 설정되지 않았습니다.", data=None)
-
-        # ID 토큰 검증 및 사용자 정보 추출
-        idinfo = google_id_token.verify_oauth2_token(
-            id_token,
-            requests.Request(),
-            GOOGLE_CLIENT_ID
-        )
+        # 구글 ID 토큰 검증 및 사용자 정보 추출
+        idinfo = await GoogleOAuth.get_user_info(id_token)
 
         # serverAuthCode를 refresh_token으로 교환
         actual_refresh_token = None
         if refresh_token:
             try:
-                async with httpx.AsyncClient() as client:
-                    data = {
-                        'code': refresh_token,  # serverAuthCode
-                        'client_id': GOOGLE_CLIENT_ID,
-                        'client_secret': GOOGLE_SECRET_KEY,
-                        'redirect_uri': GOOGLE_REDIRECT_URI,
-                        'grant_type': 'authorization_code',
-                    }
-
-                    token_response = await client.post(
-                        'https://oauth2.googleapis.com/token',
-                        data=data
-                    )
-
-                    if token_response.status_code == 200:
-                        token_data = token_response.json()
-                        actual_refresh_token = token_data.get('refresh_token')
+                token_data = await GoogleOAuth.exchange_auth_code(refresh_token)
+                actual_refresh_token = token_data.get('refresh_token')
             except Exception as e:
                 print(f"[Google Login] Token exchange error: {str(e)}")
 
@@ -99,44 +70,38 @@ async def google_login(db: Session, id_token: str, access_token: Optional[str] =
             profile_image=idinfo.get('picture'),
             provider='GOOGLE'
         )
-        return _handle_social_login(db, social_user_info, actual_refresh_token)
+        return _handle_social_login(db, social_user_info, actual_refresh_token, access_token=access_token)
 
     except ValueError as e:
-        # 토큰이 유효하지 않음
-        return CommonResponse(success=False, message=f"구글 로그인 실패: 유효하지 않은 토큰입니다. {str(e)}", data=None)
+        return CommonResponse(success=False, message=f"구글 로그인 실패: {str(e)}", data=None)
     except Exception as e:
         import traceback
         traceback.print_exc()
         return CommonResponse(success=False, message=f"구글 로그인 중 오류가 발생했습니다: {str(e)}", data=None)
 
-async def kakao_login(db: Session, access_token: str) -> CommonResponse:
+async def kakao_login(db: Session, access_token: str, refresh_token: Optional[str] = None) -> CommonResponse:
     """
     카카오 로그인
     """
+    from app.libs.social.kakao import KakaoOAuth
+
     try:
         # 카카오 사용자 정보 API 호출
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                "https://kapi.kakao.com/v2/user/me",
-                headers={"Authorization": f"Bearer {access_token}"}
-            )
+        kakao_user = await KakaoOAuth.get_user_info(access_token)
 
-            if response.status_code != 200:
-                return CommonResponse(success=False, message="카카오 사용자 정보를 가져오는데 실패했습니다.", data=None)
+        # 사용자 정보 추출
+        social_user_info = SocialUserInfo(
+            social_id=str(kakao_user['id']),
+            email=kakao_user.get('kakao_account', {}).get('email'),
+            name=kakao_user.get('kakao_account', {}).get('profile', {}).get('nickname'),
+            profile_image=kakao_user.get('kakao_account', {}).get('profile', {}).get('profile_image_url'),
+            provider='KAKAO'
+        )
 
-            kakao_user = response.json()
+        return _handle_social_login(db, social_user_info, refresh_token, access_token=access_token)
 
-            # 사용자 정보 추출
-            social_user_info = SocialUserInfo(
-                social_id=str(kakao_user['id']),
-                email=kakao_user.get('kakao_account', {}).get('email'),
-                name=kakao_user.get('kakao_account', {}).get('profile', {}).get('nickname'),
-                profile_image=kakao_user.get('kakao_account', {}).get('profile', {}).get('profile_image_url'),
-                provider='KAKAO'
-            )
-
-            return _handle_social_login(db, social_user_info)
-
+    except ValueError as e:
+        return CommonResponse(success=False, message=f"카카오 로그인 실패: {str(e)}", data=None)
     except Exception as e:
         return CommonResponse(success=False, message=f"카카오 로그인 중 오류가 발생했습니다: {str(e)}", data=None)
 
@@ -219,62 +184,46 @@ def exchange_temp_code(temp_code: str) -> CommonResponse:
 
     return CommonResponse(success=True, message="로그인에 성공했습니다.", data=json.loads(raw))
 
-async def naver_login(db: Session, access_token: str) -> CommonResponse:
+async def naver_login(db: Session, access_token: str, refresh_token: Optional[str] = None) -> CommonResponse:
     """네이버 로그인"""
-    print(f"[Naver Login] ▶ access_token={access_token[:10]}...")
+    from app.libs.social.naver import NaverOAuth
+
     try:
         # 네이버 사용자 정보 API 호출
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                "https://openapi.naver.com/v1/nid/me",
-                headers={"Authorization": f"Bearer {access_token}"}
-            )
+        naver_user = await NaverOAuth.get_user_info(access_token)
 
-            print(f"[Naver Login] user info status={response.status_code}")
+        # 사용자 정보 추출
+        social_user_info = SocialUserInfo(
+            social_id=naver_user['id'],
+            email=naver_user.get('email'),
+            name=naver_user.get('name'),
+            profile_image=naver_user.get('profile_image'),
+            provider='NAVER'
+        )
 
-            if response.status_code != 200:
-                print(f"[Naver Login] ❌ user info 요청 실패: {response.text}")
-                return CommonResponse(success=False, message="네이버 사용자 정보를 가져오는데 실패했습니다.", data=None)
+        return _handle_social_login(db, social_user_info, access_token=access_token, refresh_token=refresh_token)
 
-            naver_response = response.json()
-            print(f"[Naver Login] user info response: {naver_response}")
-
-            if naver_response.get('resultcode') != '00':
-                print(f"[Naver Login] ❌ resultcode={naver_response.get('resultcode')}")
-                return CommonResponse(success=False, message="네이버 로그인에 실패했습니다.", data=None)
-
-            naver_user = naver_response.get('response', {})
-            print(f"[Naver Login] social_id={naver_user.get('id')!r}, email={naver_user.get('email')!r}, name={naver_user.get('name')!r}")
-
-            # 사용자 정보 추출
-            social_user_info = SocialUserInfo(
-                social_id=naver_user['id'],
-                email=naver_user.get('email'),
-                name=naver_user.get('name'),
-                profile_image=naver_user.get('profile_image'),
-                provider='NAVER'
-            )
-
-            return _handle_social_login(db, social_user_info)
-
+    except ValueError as e:
+        return CommonResponse(success=False, message=f"네이버 로그인 실패: {str(e)}", data=None)
     except Exception as e:
         import traceback
         traceback.print_exc()
         return CommonResponse(success=False, message=f"네이버 로그인 중 오류가 발생했습니다: {str(e)}", data=None)
 
 
-def _handle_social_login(db: Session, social_info: SocialUserInfo, refresh_token: Optional[str] = None) -> CommonResponse:
+def _handle_social_login(db: Session, social_info: SocialUserInfo, refresh_token: Optional[str] = None, access_token: Optional[str] = None) -> CommonResponse:
     """소셜 로그인 공통 처리"""
     from app.libs.hash_utils import generate_sha256_hash
 
-    print(f"[Social Login] ▶ provider={social_info.provider}, social_id={social_info.social_id!r}, email={social_info.email!r}")
-
     # DB에서 사용자 검색
     user = get_sns_user(db, social_info.provider, social_info.social_id)
-    print(f"[Social Login] DB 조회 결과: {'기존 유저 id=' + str(user.id) if user else '신규 유저 → 자동 회원가입'}")
 
     # 신규 사용자인 경우 자동 회원가입
     if not user:
+
+        if not social_info.email:
+            social_info.email = f"{social_info.provider}_{social_info.social_id}@example.com"
+
         # view_hash 생성
         view_hash = generate_sha256_hash(
             social_info.provider,
@@ -295,12 +244,12 @@ def _handle_social_login(db: Session, social_info: SocialUserInfo, refresh_token
             view_hash=view_hash,
             phone='',  # 소셜 로그인은 전화번호 없음
             referer_token=refresh_token,  # refresh_token 저장
+            access_token=access_token,  # access_token 저장
             created_at=func.now(),
         )
         db.add(user)
         db.flush()  # ID 생성 위해 flush
         db.refresh(user)
-        print(f"[Social Login] ✅ 신규 유저 생성 완료: id={user.id}, view_hash={user.view_hash!r}")
     else:
         # 기존 사용자: view_hash가 없다면 생성
         if not user.view_hash:
@@ -315,17 +264,15 @@ def _handle_social_login(db: Session, social_info: SocialUserInfo, refresh_token
             user.view_hash = view_hash
             db.flush()  # ID 생성 위해 flush
 
+    # access_token 업데이트 (있을 경우)
+    if access_token and user.access_token != access_token:
+        user.access_token = access_token
+        db.flush()
+
     # refresh_token 업데이트 (있을 경우)
     if refresh_token and user.referer_token != refresh_token:
         user.referer_token = refresh_token
         db.flush()  # ID 생성 위해 flush
-    elif refresh_token:
-        print(f"[Social Login] ℹ️ Refresh_token unchanged for user {user.email}")
-    else:
-        if user.referer_token:
-            print(f"[Social Login] ✅ User already has refresh_token in DB")
-        else:
-            print(f"[Social Login] ❌ User has no refresh_token (revoke app access to get one)")
 
     user.deleted_at = None
     user.is_active = "1"
@@ -337,19 +284,15 @@ def _handle_social_login(db: Session, social_info: SocialUserInfo, refresh_token
         user.profile_image = social_info.profile_image
         db.flush()
 
-    print(f"[Social Login] db.commit() 직전: user.id={user.id}, is_active={user.is_active}, deleted_at={user.deleted_at}")
     try:
         db.commit()
-        print(f"[Social Login] ✅ db.commit() 완료")
     except Exception as e:
         import traceback
-        print(f"[Social Login] ❌ db.commit() 실패: {e}")
         traceback.print_exc()
         db.rollback()
         raise
 
     return _generate_login_response(db, user)
-
 
 def _generate_login_response(db: Session, user: Users) -> CommonResponse:
     """로그인 응답 생성 (공통)"""
@@ -424,25 +367,59 @@ async def remove_deny_user(db: Session, user_hash: str) -> CommonResponse:
     if not user:
         return CommonResponse(success=False, message="회원 정보를 찾을 수 없습니다.", data=None)
 
-    print(f"Attempting to delete user ID: {user.id}, Email: {user.email}, SNS Type: {user.sns_login_type}")
-    # 구글 revoke 처리
+    # 소셜 로그인 revoke 처리
     if user.sns_login_type == 'GOOGLE':
+        from app.libs.social.google import GoogleOAuth
         try:
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    'https://oauth2.googleapis.com/revoke',
-                    params={'token': user.referer_token},
-                    headers={'Content-Type': 'application/x-www-form-urlencoded'}
-                )
-                if response.status_code != 200:
-                    print(f"⭕⭕Google revoke failed: {response.text}")
+            await GoogleOAuth.revoke_token(user.referer_token)
         except Exception as e:
             print(f"⭕⭕Error during Google revoke: {str(e)}")
+
+    elif user.sns_login_type == 'NAVER':
+        from app.libs.social.naver import NaverOAuth
+
+        try:
+            access_token = user.access_token
+            # access_token이 없으면 refresh_token으로 갱신
+            if not access_token and user.referer_token:
+                try:
+                    token_info = await NaverOAuth.refresh_access_token(user.referer_token)
+                    access_token = token_info.get("access_token")
+                except Exception as e:
+                    print(f"⭕⭕Naver token refresh failed: {str(e)}")
+
+            if access_token:
+                await NaverOAuth.revoke_token(access_token)
+
+        except Exception as e:
+            print(f"⭕⭕Error during Naver revoke: {str(e)}")
+
+    elif user.sns_login_type == 'KAKAO':
+        from app.libs.social.kakao import KakaoOAuth
+
+        try:
+            access_token = user.access_token
+            # access_token이 없으면 refresh_token으로 갱신
+            if not access_token and user.referer_token:
+                try:
+                    token_info = await KakaoOAuth.refresh_access_token(user.referer_token)
+                    access_token = token_info.get("access_token")
+                except Exception as e:
+                    print(f"⭕⭕Kakao token refresh failed: {str(e)}")
+
+            if access_token:
+                await KakaoOAuth.unlink_token(access_token)
+
+        except Exception as e:
+            print(f"⭕⭕Error during Kakao unlink: {str(e)}")
 
     # 회원 탈퇴 처리 (예: is_active 플래그 변경)
     user.is_active = 0
     user.deleted_at = func.now()
     user.referer_token = None  # Refresh Token 제거
+    user.access_token = None  # Access Token 제거
+    user.refresh_token = None  # Refresh Token 제거
+
     # 탈퇴한 사용자의 FCM 토큰도 제거
     UserRepository.clear_fcm_token(db, user.id, None)
 
@@ -451,6 +428,28 @@ async def remove_deny_user(db: Session, user_hash: str) -> CommonResponse:
     for child in user_childs:
         UsersChildsRepository.delete(db, child, is_commit=False)
 
+    from app.repository.meals_calendars_repository import MealsCalendarsRepository
+
+    # 올린 피드 비활성화 처리
+    meal_list = MealsCalendarsRepository.get_calendars_by_user_id(db, user.id)
+
+    if meal_list:
+        MealsCalendarsRepository.update(db, {
+            "is_active": "N",
+            "is_public": "N",
+        }, {"user_id": user.id}, is_commit=False)
+
+    # 커뮤니티 게시글 비활성화 처리
+    from app.repository.communities_repository import CommunitiesRepository
+
+    community_list = CommunitiesRepository.get_my_community_list(db, user.id)
+
+    if community_list:
+
+        CommunitiesRepository.update(db, {
+            "is_active": "N",
+        }, {"user_id": user.id}, is_commit=False)
+
     db.commit()
 
     return CommonResponse(
@@ -458,7 +457,6 @@ async def remove_deny_user(db: Session, user_hash: str) -> CommonResponse:
         message="회원 탈퇴가 완료되었습니다.",
         data=None
     )
-
 
 def refresh_access_token(db: Session, refresh_token: str) -> CommonResponse:
     """
@@ -509,8 +507,9 @@ def register_fcm_token(db: Session, user_hash: str, fcm_token: str) -> CommonRes
     """
     FCM 토큰 등록
     """
-    user = validate_user(db, user_hash)
-    if not user:
+    try:
+        user = validate_user(db, user_hash)
+    except ValueError:
         return CommonResponse(success=False, message="사용자를 찾을 수 없습니다.", data=None)
 
     UserRepository.update_fcm_token(db, user.id, fcm_token)
@@ -521,36 +520,13 @@ def unregister_fcm_token(db: Session, user_hash: str, fcm_token: str) -> CommonR
     """
     FCM 토큰 삭제
     """
-    user = validate_user(db, user_hash)
-    if not user:
+    try:
+        user = validate_user(db, user_hash)
+    except ValueError:
         return CommonResponse(success=False, message="사용자를 찾을 수 없습니다.", data=None)
 
     UserRepository.clear_fcm_token(db, user.id, fcm_token)
     return CommonResponse(success=True, message="FCM 토큰이 삭제되었습니다.", data=None)
 
 def send_mail(type: str, title: str, email: str):
-    """
-    이메일 전송
-    - SMTP 서버 설정 필요
-    """
-    import requests
-
-    response = requests.post(
-        "https://api.resend.com/email",
-        headers={
-            "Authorization": f"Bearer {settings.RESEND_API_KEY}",
-            "Content-Type": "application/json"
-        },
-        json={
-            "from": f"BML <{settings.BML_MAIL}>",
-            "to": email,
-            "subject": title,
-            "text": "이메일 내용"
-        }
-    )
-
-    print("⭕⭕",response.status_code)
-    print("⭕⭕",response.text)
-
-    return response.json()
-
+    pass

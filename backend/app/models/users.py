@@ -54,7 +54,9 @@ class Users(Base):
     created_at = Column(DateTime, nullable=False, default=datetime(1970,1,1))
     updated_at = Column(DateTime, nullable=False, default=datetime(1970,1,1))
     last_login_at = Column(DateTime, nullable=False, default=datetime(1970,1,1))
+    access_token = Column(Text, nullable=True)
     referer_token = Column(Text, nullable=True)
+    refresh_token = Column(Text, nullable=True)
     fcm_token = Column(String(255), nullable=False, default='')
     deleted_at = Column(DateTime, nullable=True, default=None)
     view_hash = Column(String(255), nullable=True, default=None)
@@ -63,9 +65,10 @@ class Users(Base):
     meal_group = relationship("MealsMappers", backref="user", lazy="joined")
 
     __table_args__ = (
-        UniqueConstraint('email', name='uq_users_email'),
+        UniqueConstraint('sns_login_type', 'email', name='uq_users_sns_email'),
         UniqueConstraint('sns_login_type', 'sns_id', name='uq_users_sns'),
         UniqueConstraint('view_hash', name='uq_users_view_hash'),
+        Index('idx_users_email', 'email'),
         Index('idx_users_role', 'role'),
         Index('idx_users_is_active', 'is_active'),
         Index('idx_users_created_at', 'created_at'),

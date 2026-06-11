@@ -15,10 +15,12 @@ class GoogleLoginRequest(BaseModel):
 class KakaoLoginRequest(BaseModel):
     """카카오 로그인 요청"""
     accessToken: str
+    refreshToken: Optional[str] = None
 
 class NaverLoginRequest(BaseModel):
     """네이버 로그인 요청"""
     accessToken: str
+    refreshToken: Optional[str] = None
 
 class RefreshTokenRequest(BaseModel):
     """Refresh Token 요청"""

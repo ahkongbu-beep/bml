@@ -3,6 +3,40 @@ from app.models.users_childs import UsersChilds
 from sqlalchemy import (Date, func)
 
 class UsersChildsRepository:
+
+    @staticmethod
+    def get_gender_count(session):
+        query = session.query(
+            UsersChilds.child_gender,
+            func.count(UsersChilds.id).label("count")
+        ).group_by(UsersChilds.child_gender)
+        result = query.all()
+        return [{"gender": row.child_gender, "count": row.count} for row in result]
+
+    @staticmethod
+    def get_age_count(session):
+        from sqlalchemy import case, text
+
+        month_age = func.timestampdiff(
+            text('MONTH'),
+            UsersChilds.child_birth,
+            func.curdate()
+        )
+
+        age_group = case(
+            (month_age <= 12, '0~12개월'),
+            (month_age <= 36, '13~36개월'),
+            (month_age <= 60, '37~60개월'),
+        ).label('age_group')
+
+        query = session.query(
+            age_group,
+            func.count(UsersChilds.id).label('count')
+        ).filter(month_age <= 60).group_by(age_group)
+
+        result = query.all()
+        return [{"age_group": row.age_group, "count": row.count} for row in result]
+
     @staticmethod
     def get_agent_childs_by_user_id(session, user_id: int):
         return session.query(UsersChilds).filter(

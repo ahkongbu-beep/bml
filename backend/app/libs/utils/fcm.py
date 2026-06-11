@@ -45,7 +45,13 @@ def send_fcm(token: str, title: str, body: str, data: dict = None):
     try:
         response = messaging.send(message)
         print("FCM success:", response)
-        return True
+        return {"success": True, "error": None}
+    except messaging.UnregisteredError:
+        print("FCM error: token unregistered")
+        return {"success": False, "error": "unregistered"}
+    except messaging.InvalidArgumentError as e:
+        print("FCM error: invalid argument:", e)
+        return {"success": False, "error": "invalid"}
     except Exception as e:
         print("FCM error:", e)
-        return False
+        return {"success": False, "error": str(e)}

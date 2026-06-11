@@ -6,6 +6,12 @@ from app.libs.password_utils import hash_password, verify_password
 from app.models.users import Users
 
 class UserRepository:
+    @staticmethod
+    def get_admin_users(session):
+        """
+        관리자 사용자 조회 (관리자 페이지에서 사용)
+        """
+        return session.query(Users).filter(Users.role == "ADMIN").all()
 
     @staticmethod
     def get_user_like_count(session, user_id: int):

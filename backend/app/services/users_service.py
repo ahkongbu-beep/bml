@@ -79,6 +79,9 @@ def validate_user_email(db, email):
 def get_user_by_email(db, email):
     return UserRepository.get_user_by_email(db, email)
 
+def get_admin_users(db):
+    return UserRepository.get_admin_users(db)
+
 def validate_user(db, user_hash):
     user = UserRepository.find_by_view_hash(db, user_hash)
     if not user:

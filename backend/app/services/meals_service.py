@@ -81,6 +81,7 @@ def get_meals_list(db, params={}, include=[]):
         meal.refer_info = None
         meal.refer_meal_hash = None
         meal.refer_user_hash = None
+
         if meal.refer_feed_id and meal.refer_feed_id > 0:
             try:
                 refer_meal = validate_meal_calendar_id(db, meal.refer_feed_id)
@@ -177,25 +178,11 @@ async def get_calendar_month_image(db, params: dict) -> CommonResponse:
         return CommonResponse(success=True, error=None, data={})
 
     current_month = datetime.now().strftime("%Y-%m")
-    sorted_keys = sorted(meal_image_list.keys())
 
     def find_closest(month_str):
-        target = datetime.strptime(month_str, "%Y-%m")
-
-        # 이전 값 중 가장 가까운 것
-        prev = None
-        for k in sorted_keys:
-            k_date = datetime.strptime(k, "%Y-%m")
-            if k_date <= target:
-                prev = k
-            else:
-                break
-
-        # 이전이 없으면 가장 첫 값 사용
-        if prev:
-            return meal_image_list[prev]
-        else:
-            return meal_image_list[sorted_keys[0]]
+        if month_str in meal_image_list:
+            return meal_image_list[month_str]
+        return "/attaches/static/bml-calendar-image.png"
 
     result = {}
 
@@ -384,6 +371,7 @@ def get_feed_type_calendar(db, user_hash, filters: FeedListRequest) -> CommonRes
             "period_date": today,
             "is_active": "Y",
         }
+
         ads_list, total_count = AdsRepository.get_ads_list(db, params)
         if total_count > 0:
             # 광고 데이터 리스트 생성
@@ -752,7 +740,6 @@ async def copy_meal_calendar(db, body: dict) -> CommonResponse:
             raise Exception("해당 날짜에 동일한 카테고리의 식단이 이미 존재합니다.")
 
         view_hash = await generate_meal_calendar_hash(user.id, input_date, category_code.id, user_child.id)
-
         new_calcendar = MealsCalendarsRepository.copy_meal(db, original_meal, user.id, child_id, input_date, view_hash)
 
         if not new_calcendar:
@@ -798,9 +785,11 @@ async def copy_meal_calendar(db, body: dict) -> CommonResponse:
 
         db.commit()
         return CommonResponse(success=True, message="식단 캘린더가 성공적으로 복사되었습니다.", data={"meal_calendar_hash": new_calcendar.view_hash})
+
     except ValueError as e:
         db.rollback()
         return CommonResponse(success=False, error=str(e), data=None)
+
     except Exception as e:
         db.rollback()
         return CommonResponse(success=False, error=str(e), data=None)

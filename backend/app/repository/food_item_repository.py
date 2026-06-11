@@ -51,7 +51,8 @@ class FoodItemRepository:
         food_item = FoodsItems(
             food_code=new_code,
             food_type=data.get("food_type", "FOOD"),
-            food_name=data["food_name"]
+            food_name=data["food_name"],
+            icon=data.get("icon")
         )
 
         session.add(food_item)
@@ -65,6 +66,8 @@ class FoodItemRepository:
         if not food_item:
             return None
 
+        if "icon" in data:
+            food_item.icon = data["icon"]
         if "food_type" in data:
             food_item.food_type = data["food_type"]
         if "food_name" in data:

@@ -17,3 +17,18 @@ class IngredientsNutritionsRepository:
         query = query.join(Ingredients, Ingredients.id == IngredientsNutritions.ingredient_id)
         query = query.filter(IngredientsNutritions.ingredient_id == ingredient_id)
         return query.all()
+
+    @staticmethod
+    def create(session, ingredient_nutrition_params: dict):
+        new_ingredient_nutrition = IngredientsNutritions(**ingredient_nutrition_params)
+        session.add(new_ingredient_nutrition)
+        session.flush()
+        session.refresh(new_ingredient_nutrition)
+        return new_ingredient_nutrition
+
+    @staticmethod
+    def delete_by_ingredient_id(session, ingredient_id: int):
+        session.query(IngredientsNutritions).filter(
+            IngredientsNutritions.ingredient_id == ingredient_id
+        ).delete()
+        session.flush()
